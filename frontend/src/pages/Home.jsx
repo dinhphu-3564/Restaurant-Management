@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import hero1 from "../assets/images/hero-1.jpg";
-import hero2 from "../assets/images/hero-2.jpg";
-import hero3 from "../assets/images/hero-3.jpg";
+import hero1 from "../assets/images/Home/hero-1.png";
+import hero2 from "../assets/images/Home/hero-2.png";
+import hero3 from "../assets/images/Home/hero-3.png";
+import hero4 from "../assets/images/Home/hero-4.png";
 import {
   Leaf,
   ShoppingCart,
@@ -19,12 +20,15 @@ import {
   Award,
   Truck,
   PlayCircle,
+  Menu,
+  X,
 } from "lucide-react";
 
 function Home() {
-  const heroImages = [hero1, hero2, hero3];
+  const heroImages = [hero1, hero2, hero3, hero4];
 
   const [currentHero, setCurrentHero] = useState(0);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -106,18 +110,49 @@ function Home() {
               Đăng ký
             </button>
           </div>
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="lg:hidden w-10 h-10 rounded-lg border border-green-800 text-green-800 flex items-center justify-center"
+          >
+            {isMenuOpen ? (
+              <X className="w-6 h-6" />
+            ) : (
+              <Menu className="w-6 h-6" />
+            )}
+          </button>
         </div>
+        {isMenuOpen && (
+          <div className="lg:hidden bg-white border-t border-gray-100 shadow-md">
+            <nav className="px-5 py-4 flex flex-col gap-4 text-sm font-semibold text-green-950">
+              <a href="#">Trang chủ</a>
+              <a href="#">Thực đơn</a>
+              <a href="#">Đặt bàn</a>
+              <a href="#">Khuyến mãi</a>
+              <a href="#">Giới thiệu</a>
+              <a href="#">Liên hệ</a>
+
+              <div className="flex gap-3 pt-3 border-t border-gray-100">
+                <button className="flex-1 border border-green-800 text-green-800 px-4 py-2 rounded-lg font-semibold">
+                  Đăng nhập
+                </button>
+                <button className="flex-1 bg-green-800 text-white px-4 py-2 rounded-lg font-semibold">
+                  Đăng ký
+                </button>
+              </div>
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* HERO */}
-      <section className="relative min-h-[720px] overflow-hidden">
+      <section className="relative h-screen overflow-hidden">
         {/* BACKGROUND SLIDER */}
         {heroImages.map((image, index) => (
           <img
             key={image}
             src={image}
             alt="Dê Hương Sơn"
-            className={`absolute inset-0 w-full h-full object-cover transition-all duration-[2500ms] ease-in-out ${
+            className={`absolute inset-0 w-full h-full object-cover object-center transition-all duration-[2500ms] ease-in-out ${
               index === currentHero
                 ? "opacity-100 scale-105"
                 : "opacity-0 scale-100"
@@ -130,25 +165,35 @@ function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-[#fbf7ec]/45"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-[#fbf7ec]/35 via-transparent to-transparent"></div>
 
-        {/* LỚP PHỦ ĐỂ CHỮ DỄ ĐỌC */}
-        <div className="absolute inset-0 bg-gradient-to-r from-white/85 via-white/55 to-transparent"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-[#fbf7ec]/40"></div>
-
-        <div className="relative max-w-7xl mx-auto px-5 pt-28 pb-36">
+        {/* LỚP MỜ CHỈ Ở GIỮA NỬA BÊN TRÁI */}
+        <div
+          className="
+    absolute
+    left-[6%]
+    top-[48%]
+    -translate-y-1/2
+    w-[42%]
+    h-[72%]
+    rounded-full
+    bg-white/45
+    blur-3xl
+  "
+        ></div>
+        <div className="relative max-w-7xl mx-auto px-5 pt-36 md:pt-48 pb-24 md:pb-36">
           <div className="w-full lg:w-1/2 flex justify-center">
             <div className="text-center max-w-2xl">
               <p
-                className="text-7xl md:text-8xl text-green-800 mb-0 leading-none drop-shadow-sm"
+                className="text-5xl md:text-8xl text-green-800 mb-0 leading-none drop-shadow-sm"
                 style={{ fontFamily: "'Great Vibes', cursive" }}
               >
                 Đặc sản
               </p>
 
-              <h2 className="text-5xl md:text-7xl font-black text-green-900 uppercase leading-tight">
+              <h2 className="text-4xl md:text-7xl font-black text-green-900 uppercase leading-tight">
                 Dê Hương Sơn
               </h2>
 
-              <h3 className="text-3xl md:text-4xl font-bold text-green-800 tracking-[0.25em] mt-2">
+              <h3 className="text-2xl md:text-4xl font-bold text-green-800 tracking-[0.25em] mt-2">
                 Hà Tĩnh
               </h3>
 
@@ -158,18 +203,18 @@ function Home() {
                 <div className="w-28 h-px bg-green-700"></div>
               </div>
 
-              <p className="text-gray-700 max-w-md mx-auto mb-7 leading-relaxed">
+              <p className="text-sm md:text-base text-gray-700 max-w-md mx-auto mb-7 leading-relaxed px-2">
                 Thưởng thức hương vị dê núi Hương Sơn
                 <br /> đậm đà bản sắc – tươi ngon, bổ dưỡng.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
-                <button className="bg-green-800 hover:bg-green-900 text-white px-7 py-3 rounded-full font-semibold shadow-lg transition">
+                <button className="bg-green-800 hover:bg-green-900 text-white px-5 md:px-7 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold">
                   <Leaf className="w-4 h-4 inline mr-2" />
                   Khám phá ngay
                 </button>
 
-                <button className="bg-[#c99a45] hover:bg-[#b88935] text-white px-7 py-3 rounded-full font-semibold shadow-lg border-2 border-white transition">
+                <button className="bg-[#c99a45] hover:bg-[#b88935] text-white px-5 py-2 rounded-full font-semibold shadow-lg border-2 border-white transition">
                   <CalendarDays className="w-4 h-4 inline mr-2" />
                   Đặt bàn ngay
                 </button>
@@ -180,8 +225,8 @@ function Home() {
       </section>
 
       {/* FEATURES */}
-      <section className="max-w-6xl mx-auto px-5 -mt-23 relative z-10">
-        <div className="bg-white rounded-3xl shadow-xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 overflow-hidden">
+      <section className="max-w-6xl mx-auto px-5 -mt-16 md:-mt-24 relative z-10">
+        <div className="bg-white rounded-3xl shadow-xl grid grid-cols-2 lg:grid-cols-4 overflow-hidden">
           <Feature
             icon={<Mountain />}
             title="Nguồn gốc rõ ràng"
@@ -209,10 +254,10 @@ function Home() {
       <section className="max-w-7xl mx-auto px-5 py-16">
         <div className="flex items-end justify-between mb-7">
           <div>
-            <h2 className="text-2xl md:text-3xl font-black uppercase">
+            <h2 className="text-xl md:text-3xl font-black uppercase">
               Món ngon nổi bật
             </h2>
-            <p className="text-gray-600 mt-1">
+            <p className="text-xs md:text-base text-gray-600 mt-1">
               Những món ăn được yêu thích nhất tại Dê Hương Sơn
             </p>
           </div>
@@ -225,13 +270,13 @@ function Home() {
           </a>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
           {dishes.map((dish) => (
             <div
               key={dish.name}
               className="bg-white rounded-2xl shadow-md overflow-hidden hover:-translate-y-1 transition"
             >
-              <div className="relative h-44 bg-green-100 flex items-center justify-center text-green-700 font-semibold">
+              <div className="relative h-28 md:h-44 bg-green-100 flex items-center justify-center text-green-700 font-semibold text-sm">
                 {dish.tag && (
                   <span className="absolute top-3 left-3 bg-green-800 text-white text-xs px-3 py-1 rounded-full uppercase">
                     {dish.tag}
@@ -240,11 +285,15 @@ function Home() {
                 Ảnh món ăn
               </div>
 
-              <div className="p-4">
-                <h3 className="font-bold mb-1">{dish.name}</h3>
-                <p className="text-green-800 font-bold mb-4">{dish.price}</p>
+              <div className="p-3 md:p-4">
+                <h3 className="font-bold mb-1 text-sm md:text-base">
+                  {dish.name}
+                </h3>
+                <p className="text-green-800 font-bold mb-3 md:mb-4 text-sm md:text-base">
+                  {dish.price}
+                </p>
 
-                <button className="w-full border border-green-800 text-green-800 rounded-lg py-2 font-semibold hover:bg-green-800 hover:text-white transition">
+                <button className="w-full border border-green-800 text-green-800 rounded-lg py-2 text-sm font-semibold hover:bg-green-800 hover:text-white transition">
                   <ShoppingCart className="w-4 h-4 inline mr-2" />
                   Đặt món
                 </button>
@@ -261,14 +310,17 @@ function Home() {
       </section>
 
       {/* ABOUT */}
-      <section className="max-w-7xl mx-auto px-5 pb-12">
+      <section className="max-w-7xl mx-auto px-4 md:px-5 pb-10">
         <div className="grid lg:grid-cols-2 gap-8 items-stretch">
           <div className="min-h-[420px] bg-amber-100 rounded-3xl flex items-center justify-center text-green-800 font-bold shadow-md">
             Khu vực ảnh nhà hàng / đầu bếp
           </div>
 
           <div className="bg-[#fffaf0] rounded-3xl p-8 md:p-10 shadow-md">
-            <p className="text-3xl italic text-green-700 font-serif text-center">
+            <p
+              className="text-4xl md:text-6xl text-green-700 text-center mb-3 leading-none"
+              style={{ fontFamily: "'Allura', cursive" }}
+            >
               Về chúng tôi
             </p>
 
@@ -282,7 +334,7 @@ function Home() {
               biến, mỗi món ăn đều được chăm chút bằng cả tâm huyết.
             </p>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 text-center">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8 gap-x-4 text-center">
               <Info icon={<Mountain />} title="Đặc sản dê núi" />
               <Info icon={<Leaf />} title="Nguyên liệu tươi" />
               <Info icon={<CookingPot />} title="Chế biến truyền thống" />
@@ -300,19 +352,23 @@ function Home() {
 
       {/* WHY */}
       <section className="max-w-7xl mx-auto px-5 pb-12">
-        <div className="bg-white rounded-3xl shadow-md p-8">
-          <h2 className="text-2xl font-black text-center uppercase mb-8">
+        <div className="bg-white rounded-3xl shadow-md p-5 md:p-8">
+          <h2 className="text-lg md:text-2xl font-black text-center uppercase mb-5 md:mb-8">
             Vì sao chọn chúng tôi?
           </h2>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6 text-center">
-            {reasons.map((item) => (
-              <Why
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 text-center">
+            {reasons.map((item, index) => (
+              <div
                 key={item.title}
-                icon={item.icon}
-                title={item.title}
-                text={item.text}
-              />
+                className={
+                  index === reasons.length - 1
+                    ? "col-span-2 flex justify-center lg:col-span-1"
+                    : ""
+                }
+              >
+                <Why icon={item.icon} title={item.title} text={item.text} />
+              </div>
             ))}
           </div>
         </div>
@@ -366,7 +422,7 @@ function Home() {
           </div>
 
           <div className="bg-[#fffaf0] rounded-3xl p-6 shadow-md">
-            <h2 className="text-xl font-black uppercase mb-5">
+            <h2 className="text-lg md:text-xl font-black uppercase mb-4 md:mb-5">
               Khách hàng nói về chúng tôi
             </h2>
 
@@ -414,7 +470,7 @@ function Home() {
 
       {/* FOOTER */}
       <footer className="bg-green-950 text-white">
-        <div className="max-w-7xl mx-auto px-5 py-10 grid md:grid-cols-2 lg:grid-cols-5 gap-8">
+        <div className="max-w-7xl mx-auto px-4 md:px-5 py-7 md:py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-8">
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Leaf className="w-8 h-8" />
@@ -424,18 +480,20 @@ function Home() {
               </div>
             </div>
 
-            <p className="text-white/75 text-sm mb-5">
+            <p className="text-white/75 text-sm leading-relaxed mb-2 md:mb-5 max-w-xs">
               Dê núi Hương Sơn – đậm đà bản sắc, tươi ngon, bổ dưỡng.
             </p>
           </div>
 
           {/* Thông tin liên hệ */}
           <div className="pl-2">
-            <h3 className="font-bold mb-5">Thông tin liên hệ</h3>
+            <h3 className="font-bold text-lg mb-3 md:mb-5">
+              Thông tin liên hệ
+            </h3>
 
-            <div className="space-y-3 text-white/75 text-sm">
+            <div className="space-y-2 text-white/75 text-sm">
               <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 mt-1 text-white" />
+                <MapPin className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
                 <p>
                   Thị trấn Phố Châu, <br />
                   Hương Sơn, Hà Tĩnh
@@ -443,7 +501,7 @@ function Home() {
               </div>
 
               <div className="flex items-center gap-3">
-                <Phone className="w-5 h-5 text-white" />
+                <Phone className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
                 <p>
                   038 713 6878
                   <br />
@@ -462,44 +520,34 @@ function Home() {
 
           {/* Giờ mở cửa */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                <Clock className="w-5 h-5" />
-              </span>
+            <h3 className="font-bold text-lg mb-3 md:mb-5">Giờ mở cửa</h3>
 
-              <h3 className="font-bold">Giờ mở cửa</h3>
-            </div>
+            <div className="flex items-center gap-3 text-white/75 text-sm leading-7">
+              <Clock className="w-5 h-5 text-white shrink-0" />
 
-            <div className="text-white/75 text-sm leading-8">
-              <p>08:00 - 22:00</p>
-              <p>Tất cả các ngày trong tuần</p>
+              <div>
+                <p>08:00 - 22:00</p>
+                <p>Tất cả các ngày trong tuần</p>
+              </div>
             </div>
           </div>
 
           {/* Kết nối với chúng tôi */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                <Heart className="w-4 h-4" />
-              </span>
+          <div className="text-center">
+            <h3 className="font-bold text-lg mb-5">Kết nối với chúng tôi</h3>
 
-              <h3 className="font-bold">Kết nối với chúng tôi</h3>
-            </div>
-
-            <div className="flex gap-3 mt-4 items-center">
-              {/* Facebook */}
+            <div className="flex gap-4 items-center justify-center">
               <a
                 href="#"
                 className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
               >
                 <img
-                  src="https://cdn-icons-png.flaticon.com/512/733/733547.png"
+                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/2021_Facebook_icon.svg/1280px-2021_Facebook_icon.svg.png"
                   alt="facebook"
                   className="w-5 h-5"
                 />
               </a>
 
-              {/* Zalo */}
               <a
                 href="#"
                 className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
@@ -512,15 +560,15 @@ function Home() {
               </a>
             </div>
           </div>
-          <div>
-            <h3 className="font-bold mb-3">Bản đồ</h3>
-            <div className="h-32 bg-white/15 rounded-2xl flex items-center justify-center text-white/80 text-sm">
+          <div className="text-center">
+            <h3 className="font-bold text-lg mb-5">Bản đồ</h3>
+            <div className="h-40 bg-white/15 rounded-2xl flex items-center justify-center text-white/80 text-sm">
               Khu vực bản đồ
             </div>
           </div>
         </div>
 
-        <div className="border-t border-white/15 text-center py-4 text-sm text-white/60">
+        <div className="border-t border-white/15 text-center py-3 text-xs md:text-sm text-white/60">
           © 2026 Dê Hương Sơn Hà Tĩnh. All rights reserved.
         </div>
       </footer>
@@ -530,12 +578,18 @@ function Home() {
 
 function Feature({ icon, title, text }) {
   return (
-    <div className="p-6 border-b sm:border-r border-gray-100 last:border-r-0 text-center">
-      <div className="w-13 h-13 rounded-full border border-green-800 flex items-center justify-center text-green-800 mb-3 mx-auto">
+    <div className="p-4 md:p-6 border border-gray-100 text-center">
+      <div className="w-10 h-10 md:w-13 md:h-13 rounded-full border border-green-800 flex items-center justify-center text-green-800 mb-2 md:mb-3 mx-auto">
         {icon}
       </div>
-      <h3 className="font-bold mb-1">{title}</h3>
-      <p className="text-sm text-gray-600 leading-relaxed">{text}</p>
+
+      <h3 className="font-bold mb-1 text-sm md:text-base leading-snug">
+        {title}
+      </h3>
+
+      <p className="text-[13px] md:text-sm text-gray-600 leading-snug">
+        {text}
+      </p>
     </div>
   );
 }
@@ -543,23 +597,33 @@ function Feature({ icon, title, text }) {
 function Info({ icon, title }) {
   return (
     <div>
-      <div className="w-14 h-14 rounded-full bg-green-100 border border-green-200 flex items-center justify-center mx-auto mb-3 text-green-800">
+      <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-green-100 border border-green-200 flex items-center justify-center mx-auto mb-2 md:mb-3 text-green-800">
         {icon}
       </div>
-      <h3 className="font-bold text-green-900 text-sm">{title}</h3>
-      <p className="text-xs text-gray-600 mt-1">Chuẩn vị đặc trưng</p>
+      <h3 className="font-bold text-green-900 text-[13px] md:text-sm leading-snug">
+        {title}
+      </h3>
+      <p className="text-[11px] md:text-xs text-gray-600 mt-1">
+        Chuẩn vị đặc trưng
+      </p>
     </div>
   );
 }
 
 function Why({ icon, title, text }) {
   return (
-    <div className="px-3">
-      <div className="w-12 h-12 rounded-full border border-green-800 flex items-center justify-center mx-auto mb-3 text-green-800">
+    <div className="px-1 md:px-3">
+      <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border border-green-800 flex items-center justify-center mx-auto mb-2 md:mb-3 text-green-800">
         {icon}
       </div>
-      <h3 className="font-bold mb-2 text-sm">{title}</h3>
-      <p className="text-xs text-gray-600 leading-relaxed">{text}</p>
+
+      <h3 className="font-bold mb-1 text-[13px] md:text-sm leading-snug">
+        {title}
+      </h3>
+
+      <p className="text-[11px] md:text-xs text-gray-600 leading-snug">
+        {text}
+      </p>
     </div>
   );
 }
@@ -587,10 +651,13 @@ function Promo({ title, discount, price }) {
 
 function Review({ name, text }) {
   return (
-    <div className="bg-white rounded-2xl p-4 mb-4">
-      <p className="text-sm text-gray-700 mb-2">{text}</p>
-      <div className="text-yellow-500 text-sm mb-2">★★★★★</div>
-      <p className="font-bold text-sm">{name}</p>
+    <div className="bg-white rounded-2xl p-3 md:p-4 mb-3 md:mb-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <p className="font-bold text-green-900 text-sm">{name}</p>
+        <div className="text-yellow-500 text-xs md:text-sm">★★★★★</div>
+      </div>
+
+      <p className="text-xs md:text-sm text-gray-600 leading-relaxed">{text}</p>
     </div>
   );
 }
