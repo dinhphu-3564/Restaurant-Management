@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import {
   Eye,
@@ -33,6 +34,13 @@ function Register() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
+  //về tang đầu home
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -130,7 +138,11 @@ function Register() {
         {/* HEADER */}
         <header className="sticky top-0 z-50 bg-white/95 backdrop-blur shadow-sm">
           <div className="max-w-7xl mx-auto h-16 px-5 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <Link
+              to="/home"
+              onClick={scrollToTop}
+              className="flex items-center gap-2 mb-3"
+            >
               <Leaf className="w-8 h-8 text-green-800" />
               <div>
                 <h1 className="font-bold text-green-800 leading-4">
@@ -138,16 +150,11 @@ function Register() {
                 </h1>
                 <p className="text-xs text-green-700 font-medium">HÀ TĨNH</p>
               </div>
-            </div>
+            </Link>
 
-            <nav className="hidden lg:flex gap-8 text-sm font-semibold">
-              <a
-                className="text-green-800 border-b-2 border-green-800 pb-2"
-                href="#"
-              >
-                Trang chủ
-              </a>
-              <a href="#">Thực đơn</a>
+            <nav className="hidden lg:flex items-center gap-10 text-[17px] font-semibold text-green-950">
+              <Link to="/home">Trang chủ</Link>
+              <Link to="/menu">Thực đơn</Link>
               <a href="#">Đặt bàn</a>
               <a href="#">Khuyến mãi</a>
               <a href="#">Giới thiệu</a>
@@ -155,12 +162,12 @@ function Register() {
             </nav>
 
             <div className="hidden md:flex gap-3">
-              <button className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50">
+              <Link
+                to="/login"
+                className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
+              >
                 Đăng nhập
-              </button>
-              <button className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900">
-                Đăng ký
-              </button>
+              </Link>
             </div>
 
             <button
@@ -179,20 +186,20 @@ function Register() {
           {mobileMenuOpen && (
             <div className="lg:hidden bg-white border-t border-gray-100 shadow-md">
               <nav className="px-5 py-4 flex flex-col gap-4 text-sm font-semibold text-green-950">
-                <a href="#">Trang chủ</a>
-                <a href="#">Thực đơn</a>
+                <Link to="/home">Trang chủ</Link>
+                <Link to="/menu">Thực đơn</Link>
                 <a href="#">Đặt bàn</a>
                 <a href="#">Khuyến mãi</a>
                 <a href="#">Giới thiệu</a>
                 <a href="#">Liên hệ</a>
 
-                <div className="flex gap-3 pt-3 border-t border-gray-100">
-                  <button className="flex-1 border border-green-800 text-green-800 px-4 py-2 rounded-lg font-semibold">
+                <div className="pt-3 border-t border-gray-100">
+                  <Link
+                    to="/login"
+                    className="block text-center border border-green-800 text-green-800 px-4 py-2 rounded-lg font-semibold"
+                  >
                     Đăng nhập
-                  </button>
-                  <button className="flex-1 bg-green-800 text-white px-4 py-2 rounded-lg font-semibold">
-                    Đăng ký
-                  </button>
+                  </Link>
                 </div>
               </nav>
             </div>
@@ -358,12 +365,12 @@ function Register() {
 
                 <p className="text-center text-gray-600 mt-2.5">
                   Đã có tài khoản?{" "}
-                  <a
-                    href="#"
+                  <Link
+                    to="/login"
                     className="text-green-700 font-bold hover:underline"
                   >
                     Đăng nhập ngay
-                  </a>
+                  </Link>
                 </p>
               </div>
             </section>
@@ -374,13 +381,17 @@ function Register() {
         <footer className="bg-green-950 text-white">
           <div className="max-w-7xl mx-auto px-4 md:px-5 py-7 md:py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-8">
             <div>
-              <div className="flex items-center gap-2 mb-3">
+              <Link
+                to="/home"
+                onClick={scrollToTop}
+                className="flex items-center gap-2 mb-3"
+              >
                 <Leaf className="w-8 h-8" />
                 <div>
                   <h3 className="text-xl font-bold leading-5">Dê Hương Sơn</h3>
                   <p className="text-sm text-white/70">Hà Tĩnh</p>
                 </div>
-              </div>
+              </Link>
 
               <p className="text-white/75 text-sm leading-relaxed mb-2 md:mb-5 max-w-xs">
                 Dê núi Hương Sơn – đậm đà bản sắc, tươi ngon, bổ dưỡng.
