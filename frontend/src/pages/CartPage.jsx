@@ -42,6 +42,7 @@ function CartPage() {
   const [detailQty, setDetailQty] = useState(1);
   const [activeDetailTab, setActiveDetailTab] = useState("description");
   const profileMenuRef = useRef(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const defaultCartItems = [
     {
