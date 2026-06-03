@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { GiMeat, GiCampCookingPot, GiBarbecue } from "react-icons/gi";
+
 import {
   Search,
   Plus,
@@ -12,9 +14,14 @@ import {
   Phone,
   Clock,
   ShieldCheck,
+  Truck,
+  ShoppingCart,
+  User,
+  UserRound,
+  ClipboardList,
+  CalendarCheck,
+  LogOut,
 } from "lucide-react";
-
-import { GiMeat, GiCampCookingPot, GiBarbecue } from "react-icons/gi";
 
 import {
   PiBowlFoodLight,
@@ -24,6 +31,7 @@ import {
 
 import { TbSoup } from "react-icons/tb";
 
+import bannermenu from "../assets/images/menu/banner-menu.jpg";
 import deTaiChanh from "../assets/images/menu/de-tai-chanh.jpg";
 import deNuongTang from "../assets/images/menu/de-nuong-tang.jpg";
 import deXaoLan from "../assets/images/menu/de-xao-lan.jpg";
@@ -32,8 +40,10 @@ import deHapTiaTo from "../assets/images/menu/de-hap-tia-to.jpg";
 import suonDeNuong from "../assets/images/menu/suon-de-nuong.jpg";
 
 function MenuPage() {
+  const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState("Tất cả món");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [openCategory, setOpenCategory] = useState("Món khác");
   const [selectedDish, setSelectedDish] = useState(null);
   const [quantity, setQuantity] = useState(1);
@@ -42,10 +52,18 @@ function MenuPage() {
   const modalScrollRef = useRef(null);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [cartItems, setCartItems] = useState(() => {
+    const savedCart = localStorage.getItem("cartItems");
+    return savedCart ? JSON.parse(savedCart) : [];
+  }); // profile menu
+  const desktopProfileRef = useRef(null);
+  const mobileProfileRef = useRef(null);
   const previewImages =
     selectedDish?.images?.length > 0
       ? selectedDish.images
       : [selectedDish?.image];
+
   useEffect(() => {
     if (selectedDish) {
       document.body.style.overflow = "hidden";
@@ -57,6 +75,45 @@ function MenuPage() {
       document.body.style.overflow = "";
     };
   }, [selectedDish]);
+  // kiểm tra đăng nhập
+  useEffect(() => {
+    const loginStatus = localStorage.getItem("isLoggedIn");
+
+    if (loginStatus === "true") {
+      setIsLoggedIn(true);
+    } else {
+      setIsLoggedIn(false);
+    }
+  }, []);
+
+  // đóng menu profile khi click ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const clickedOutsideDesktop =
+        desktopProfileRef.current &&
+        !desktopProfileRef.current.contains(event.target);
+
+      const clickedOutsideMobile =
+        mobileProfileRef.current &&
+        !mobileProfileRef.current.contains(event.target);
+
+      if (clickedOutsideDesktop || clickedOutsideMobile) {
+        setIsProfileOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // lưu giỏ hàng vào localStorage
+  useEffect(() => {
+    localStorage.setItem("cartItems", JSON.stringify(cartItems));
+  }, [cartItems]);
+
   //chuyển về đầu trang menu
   const scrollToTop = () => {
     window.scrollTo({
@@ -109,6 +166,7 @@ function MenuPage() {
   ];
   const dishes = [
     {
+      id: 1,
       name: "Dê tái chanh",
       description: "Thịt dê tươi tái chanh, thơm ngon, đậm vị.",
       price: "129.000đ",
@@ -117,6 +175,7 @@ function MenuPage() {
       status: "available",
     },
     {
+      id: 2,
       name: "Dê nướng tảng",
       description: "Thịt dê nướng tảng ướp gia vị đặc biệt.",
       price: "399.000đ",
@@ -125,6 +184,7 @@ function MenuPage() {
       status: "low",
     },
     {
+      id: 3,
       name: "Dê xào lăn",
       description: "Thịt dê xào cùng sả, ớt, hành tây, thơm nồng.",
       price: "289.000đ",
@@ -133,6 +193,7 @@ function MenuPage() {
       status: "available",
     },
     {
+      id: 4,
       name: "Lẩu dê Hương Sơn",
       description: "Nước lẩu đậm đà từ xương dê, ăn kèm rau tươi.",
       price: "399.000đ",
@@ -141,6 +202,7 @@ function MenuPage() {
       status: "soldout",
     },
     {
+      id: 5,
       name: "Dê hấp tía tô",
       description: "Thịt dê hấp cùng lá tía tô, giữ trọn vị ngọt tự nhiên.",
       price: "399.000đ / đĩa",
@@ -149,6 +211,7 @@ function MenuPage() {
       status: "available",
     },
     {
+      id: 6,
       name: "Sườn dê nướng",
       description: "Sườn dê nướng thơm lừng, mềm ngọt tự nhiên.",
       price: "449.000đ / đĩa",
@@ -157,7 +220,37 @@ function MenuPage() {
       status: "soldout",
     },
   ];
+  // hàm chuyển giá từ string sang number để tính tổng tiền
+  const parsePrice = (price) => {
+    return Number(price.replace(/[^\d]/g, ""));
+  };
 
+  const totalCartQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
+
+  const addToCart = (dish, qty = 1) => {
+    const cartDish = {
+      id: dish.id,
+      name: dish.name,
+      desc: dish.description,
+      price: parsePrice(dish.price),
+      qty: qty,
+      image: dish.image,
+      tag: dish.status === "low" ? "Đặc trưng" : "",
+    };
+
+    setCartItems((prev) => {
+      const existed = prev.find((item) => item.id === cartDish.id);
+
+      if (existed) {
+        return prev.map((item) =>
+          item.id === cartDish.id ? { ...item, qty: item.qty + qty } : item,
+        );
+      }
+
+      return [...prev, cartDish];
+    });
+  };
+  // lọc món ăn theo danh mục
   const filteredDishes =
     selectedCategory === "Tất cả món"
       ? dishes
@@ -190,26 +283,92 @@ function MenuPage() {
             >
               Thực đơn
             </Link>
-            <a href="#">Đặt bàn</a>
+            <Link to="/reservation">Đặt bàn</Link>
             <a href="#">Khuyến mãi</a>
             <a href="#">Giới thiệu</a>
             <a href="#">Liên hệ</a>
           </nav>
 
           <div className="hidden md:flex gap-3">
-            <Link
-              to="/login"
-              className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
-            >
-              Đăng nhập
-            </Link>
+            {isLoggedIn ? (
+              <div
+                ref={desktopProfileRef}
+                className="relative flex items-center gap-3"
+              >
+                <Link to="/cart" className="relative text-green-900">
+                  <ShoppingCart className="w-5 h-5" />
 
-            <Link
-              to="/register"
-              className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
-            >
-              Đăng ký
-            </Link>
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-600 rounded-full text-[10px] text-white flex items-center justify-center">
+                    {totalCartQty}
+                  </span>
+                </Link>
+
+                <button
+                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                  className="w-11 h-11 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
+                >
+                  <User className="w-6 h-6" />
+                </button>
+
+                {isProfileOpen && (
+                  <div className="absolute right-0 top-14 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[999]">
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
+                    >
+                      <UserRound className="w-5 h-5" />
+                      Thông tin tài khoản
+                    </Link>
+
+                    <Link
+                      to="/order-history"
+                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
+                    >
+                      <ClipboardList className="w-5 h-5" />
+                      Lịch sử đơn hàng
+                    </Link>
+
+                    <Link
+                      to="/my-booking"
+                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
+                    >
+                      <CalendarCheck className="w-5 h-5" />
+                      Đặt bàn của tôi
+                    </Link>
+
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem("isLoggedIn");
+                        setIsLoggedIn(false);
+                        setIsProfileOpen(false);
+                        setIsMenuOpen(false);
+                        navigate("/home");
+                      }}
+                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50 text-red-600 font-medium border-t"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      Đăng xuất
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
+                >
+                  Đăng nhập
+                </Link>
+
+                <Link
+                  to="/register"
+                  className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
+                >
+                  Đăng ký
+                </Link>
+              </>
+            )}
           </div>
 
           <button
@@ -229,59 +388,203 @@ function MenuPage() {
             <nav className="px-5 py-4 flex flex-col gap-4 text-sm font-semibold text-green-950">
               <Link to="/">Trang chủ</Link>
               <Link to="/menu">Thực đơn</Link>
-              <a href="#">Đặt bàn</a>
-              <a href="#">Khuyến mãi</a>
-              <a href="#">Giới thiệu</a>
-              <a href="#">Liên hệ</a>
+              <Link to="/reservation">Đặt bàn</Link>
+              <Link to="/deals">Khuyến mãi</Link>
+              <Link to="/about">Giới thiệu</Link>
+              <Link to="/contact">Liên hệ</Link>
 
               <div className="flex gap-3 pt-3 border-t border-gray-100">
-                <Link
-                  to="/login"
-                  className="flex-1 text-center border border-green-800 text-green-800 px-4 py-2 rounded-lg font-semibold"
-                >
-                  Đăng nhập
-                </Link>
+                {isLoggedIn ? (
+                  <div ref={mobileProfileRef} className="w-full">
+                    <div className="flex items-center gap-4">
+                      <Link to="/cart" className="relative text-green-900">
+                        <ShoppingCart className="w-5 h-5" />
 
-                <Link
-                  to="/register"
-                  className="flex-1 text-center bg-green-800 text-white px-4 py-2 rounded-lg font-semibold"
-                >
-                  Đăng ký
-                </Link>
+                        <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-600 rounded-full text-[10px] text-white flex items-center justify-center">
+                          2
+                        </span>
+                      </Link>
+
+                      <button
+                        onClick={() => setIsProfileOpen(!isProfileOpen)}
+                        className="w-12 h-12 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
+                      >
+                        <User className="w-7 h-7" />
+                      </button>
+                    </div>
+                    {/* mobile menu profile */}
+                    {isProfileOpen && (
+                      <div className="w-full mt-3 bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-md">
+                        <Link
+                          to="/profile"
+                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium"
+                        >
+                          <UserRound className="w-5 h-5" />
+                          Thông tin tài khoản
+                        </Link>
+
+                        <Link
+                          to="/order-history"
+                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium border-t"
+                        >
+                          <ClipboardList className="w-5 h-5" />
+                          Lịch sử đơn hàng
+                        </Link>
+
+                        <Link
+                          to="/my-booking"
+                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium border-t"
+                        >
+                          <CalendarCheck className="w-5 h-5" />
+                          Đặt bàn của tôi
+                        </Link>
+
+                        <button
+                          onClick={() => {
+                            localStorage.removeItem("isLoggedIn");
+                            setIsLoggedIn(false);
+                            setIsProfileOpen(false);
+                            setIsMenuOpen(false);
+                            navigate("/home");
+                          }}
+                          className="w-full flex items-center gap-4 px-4 py-3 text-red-600 font-medium border-t"
+                        >
+                          <LogOut className="w-5 h-5" />
+                          Đăng xuất
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      className="flex-1 text-center border border-green-800 text-green-800 px-4 py-2 rounded-lg font-semibold"
+                    >
+                      Đăng nhập
+                    </Link>
+
+                    <Link
+                      to="/register"
+                      className="flex-1 text-center bg-green-800 text-white px-4 py-2 rounded-lg font-semibold"
+                    >
+                      Đăng ký
+                    </Link>
+                  </>
+                )}
               </div>
             </nav>
           </div>
         )}
       </header>
-      <div className="h-16"></div>
+      <div className="h-13.5"></div>
 
       {/* BANNER */}
-      <section className="bg-[#f6ecd8] py-6 md:py-8 overflow-hidden">
-        <div className="w-full max-w-7xl mx-auto px-4 md:px-5 grid md:grid-cols-2 gap-5 md:gap-8 items-center">
-          <div className="text-center md:text-left">
+      <section
+        className="
+relative
+py-6 md:py-10
+overflow-hidden
+bg-center
+bg-no-repeat
+bg-cover
+xl:bg-[length:100%_auto]
+
+after:absolute
+after:bottom-0
+after:left-0
+after:w-full
+after:h-24
+after:bg-gradient-to-b
+after:from-transparent
+after:to-[#f6f0e3]
+after:pointer-events-none
+"
+        style={{
+          backgroundImage: `
+    linear-gradient(
+      to right,
+      rgba(246,240,227,0.88) 0%,
+      rgba(246,240,227,0.20) 18%,
+      rgba(0,0,0,0) 40%,
+      rgba(0,0,0,0) 60%,
+      rgba(246,240,227,0.20) 82%,
+      rgba(246,240,227,0.88) 100%
+    ),
+    url(${bannermenu})
+  `,
+        }}
+      >
+        <div className="w-full max-w-7xl mx-auto px-4 md:px-5">
+          <div className="text-center md:text-left max-w-3xl">
             <p
-              className="text-4xl text-[#c99a45] mb-1"
+              className="text-4xl md:text-5xl text-[#c99a45] mb-2"
               style={{ fontFamily: "'Great Vibes', cursive" }}
             >
               Menu
             </p>
 
-            <h1 className="text-2xl sm:text-3xl md:text-5xl font-black uppercase text-green-900 leading-tight">
+            <h1
+              className="text-2xl sm:text-3xl md:text-5xl lg:text-[62px] text-green-900 leading-none tracking-[-1px]"
+              style={{
+                fontFamily: "'Playfair Display', serif",
+                fontWeight: 800,
+              }}
+            >
               Thực đơn đặc sắc
             </h1>
 
-            <p className="mt-4 text-gray-600 max-w-xl">
-              Tinh hoa ẩm thực dê núi Hương Sơn – tươi ngon, đậm vị, chuẩn đặc
-              sản Hà Tĩnh.
+            <p
+              className="mt-1 text-base sm:text-lg md:text-2xl lg:text-[38px] text-[#d7b36a] opacity-80 max-w-5xl leading-[2] tracking-[3px]"
+              style={{
+                fontFamily: "'Allura', cursive",
+                fontWeight: 400,
+                lineHeight: 1.2,
+              }}
+            >
+              Tinh hoa ẩm thực từ dê núi Hương Sơn
             </p>
-          </div>
 
-          <div className="h-36 md:h-52 rounded-3xl bg-white shadow-md overflow-hidden">
-            <img
-              src={deNuongTang}
-              alt="Thực đơn dê Hương Sơn"
-              className="w-full h-full object-cover"
-            />
+            <p className="mt-2 text-gray-700 max-w-lg text-xs md:text-base leading-7">
+              Những món ăn được chế biến từ dê núi tươi ngon,
+              <br /> đậm đà hương vị đặc trưng của vùng đất Hà Tĩnh.
+            </p>
+            <div className="mt-0 flex justify-center md:justify-start">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 180 40"
+                className="w-24 md:w-32"
+                fill="none"
+              >
+                <path
+                  d="M15 20C25 20 28 10 38 10C30 15 30 25 38 30"
+                  stroke="#d4b06a"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+
+                <path
+                  d="M48 20C58 20 61 10 71 10C63 15 63 25 71 30"
+                  stroke="#d4b06a"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+
+                <path
+                  d="M81 20C91 20 94 10 104 10C96 15 96 25 104 30"
+                  stroke="#d4b06a"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+
+                <path
+                  d="M114 20C124 20 127 10 137 10"
+                  stroke="#d4b06a"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
           </div>
         </div>
       </section>
@@ -511,6 +814,7 @@ function MenuPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          addToCart(dish, 1);
                         }}
                         disabled={dish.status === "soldout"}
                         className={`w-8 h-8 md:w-10 md:h-10 rounded-full transition flex items-center justify-center ${
@@ -539,7 +843,10 @@ function MenuPage() {
                 </p>
               </div>
 
-              <button className="bg-[#d6a84f] hover:bg-[#c99a45] text-green-950 font-bold px-7 py-3 rounded-xl">
+              <button
+                onClick={() => navigate("/reservation")}
+                className="bg-[#d6a84f] hover:bg-[#c99a45] text-green-950 font-bold px-7 py-3 rounded-xl"
+              >
                 Đặt bàn ngay
               </button>
             </div>
@@ -761,6 +1068,10 @@ function MenuPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                       <button
                         disabled={selectedDish.status === "soldout"}
+                        onClick={() => {
+                          addToCart(selectedDish, quantity);
+                          setSelectedDish(null);
+                        }}
                         className={`py-3 rounded-xl font-bold transition ${
                           selectedDish.status === "soldout"
                             ? "bg-gray-200 text-gray-400 cursor-not-allowed"
@@ -777,17 +1088,41 @@ function MenuPage() {
                   </div>
 
                   {/* INGREDIENTS */}
-                  <div className="mt-5 bg-[#fff8e8] rounded-2xl p-4">
-                    <h3 className="font-black text-green-900 mb-3">
-                      Thành phần chính
-                    </h3>
+                  <div className="mt-5 border border-gray-200 rounded-2xl bg-white overflow-visible">
+                    <div className="grid grid-cols-3">
+                      {/* ITEM */}
+                      <div className="min-h-[90px] md:min-h-[100px] flex flex-col items-center justify-center gap-2 px-3 py-4 text-center border-r border-gray-200">
+                        <Leaf className="w-5 h-5 text-green-800 shrink-0" />
 
-                    <ul className="space-y-2 text-sm text-gray-700">
-                      <li>• Thịt dê tươi Hương Sơn</li>
-                      <li>• Sả, ớt, hành tím</li>
-                      <li>• Rau thơm ăn kèm</li>
-                      <li>• Nước chấm đặc biệt</li>
-                    </ul>
+                        <span className="text-xs sm:text-sm md:text-base font-semibold text-green-900 leading-snug">
+                          Nguyên liệu
+                          <br />
+                          tươi ngon
+                        </span>
+                      </div>
+
+                      {/* ITEM */}
+                      <div className="min-h-[90px] md:min-h-[100px] flex flex-col items-center justify-center gap-2 px-3 py-4 text-center border-r border-gray-200">
+                        <ShieldCheck className="w-5 h-5 text-green-800 shrink-0" />
+
+                        <span className="text-xs sm:text-sm md:text-base font-semibold text-green-900 leading-snug">
+                          Không chất
+                          <br />
+                          bảo quản
+                        </span>
+                      </div>
+
+                      {/* ITEM */}
+                      <div className="min-h-[90px] md:min-h-[100px] flex flex-col items-center justify-center gap-2 px-3 py-4 text-center">
+                        <Truck className="w-5 h-5 text-green-800 shrink-0" />
+
+                        <span className="text-xs sm:text-sm md:text-base font-semibold text-green-900 leading-snug">
+                          Giao hàng
+                          <br />
+                          nhanh chóng
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -860,7 +1195,7 @@ function MenuPage() {
               </div>
 
               {/* BOTTOM INFO */}
-              <div className="w-full rounded-xl py-3 px-3 md:px-4 flex items-center justify-center gap-1.5 md:gap- text-[11px] sm:text-xs md:text-sm font-medium text-green-900">
+              <div className="w-full rounded-xl py-3 px-3 md:px-4 flex items-center justify-center gap-1.5 md:gap- text-xs sm:text-sm md:text-base font-medium text-green-900">
                 <ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0" />
                 <span>
                   Chất lượng món ăn là ưu tiên hàng đầu của chúng tôi !

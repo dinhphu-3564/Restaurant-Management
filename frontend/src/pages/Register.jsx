@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
   Eye,
@@ -20,6 +20,7 @@ import backgroundImage from "../assets/images/Register_Login.png";
 import goatIcon from "../assets/images/Icon_De.png";
 
 function Register() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "",
@@ -119,8 +120,8 @@ function Register() {
       setErrors({});
 
       setTimeout(() => {
-        setSuccessMessage("");
-      }, 5000);
+        navigate("/login");
+      }, 1500);
     } else {
       setErrors(newErrors);
       setSuccessMessage("");

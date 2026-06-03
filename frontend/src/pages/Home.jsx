@@ -1,10 +1,14 @@
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
-import { useEffect, useState } from "react";
 import hero1 from "../assets/images/Home/hero-1.png";
 import hero2 from "../assets/images/Home/hero-2.png";
 import hero3 from "../assets/images/Home/hero-3.png";
 import hero4 from "../assets/images/Home/hero-4.png";
+import deNuongTang from "../assets/images/menu/de-nuong-tang.jpg";
+import lauDe from "../assets/images/menu/lau-de.jpg";
+import deXaoLan from "../assets/images/menu/de-xao-lan.jpg";
+import deHapTiaTo from "../assets/images/menu/de-hap-tia-to.jpg";
 import {
   Leaf,
   ShoppingCart,
@@ -24,19 +28,108 @@ import {
   PlayCircle,
   Menu,
   X,
+  User,
+  UserRound,
+  ClipboardList,
+  CalendarCheck,
+  LogOut,
 } from "lucide-react";
 
 function Home() {
+  const navigate = useNavigate();
   const heroImages = [hero1, hero2, hero3, hero4];
 
   const [currentHero, setCurrentHero] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const location = useLocation();
+  const [showLoginToast, setShowLoginToast] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false); //state mở menu profile
+  const [addCartToast, setAddCartToast] = useState(null);
+  const [flyItem, setFlyItem] = useState(null);
+  const [cartItems, setCartItems] = useState(() => {
+    const savedCart = localStorage.getItem("cartItems");
+    return savedCart ? JSON.parse(savedCart) : [];
+  });
+  const totalCartQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
+  const parsePrice = (price) => {
+    return Number(price.replace(/[^\d]/g, ""));
+  };
+
+  const addToCart = (dish, event) => {
+    const cartDish = {
+      id: dish.id,
+      name: dish.name,
+      desc: dish.description,
+      price: parsePrice(dish.price),
+      qty: 1,
+      image: dish.image,
+      tag: dish.tag || "",
+    };
+
+    const existed = cartItems.find((item) => item.id === cartDish.id);
+
+    const newCart = existed
+      ? cartItems.map((item) =>
+          item.id === cartDish.id ? { ...item, qty: item.qty + 1 } : item,
+        )
+      : [...cartItems, cartDish];
+
+    setCartItems(newCart);
+    localStorage.setItem("cartItems", JSON.stringify(newCart));
+    window.dispatchEvent(new Event("cartUpdated"));
+
+    const imageRect = event.currentTarget
+      .closest(".dish-card")
+      ?.querySelector("img")
+      ?.getBoundingClientRect();
+
+    const cartRect = cartIconRef.current?.getBoundingClientRect();
+
+    if (imageRect && cartRect) {
+      setFlyItem({
+        image: dish.image,
+        startX: imageRect.left + imageRect.width / 2,
+        startY: imageRect.top + imageRect.height / 2,
+        endX: cartRect.left + cartRect.width / 2,
+        endY: cartRect.top + cartRect.height / 2,
+      });
+
+      setTimeout(() => setFlyItem(null), 900);
+    }
+
+    setAddCartToast(`Đã thêm ${dish.name} vào giỏ hàng`);
+
+    setTimeout(() => {
+      setAddCartToast(null);
+    }, 3000);
+  };
+  const profileMenuRef = useRef(null);
+  const cartIconRef = useRef(null);
+
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
       behavior: "smooth",
     });
   };
+  useEffect(() => {
+    const loginStatus = localStorage.getItem("isLoggedIn");
+
+    if (loginStatus === "true") {
+      setIsLoggedIn(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (location.state?.loginSuccess) {
+      setShowLoginToast(true);
+
+      setTimeout(() => {
+        setShowLoginToast(false);
+      }, 3000);
+    }
+  }, [location]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -45,12 +138,70 @@ function Home() {
 
     return () => clearInterval(timer);
   }, []);
+  //  Nhấn vào bất kỳ đâu ngoài menu profile sẽ đóng menu lại
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target)
+      ) {
+        setIsProfileOpen(false);
+      }
+    };
 
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+  useEffect(() => {
+    const updateCartQty = () => {
+      const savedCart = localStorage.getItem("cartItems");
+      setCartItems(savedCart ? JSON.parse(savedCart) : []);
+    };
+
+    window.addEventListener("storage", updateCartQty);
+    window.addEventListener("cartUpdated", updateCartQty);
+
+    updateCartQty();
+
+    return () => {
+      window.removeEventListener("storage", updateCartQty);
+      window.removeEventListener("cartUpdated", updateCartQty);
+    };
+  }, []);
   const dishes = [
-    { name: "Dê hấp tía tô", price: "250.000đ", tag: "Bán chạy" },
-    { name: "Dê nướng mọi", price: "250.000đ", tag: "Bán chạy" },
-    { name: "Lẩu dê thuốc bắc", price: "300.000đ" },
-    { name: "Dê xào sả ớt", price: "250.000đ" },
+    {
+      id: 101,
+      name: "Dê hấp tía tô",
+      description: "Thịt dê hấp cùng lá tía tô, giữ trọn vị ngọt tự nhiên.",
+      price: "250.000đ",
+      tag: "Bán chạy",
+      image: deHapTiaTo,
+    },
+    {
+      id: 102,
+      name: "Dê nướng tảng",
+      description: "Thịt dê tươi tảng ướp 12 loại gia vị.",
+      price: "399.000đ",
+      tag: "Bán chạy",
+      image: deNuongTang,
+    },
+    {
+      id: 103,
+      name: "Lẩu dê Hương Sơn",
+      description: "Nước lẩu đậm đà từ xương dê hầm.",
+      price: "399.000đ",
+      image: lauDe,
+    },
+    {
+      id: 104,
+      name: "Dê xào sả ớt",
+      description: "Thịt dê xào cùng sả, ớt cay thơm.",
+      price: "289.000đ",
+      image: deXaoLan,
+    },
   ];
 
   const reasons = [
@@ -83,6 +234,31 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-[#fbf7ec] text-green-950">
+      {showLoginToast && (
+        <div className="fixed top-24 right-5 z-[999] bg-green-700 text-white px-5 py-3 rounded-xl shadow-2xl animate-bounce">
+          Đăng nhập thành công!
+        </div>
+      )}
+      {addCartToast && (
+        <div className="fixed left-1/2 top-1/2 z-[9999] -translate-x-1/2 -translate-y-1/2 bg-green-900 text-white px-6 py-4 rounded-2xl shadow-2xl font-bold animate-bounce text-center">
+          {addCartToast}
+        </div>
+      )}
+
+      {flyItem && (
+        <img
+          src={flyItem.image}
+          alt=""
+          className="fixed z-[9999] w-14 h-14 rounded-full object-cover pointer-events-none shadow-2xl animate-fly-to-cart"
+          style={{
+            left: flyItem.startX,
+            top: flyItem.startY,
+            "--end-x": `${flyItem.endX - flyItem.startX}px`,
+            "--end-y": `${flyItem.endY - flyItem.startY}px`,
+          }}
+        />
+      )}
+
       {/* HEADER */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur shadow-sm">
         <div className="max-w-7xl mx-auto h-16 px-5 flex items-center justify-between">
@@ -108,25 +284,95 @@ function Home() {
               Trang chủ
             </a>
             <Link to="/menu">Thực đơn</Link>
-            <a href="#">Đặt bàn</a>
+            <Link to="/reservation">Đặt bàn</Link>
             <a href="#">Khuyến mãi</a>
             <a href="#">Giới thiệu</a>
             <a href="#">Liên hệ</a>
           </nav>
 
           <div className="hidden md:flex gap-3">
-            <Link
-              to="/login"
-              className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
-            >
-              Đăng nhập
-            </Link>
-            <Link
-              to="/register"
-              className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
-            >
-              Đăng ký
-            </Link>
+            {isLoggedIn ? (
+              <div className="relative flex items-center gap-3">
+                <Link
+                  ref={cartIconRef}
+                  to="/cart"
+                  className="relative text-green-900"
+                >
+                  <ShoppingCart className="w-5 h-5" />
+
+                  {totalCartQty > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-600 rounded-full text-[10px] text-white flex items-center justify-center">
+                      {totalCartQty}
+                    </span>
+                  )}
+                </Link>
+
+                <button
+                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                  className="w-11 h-11 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
+                >
+                  <User className="w-6 h-6" />
+                </button>
+                {/* menu profile */}
+                {isProfileOpen && (
+                  <div className="absolute right-0 top-14 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[999]">
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
+                    >
+                      <UserRound className="w-6 h-6" />
+                      Thông tin tài khoản
+                    </Link>
+
+                    <Link
+                      to="/order-history"
+                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
+                    >
+                      <ClipboardList className="w-6 h-6" />
+                      Lịch sử đơn hàng
+                    </Link>
+
+                    <Link
+                      to="/my-booking"
+                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
+                    >
+                      <CalendarCheck className="w-6 h-6" />
+                      Đặt bàn của tôi
+                    </Link>
+
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem("isLoggedIn");
+                        setIsLoggedIn(false);
+                        setIsProfileOpen(false);
+                        setIsMenuOpen(false);
+                        navigate("/home");
+                      }}
+                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50 text-red-600 font-medium border-t"
+                    >
+                      <LogOut className="w-6 h-6" />
+                      Đăng xuất
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
+                >
+                  Đăng nhập
+                </Link>
+
+                <Link
+                  to="/register"
+                  className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
+                >
+                  Đăng ký
+                </Link>
+              </>
+            )}
           </div>
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -144,24 +390,97 @@ function Home() {
             <nav className="px-5 py-4 flex flex-col gap-4 text-sm font-semibold text-green-950">
               <Link to="/home">Trang chủ</Link>
               <Link to="/menu">Thực đơn</Link>
-              <a href="#">Đặt bàn</a>
-              <a href="#">Khuyến mãi</a>
-              <a href="#">Giới thiệu</a>
-              <a href="#">Liên hệ</a>
+              <Link to="/reservation">Đặt bàn</Link>
+              <Link to="/deals">Khuyến mãi</Link>
+              <Link to="/about">Giới thiệu</Link>
+              <Link to="/contact">Liên hệ</Link>
 
               <div className="flex gap-3 pt-3 border-t border-gray-100">
-                <button className="flex-1 border border-green-800 text-green-800 px-4 py-2 rounded-lg font-semibold">
-                  Đăng nhập
-                </button>
-                <button className="flex-1 bg-green-800 text-white px-4 py-2 rounded-lg font-semibold">
-                  Đăng ký
-                </button>
+                {isLoggedIn ? (
+                  <div ref={profileMenuRef} className="w-full">
+                    <div className="flex items-center gap-4">
+                      <Link to="/cart" className="relative text-green-900">
+                        <ShoppingCart className="w-5 h-5" />
+
+                        {totalCartQty > 0 && (
+                          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-600 rounded-full text-[10px] text-white flex items-center justify-center">
+                            {totalCartQty}
+                          </span>
+                        )}
+                      </Link>
+
+                      <button
+                        onClick={() => setIsProfileOpen(!isProfileOpen)}
+                        className="w-12 h-12 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
+                      >
+                        <User className="w-7 h-7" />
+                      </button>
+                    </div>
+
+                    {isProfileOpen && (
+                      <div className="w-full mt-3 bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-md">
+                        <Link
+                          to="/profile"
+                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition"
+                        >
+                          <UserRound className="w-5 h-5" />
+                          Thông tin tài khoản
+                        </Link>
+
+                        <Link
+                          to="/order-history"
+                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium border-t"
+                        >
+                          <ClipboardList className="w-5 h-5" />
+                          Lịch sử đơn hàng
+                        </Link>
+
+                        <Link
+                          to="/my-booking"
+                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium border-t"
+                        >
+                          <CalendarCheck className="w-5 h-5" />
+                          Đặt bàn của tôi
+                        </Link>
+
+                        <button
+                          onClick={() => {
+                            localStorage.removeItem("isLoggedIn");
+                            setIsLoggedIn(false);
+                            setIsProfileOpen(false);
+                            setIsMenuOpen(false);
+                            navigate("/home");
+                          }}
+                          className="w-full flex items-center gap-4 px-4 py-3 text-red-600 font-medium border-t"
+                        >
+                          <LogOut className="w-5 h-5" />
+                          Đăng xuất
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      className="flex-1 border border-green-800 text-green-800 px-4 py-2 rounded-lg font-semibold text-center"
+                    >
+                      Đăng nhập
+                    </Link>
+
+                    <Link
+                      to="/register"
+                      className="flex-1 bg-green-800 text-white px-4 py-2 rounded-lg font-semibold text-center"
+                    >
+                      Đăng ký
+                    </Link>
+                  </>
+                )}
               </div>
             </nav>
           </div>
         )}
       </header>
-
       {/* HERO */}
       <section className="relative h-screen overflow-hidden">
         {/* BACKGROUND SLIDER */}
@@ -232,7 +551,10 @@ function Home() {
                   Khám phá ngay
                 </button>
 
-                <button className="bg-[#c99a45] hover:bg-[#b88935] text-white px-5 py-2 rounded-full font-semibold shadow-lg border-2 border-white transition">
+                <button
+                  onClick={() => navigate("/reservation")}
+                  className="bg-[#c99a45] hover:bg-[#b88935] text-white px-5 py-2 rounded-full font-semibold shadow-lg border-2 border-white transition"
+                >
                   <CalendarDays className="w-4 h-4 inline mr-2" />
                   Đặt bàn ngay
                 </button>
@@ -241,7 +563,6 @@ function Home() {
           </div>
         </div>
       </section>
-
       {/* FEATURES */}
       <section className="max-w-6xl mx-auto px-5 -mt-16 md:-mt-24 relative z-10">
         <div className="bg-white rounded-3xl shadow-xl grid grid-cols-2 lg:grid-cols-4 overflow-hidden">
@@ -267,7 +588,6 @@ function Home() {
           />
         </div>
       </section>
-
       {/* DISHES */}
       <section className="max-w-7xl mx-auto px-5 py-16">
         <div className="flex items-end justify-between mb-7">
@@ -280,27 +600,32 @@ function Home() {
             </p>
           </div>
 
-          <a
-            className="hidden md:block text-green-800 text-sm font-bold"
-            href="#"
+          <Link
+            to="/menu"
+            className="hidden md:block text-green-800 text-sm font-bold hover:text-green-900"
           >
             Xem tất cả thực đơn →
-          </a>
+          </Link>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
           {dishes.map((dish) => (
             <div
               key={dish.name}
-              className="bg-white rounded-2xl shadow-md overflow-hidden hover:-translate-y-1 transition"
+              className="dish-card bg-white rounded-2xl shadow-md overflow-hidden hover:-translate-y-1 transition"
             >
-              <div className="relative h-28 md:h-44 bg-green-100 flex items-center justify-center text-green-700 font-semibold text-sm">
+              <div className="relative h-28 md:h-44 overflow-hidden">
                 {dish.tag && (
-                  <span className="absolute top-3 left-3 bg-green-800 text-white text-xs px-3 py-1 rounded-full uppercase">
+                  <span className="absolute top-3 left-3 z-10 bg-green-800 text-white text-xs px-3 py-1 rounded-full uppercase">
                     {dish.tag}
                   </span>
                 )}
-                Ảnh món ăn
+
+                <img
+                  src={dish.image}
+                  alt={dish.name}
+                  className="w-full h-full object-cover hover:scale-105 transition duration-500"
+                />
               </div>
 
               <div className="p-3 md:p-4">
@@ -311,7 +636,10 @@ function Home() {
                   {dish.price}
                 </p>
 
-                <button className="w-full border border-green-800 text-green-800 rounded-lg py-2 text-sm font-semibold hover:bg-green-800 hover:text-white transition">
+                <button
+                  onClick={(e) => addToCart(dish, e)}
+                  className="w-full border border-green-800 text-green-800 rounded-lg py-2 text-sm font-semibold hover:bg-green-800 hover:text-white transition"
+                >
                   <ShoppingCart className="w-4 h-4 inline mr-2" />
                   Đặt món
                 </button>
@@ -326,7 +654,6 @@ function Home() {
           <span className="w-2 h-2 rounded-full bg-gray-300"></span>
         </div>
       </section>
-
       {/* ABOUT */}
       <section className="max-w-7xl mx-auto px-4 md:px-5 pb-10">
         <div className="grid lg:grid-cols-2 gap-8 items-stretch">
@@ -367,7 +694,6 @@ function Home() {
           </div>
         </div>
       </section>
-
       {/* WHY */}
       <section className="max-w-7xl mx-auto px-5 pb-12">
         <div className="bg-white rounded-3xl shadow-md p-5 md:p-8">
@@ -391,7 +717,6 @@ function Home() {
           </div>
         </div>
       </section>
-
       {/* PROMO + SPACE + REVIEWS */}
       <section className="max-w-7xl mx-auto px-5 pb-12">
         <div className="grid lg:grid-cols-3 gap-6">
@@ -459,7 +784,6 @@ function Home() {
           </div>
         </div>
       </section>
-
       {/* SERVICE BAR */}
       <section className="max-w-7xl mx-auto px-5 pb-10">
         <div className="bg-white rounded-3xl shadow-md grid sm:grid-cols-2 lg:grid-cols-4 overflow-hidden">
@@ -485,7 +809,6 @@ function Home() {
           />
         </div>
       </section>
-
       {/* FOOTER */}
       <footer className="bg-green-950 text-white">
         <div className="max-w-7xl mx-auto px-4 md:px-5 py-7 md:py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-8">

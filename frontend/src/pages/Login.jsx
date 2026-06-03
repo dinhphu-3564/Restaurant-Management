@@ -1,11 +1,10 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
   Eye,
   EyeOff,
   Menu,
   X,
-  Check,
   AlertCircle,
   Leaf,
   LogIn,
@@ -20,6 +19,7 @@ import backgroundImage from "../assets/images/Register_Login.png";
 import goatIcon from "../assets/images/Icon_De.png";
 
 function Login() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     account: "",
     password: "",
@@ -30,7 +30,7 @@ function Login() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [errors, setErrors] = useState({});
-  const [successMessage, setSuccessMessage] = useState("");
+
   //về tang đầu home
   const scrollToTop = () => {
     window.scrollTo({
@@ -77,22 +77,15 @@ function Login() {
     const newErrors = validateForm();
 
     if (Object.keys(newErrors).length === 0) {
-      setSuccessMessage("Đăng nhập thành công! Chào mừng bạn quay lại.");
+      localStorage.setItem("isLoggedIn", "true");
 
-      setFormData({
-        account: "",
-        password: "",
-        remember: false,
+      navigate("/home", {
+        state: {
+          loginSuccess: true,
+        },
       });
-
-      setErrors({});
-
-      setTimeout(() => {
-        setSuccessMessage("");
-      }, 5000);
     } else {
       setErrors(newErrors);
-      setSuccessMessage("");
     }
   };
 
@@ -180,13 +173,6 @@ function Login() {
           <div className="flex justify-center lg:justify-end items-center min-h-[calc(100vh-96px)] lg:pr-0">
             {/* RIGHT */}
             <section className="w-full max-w-[430px] md:max-w-[520px]">
-              {successMessage && (
-                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
-                  <Check className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-green-700 font-medium">{successMessage}</p>
-                </div>
-              )}
-
               <div className="bg-white/92 backdrop-blur-xl rounded-3xl shadow-2xl p-4 md:p-6 border border-white/40">
                 <div className="text-center mb-2">
                   <h2 className="text-xl md:text-2xl font-extrabold text-green-800 uppercase tracking-wide">
