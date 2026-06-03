@@ -57,6 +57,9 @@ function MenuPage() {
     const savedCart = localStorage.getItem("cartItems");
     return savedCart ? JSON.parse(savedCart) : [];
   }); // profile menu
+  const [addCartToast, setAddCartToast] = useState(null);
+  const [flyItem, setFlyItem] = useState(null);
+  const cartIconRef = useRef(null);
   const desktopProfileRef = useRef(null);
   const mobileProfileRef = useRef(null);
   const previewImages =
@@ -227,11 +230,15 @@ function MenuPage() {
 
   const totalCartQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
 
-  const addToCart = (dish, qty = 1) => {
+  {
+    /* hàm thêm món vào giỏ hàng */
+  }
+  const addToCart = (dish, qty = 1, event = null) => {
     if (!isLoggedIn) {
       setShowLoginModal(true);
       return;
     }
+
     const cartDish = {
       id: dish.id,
       name: dish.name,
@@ -253,6 +260,38 @@ function MenuPage() {
 
       return [...prev, cartDish];
     });
+
+    window.dispatchEvent(new Event("cartUpdated"));
+
+    const imageRect =
+      event?.currentTarget
+        ?.closest(".dish-card")
+        ?.querySelector("img")
+        ?.getBoundingClientRect() ||
+      event?.currentTarget
+        ?.closest(".quick-view-content")
+        ?.querySelector("img")
+        ?.getBoundingClientRect();
+
+    const cartRect = cartIconRef.current?.getBoundingClientRect();
+
+    if (imageRect && cartRect) {
+      setFlyItem({
+        image: dish.image,
+        startX: imageRect.left + imageRect.width / 2,
+        startY: imageRect.top + imageRect.height / 2,
+        endX: cartRect.left + cartRect.width / 2,
+        endY: cartRect.top + cartRect.height / 2,
+      });
+
+      setTimeout(() => setFlyItem(null), 900);
+    }
+
+    setAddCartToast(`Đã thêm ${dish.name} vào giỏ hàng`);
+
+    setTimeout(() => {
+      setAddCartToast(null);
+    }, 2500);
   };
   // lọc món ăn theo danh mục
   const filteredDishes =
@@ -262,6 +301,25 @@ function MenuPage() {
 
   return (
     <div className="min-h-screen bg-[#fbf7ec] text-green-950">
+      {addCartToast && (
+        <div className="fixed left-1/2 top-1/2 z-[9999] -translate-x-1/2 -translate-y-1/2 bg-green-900 text-white px-6 py-4 rounded-2xl shadow-2xl font-bold animate-bounce text-center">
+          {addCartToast}
+        </div>
+      )}
+
+      {flyItem && (
+        <img
+          src={flyItem.image}
+          alt=""
+          className="fixed z-[9999] w-14 h-14 rounded-full object-cover pointer-events-none shadow-2xl animate-fly-to-cart"
+          style={{
+            left: flyItem.startX,
+            top: flyItem.startY,
+            "--end-x": `${flyItem.endX - flyItem.startX}px`,
+            "--end-y": `${flyItem.endY - flyItem.startY}px`,
+          }}
+        />
+      )}
       {/* HEADER */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur shadow-sm">
         <div className="max-w-7xl mx-auto h-16 px-5 flex items-center justify-between">
@@ -299,7 +357,11 @@ function MenuPage() {
                 ref={desktopProfileRef}
                 className="relative flex items-center gap-3"
               >
-                <Link to="/cart" className="relative text-green-900">
+                <Link
+                  ref={cartIconRef}
+                  to="/cart"
+                  className="relative text-green-900"
+                >
                   <ShoppingCart className="w-5 h-5" />
 
                   <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-600 rounded-full text-[10px] text-white flex items-center justify-center">
@@ -776,7 +838,7 @@ after:pointer-events-none
                     setSelectedImageIndex(0);
                     setActiveTab("description");
                   }}
-                  className={`relative w-full min-w-0 bg-white rounded-2xl md:rounded-3xl shadow-sm md:shadow-md overflow-hidden transition grid grid-cols-[110px_minmax(0,1fr)] md:flex md:flex-col md:min-h-[370px] cursor-pointer ${
+                  className={`dish-card relative w-full min-w-0 bg-white rounded-2xl md:rounded-3xl shadow-sm md:shadow-md overflow-hidden transition grid grid-cols-[110px_minmax(0,1fr)] md:flex md:flex-col md:min-h-[370px] cursor-pointer ${
                     dish.status === "soldout" ? "" : "hover:-translate-y-1"
                   }`}
                 >
@@ -818,7 +880,7 @@ after:pointer-events-none
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          addToCart(dish, 1);
+                          addToCart(dish, 1, e);
                         }}
                         disabled={dish.status === "soldout"}
                         className={`w-8 h-8 md:w-10 md:h-10 rounded-full transition flex items-center justify-center ${
@@ -848,7 +910,14 @@ after:pointer-events-none
               </div>
 
               <button
-                onClick={() => navigate("/reservation")}
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    setShowLoginModal(true);
+                    return;
+                  }
+
+                  navigate("/reservation");
+                }}
                 className="bg-[#d6a84f] hover:bg-[#c99a45] text-green-950 font-bold px-7 py-3 rounded-xl"
               >
                 Đặt bàn ngay
@@ -866,7 +935,7 @@ after:pointer-events-none
           onClick={() => setSelectedDish(null)}
         >
           <div
-            className="bg-white rounded-3xl max-w-6xl w-full h-[88vh] shadow-2xl relative text-sm overflow-hidden"
+            className="bg-white rounded-3xl max-w-6xl w-full h-[88vh] shadow-2xl relative text-sm overflow-hidden quick-view-content"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -1072,8 +1141,8 @@ after:pointer-events-none
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                       <button
                         disabled={selectedDish.status === "soldout"}
-                        onClick={() => {
-                          addToCart(selectedDish, quantity);
+                        onClick={(e) => {
+                          addToCart(selectedDish, quantity, e);
                           setSelectedDish(null);
                         }}
                         className={`py-3 rounded-xl font-bold transition ${
@@ -1085,7 +1154,27 @@ after:pointer-events-none
                         Thêm vào giỏ hàng
                       </button>
 
-                      <button className="py-3 rounded-xl font-bold border border-green-800 text-green-800 hover:bg-white">
+                      <button
+                        onClick={() => {
+                          if (!isLoggedIn) {
+                            setShowLoginModal(true);
+                            return;
+                          }
+
+                          const cartItems =
+                            JSON.parse(localStorage.getItem("cartItems")) || [];
+
+                          navigate("/reservation", {
+                            state: {
+                              selectedDish,
+                              cartItems,
+                            },
+                          });
+
+                          setSelectedDish(null);
+                        }}
+                        className="py-3 rounded-xl font-bold border border-green-800 text-green-800 hover:bg-white"
+                      >
                         Đặt bàn ngay
                       </button>
                     </div>
@@ -1156,7 +1245,7 @@ after:pointer-events-none
                           });
                         }, 0);
                       }}
-                      className="relative bg-white rounded-2xl overflow-hidden border border-gray-200 cursor-pointer hover:-translate-y-1 hover:shadow-md transition grid grid-cols-[90px_minmax(0,1fr)] h-[110px]"
+                      className="dish-card relative bg-white rounded-2xl overflow-hidden border border-gray-200 cursor-pointer hover:-translate-y-1 hover:shadow-md transition grid grid-cols-[90px_minmax(0,1fr)] h-[110px]"
                     >
                       <img
                         src={item.image}
@@ -1177,10 +1266,7 @@ after:pointer-events-none
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedDish(item);
-                              setSelectedImage(item.image);
-                              setQuantity(1);
-                              setActiveTab("description");
+                              addToCart(item, 1, e);
                             }}
                             disabled={item.status === "soldout"}
                             className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center transition shrink-0 ${

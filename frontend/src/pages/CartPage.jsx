@@ -525,15 +525,12 @@ function CartPage() {
               Giá đã bao gồm VAT
             </p>
 
-            <button className="mt-5 w-full h-12 rounded-lg bg-green-900 text-white font-black hover:bg-green-950">
+            <button
+              onClick={() => navigate("/checkout")}
+              className="mt-5 w-full h-12 rounded-lg bg-green-900 text-white font-black hover:bg-green-950"
+            >
               <ShoppingCart className="w-5 h-5 inline mr-2" />
-              <button
-                onClick={() => navigate("/checkout")}
-                className="mt-5 w-full h-12 rounded-lg bg-green-900 text-white font-black hover:bg-green-950"
-              >
-                <ShoppingCart className="w-5 h-5 inline mr-2" />
-                TIẾN HÀNH THANH TOÁN
-              </button>
+              TIẾN HÀNH THANH TOÁN
             </button>
 
             <div className="mt-10 bg-[#f8f0df] rounded-xl p-5">
