@@ -38,10 +38,12 @@ function CartPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showEmptyCartAlert, setShowEmptyCartAlert] = useState(false);
   const [selectedDish, setSelectedDish] = useState(null);
   const [detailQty, setDetailQty] = useState(1);
   const [activeDetailTab, setActiveDetailTab] = useState("description");
   const profileMenuRef = useRef(null);
+  const toastTimerRef = useRef(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   const defaultCartItems = [
@@ -115,6 +117,14 @@ function CartPage() {
   const filteredSuggestions = suggestions.filter(
     (dish) => !cartItems.some((item) => item.id === dish.id),
   );
+  // toast thông báo khi xóa món ăn khỏi giỏ hàng
+  const [toast, setToast] = useState({
+    show: false,
+    title: "",
+    message: "",
+    dishName: "",
+    type: "delete",
+  });
   useEffect(() => {
     setIsLoggedIn(localStorage.getItem("isLoggedIn") === "true");
   }, []);
@@ -138,6 +148,29 @@ function CartPage() {
 
   const formatPrice = (price) => {
     return price.toLocaleString("vi-VN") + "đ";
+  };
+  // Hàm hiển thị toast thông báo với tự động ẩn sau 3 giây
+  const showToast = (title, message, type = "delete", dishName = "") => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+
+    setToast({
+      show: true,
+      title,
+      message,
+      type,
+      dishName,
+    });
+
+    toastTimerRef.current = setTimeout(() => {
+      setToast({
+        show: false,
+        title: "",
+        message: "",
+        type: "delete",
+      });
+    }, 4000);
   };
   // Tính toán subtotal, discount và total giảm giá
   const subtotal = cartItems.reduce(
@@ -175,11 +208,19 @@ function CartPage() {
       ),
     );
   };
-
+  // Hàm xóa món ăn khỏi giỏ hàng và hiển thị toast thông báo
   const removeItem = (id) => {
-    setCartItems((prev) => prev.filter((item) => item.id !== id));
-  };
+    const removedItem = cartItems.find((item) => item.id === id);
 
+    setCartItems((prev) => prev.filter((item) => item.id !== id));
+
+    showToast(
+      "Đã xóa món ăn",
+      `Đã xóa "${removedItem?.name}" khỏi giỏ hàng`,
+      "delete",
+    );
+  };
+  // Hàm thêm món ăn gợi ý vào giỏ hàng và hiển thị toast thông báo
   const addSuggestion = (dish) => {
     setCartItems((prev) => {
       const existed = prev.find((item) => item.id === dish.id);
@@ -199,6 +240,13 @@ function CartPage() {
         },
       ];
     });
+
+    showToast(
+      "Đã thêm vào giỏ hàng",
+      "đã được thêm vào giỏ hàng",
+      "success",
+      dish.name,
+    );
   };
 
   const scrollToTop = () => {
@@ -228,9 +276,9 @@ function CartPage() {
             <Link to="/home">Trang chủ</Link>
             <Link to="/menu">Thực đơn</Link>
             <Link to="/reservation">Đặt bàn</Link>
-            <a href="#">Khuyến mãi</a>
-            <a href="#">Giới thiệu</a>
-            <a href="#">Liên hệ</a>
+            <Link to="/deals">Khuyến mãi</Link>
+            <Link to="/about">Giới thiệu</Link>
+            <Link to="/contact">Liên hệ</Link>
           </nav>
 
           <div className="hidden md:flex gap-3">
@@ -239,12 +287,17 @@ function CartPage() {
                 ref={profileMenuRef}
                 className="relative flex items-center gap-3"
               >
-                <Link to="/cart" className="relative text-green-900">
+                <Link
+                  to="/cart"
+                  className="relative text-green-900 flex flex-col items-center"
+                >
                   <ShoppingCart className="w-5 h-5" />
 
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-600 rounded-full text-[10px] text-white flex items-center justify-center">
+                  <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
                     {totalQty}
                   </span>
+
+                  <span className="absolute -bottom-4 w-8 h-[2px] bg-green-800 rounded-full"></span>
                 </Link>
 
                 <button
@@ -342,7 +395,7 @@ function CartPage() {
         <div className="grid lg:grid-cols-[1fr_420px] gap-4 items-start">
           {/* LEFT */}
           <section className="bg-white/80 border border-[#eadfcd] rounded-2xl shadow-sm p-3 md:p-5">
-            <div className="hidden md:grid grid-cols-[2fr_120px_150px_140px_50px] gap-4 pb-4 border-b border-[#eadfcd] text-sm font-black text-gray-600 pl-8">
+            <div className="hidden md:grid sticky top-0 z-10 bg-white/95 grid-cols-[2fr_120px_150px_140px_50px] gap-4 pb-4 border-b border-[#eadfcd] text-sm font-black text-gray-600 pl-8">
               <p>SẢN PHẨM</p>
               <p className="ml-6">ĐƠN GIÁ</p>
 
@@ -352,122 +405,149 @@ function CartPage() {
               <p></p>
             </div>
 
-            <div>
-              {cartItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-white md:bg-transparent rounded-2xl md:rounded-none shadow-sm md:shadow-none border border-[#eadfcd] md:border-0 md:border-b p-3 md:p-0 md:py-4 grid md:grid-cols-[1.6fr_120px_150px_140px_50px] gap-3 md:gap-4 items-center mb-3 md:mb-0"
-                >
-                  <div className="flex gap-4">
-                    <button
-                      onClick={() => {
-                        setSelectedDish(item);
-                        setDetailQty(item.qty);
-                        setActiveDetailTab("description");
-                      }}
-                      className="w-[120px] h-[88px] md:w-[150px] md:h-[105px] rounded-2xl overflow-hidden shrink-0 bg-gray-100"
-                    >
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </button>
-                    <div>
-                      <div className="leading-snug">
-                        <h3 className="font-black text-green-900 inline text-[18px]">
-                          {item.name}
-                        </h3>
+            <div className="max-h-[560px] overflow-y-auto pr-2">
+              {cartItems.length === 0 ? (
+                <div className="min-h-[360px] flex flex-col items-center justify-center text-center text-gray-400">
+                  <div className="w-20 h-20 rounded-full bg-[#fbf0dc] flex items-center justify-center mb-4">
+                    <ShoppingCart className="w-10 h-10 text-[#d6c4a3]" />
+                  </div>
 
-                        {item.tag && (
-                          <span className="inline-flex ml-2 align-middle bg-[#f4ead6] text-[#b88935] text-xs font-bold px-3 py-1 rounded-full">
-                            {item.tag}
-                          </span>
-                        )}
+                  <h3 className="text-xl font-black text-gray-500">
+                    Chưa có món ăn trong giỏ hàng
+                  </h3>
+
+                  <p className="text-sm mt-2">
+                    Hãy chọn món ngon từ thực đơn để bắt đầu đặt hàng.
+                  </p>
+
+                  <Link
+                    to="/menu"
+                    className="mt-5 px-5 py-2.5 rounded-xl bg-green-900 text-white font-bold hover:bg-green-950"
+                  >
+                    Xem thực đơn
+                  </Link>
+                </div>
+              ) : (
+                cartItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="bg-white md:bg-transparent rounded-2xl md:rounded-none shadow-sm md:shadow-none border border-[#eadfcd] md:border-0 md:border-b p-3 md:p-0 md:py-4 grid md:grid-cols-[1.6fr_120px_150px_140px_50px] gap-3 md:gap-4 items-center mb-3 md:mb-0"
+                  >
+                    <div className="flex gap-4">
+                      <button
+                        onClick={() => {
+                          setSelectedDish(item);
+                          setDetailQty(item.qty);
+                          setActiveDetailTab("description");
+                        }}
+                        className="w-[120px] h-[88px] md:w-[150px] md:h-[105px] rounded-2xl overflow-hidden shrink-0 bg-gray-100"
+                      >
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                      <div>
+                        <div className="leading-snug">
+                          <h3 className="font-black text-green-900 inline text-[18px]">
+                            {item.name}
+                          </h3>
+
+                          {item.tag && (
+                            <span className="inline-flex ml-2 align-middle bg-[#f4ead6] text-[#b88935] text-xs font-bold px-3 py-1 rounded-full">
+                              {item.tag}
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[15px] text-gray-600 mt-2 max-w-sm line-clamp-1 md:line-clamp-none">
+                          {item.desc}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="md:contents flex items-center justify-between gap-3 mt-2">
+                      <div className="md:ml-6">
+                        <p className="text-xs text-gray-500 md:hidden">
+                          Đơn giá
+                        </p>
+                        <p className="font-black text-[#b88935]">
+                          {formatPrice(item.price)}
+                        </p>
+
+                        <p className="text-xs text-gray-500 mt-1 md:hidden">
+                          Thành tiền
+                        </p>
+                        <p className="font-black text-[#b88935] md:hidden">
+                          {formatPrice(item.price * item.qty)}
+                        </p>
                       </div>
 
-                      <p className="text-[15px] text-gray-600 mt-2 max-w-sm line-clamp-1 md:line-clamp-none">
-                        {item.desc}
-                      </p>
-                    </div>
-                  </div>
+                      <div className="md:ml-6 w-32 h-10 rounded-xl border border-[#eadfcd] flex items-center justify-between px-3">
+                        <button
+                          onClick={() => changeQty(item.id, "decrease")}
+                          className="text-green-950"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
 
-                  <div className="md:contents flex items-center justify-between gap-3 mt-2">
-                    <div className="md:ml-6">
-                      <p className="text-xs text-gray-500 md:hidden">Đơn giá</p>
-                      <p className="font-black text-[#b88935]">
-                        {formatPrice(item.price)}
-                      </p>
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.qty}
+                          onChange={(e) => {
+                            const value = Number(e.target.value);
 
-                      <p className="text-xs text-gray-500 mt-1 md:hidden">
-                        Thành tiền
-                      </p>
-                      <p className="font-black text-[#b88935] md:hidden">
+                            setCartItems((prev) =>
+                              prev.map((cartItem) =>
+                                cartItem.id === item.id
+                                  ? {
+                                      ...cartItem,
+                                      qty: value < 1 ? 1 : value,
+                                    }
+                                  : cartItem,
+                              ),
+                            );
+                          }}
+                          className="w-10 bg-transparent text-center font-black text-green-950 outline-none appearance-none [appearance:textfield]"
+                        />
+
+                        <button
+                          onClick={() => changeQty(item.id, "increase")}
+                          className="text-green-950"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <p className="hidden md:block ml-6 font-black text-[#b88935]">
                         {formatPrice(item.price * item.qty)}
                       </p>
-                    </div>
-
-                    <div className="md:ml-6 w-32 h-10 rounded-xl border border-[#eadfcd] flex items-center justify-between px-3">
-                      <button
-                        onClick={() => changeQty(item.id, "decrease")}
-                        className="text-green-950"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.qty}
-                        onChange={(e) => {
-                          const value = Number(e.target.value);
-
-                          setCartItems((prev) =>
-                            prev.map((cartItem) =>
-                              cartItem.id === item.id
-                                ? {
-                                    ...cartItem,
-                                    qty: value < 1 ? 1 : value,
-                                  }
-                                : cartItem,
-                            ),
-                          );
-                        }}
-                        className="w-10 bg-transparent text-center font-black text-green-950 outline-none appearance-none [appearance:textfield]"
-                      />
 
                       <button
-                        onClick={() => changeQty(item.id, "increase")}
-                        className="text-green-950"
+                        onClick={() => removeItem(item.id)}
+                        className="w-10 h-10 rounded-lg border border-[#eadfcd] text-gray-500 hover:text-red-600 hover:bg-red-50 flex items-center justify-center shrink-0"
                       >
-                        <Plus className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-
-                    <p className="hidden md:block ml-6 font-black text-[#b88935]">
-                      {formatPrice(item.price * item.qty)}
-                    </p>
-
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      className="w-10 h-10 rounded-lg border border-[#eadfcd] text-gray-500 hover:text-red-600 hover:bg-red-50 flex items-center justify-center shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
-            <div className="flex justify-end pt-5">
-              <button
-                onClick={() => setShowClearConfirm(true)}
-                className="h-11 px-6 rounded-lg border border-[#d7c8ae] text-gray-700 font-bold hover:bg-red-50 hover:text-red-600"
-              >
-                <Trash2 className="w-4 h-4 inline mr-2" />
-                XÓA TẤT CẢ
-              </button>
-            </div>
+            {cartItems.length > 0 && (
+              <div className="flex justify-end pt-5">
+                <button
+                  onClick={() => setShowClearConfirm(true)}
+                  className="h-11 px-6 rounded-lg border border-[#d7c8ae] text-gray-700 font-bold hover:bg-red-50 hover:text-red-600"
+                >
+                  <Trash2 className="w-4 h-4 inline mr-2" />
+                  XÓA TẤT CẢ
+                </button>
+              </div>
+            )}
           </section>
 
           {/* RIGHT */}
@@ -524,10 +604,21 @@ function CartPage() {
               <ShieldCheck className="w-5 h-5 text-[#c99a45]" />
               Giá đã bao gồm VAT
             </p>
-
+            {/* // thông báo khi giỏ hàng trống mà vẫn bấm vào thanh toán */}
             <button
-              onClick={() => navigate("/checkout")}
-              className="mt-5 w-full h-12 rounded-lg bg-green-900 text-white font-black hover:bg-green-950"
+              onClick={() => {
+                if (cartItems.length === 0) {
+                  setShowEmptyCartAlert(true);
+                  return;
+                }
+
+                navigate("/checkout");
+              }}
+              className={`mt-5 w-full h-12 rounded-lg font-black transition ${
+                cartItems.length === 0
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-green-900 text-white hover:bg-green-950"
+              }`}
             >
               <ShoppingCart className="w-5 h-5 inline mr-2" />
               TIẾN HÀNH THANH TOÁN
@@ -652,7 +743,7 @@ function CartPage() {
           <Service
             icon={<Headphones />}
             title="Hỗ trợ 24/7"
-            text="Hotline: 1900 1234"
+            text="Hotline: 038 713 6878 / 076 877 4619"
           />
         </section>
       </main>
@@ -673,19 +764,19 @@ function CartPage() {
               </div>
             </Link>
 
-            <p className="text-white/75 text-sm leading-relaxed max-w-xs">
+            <p className="text-white/75 text-sm leading-relaxed mb-2 md:mb-5 max-w-xs">
               Dê núi Hương Sơn – đậm đà bản sắc, tươi ngon, bổ dưỡng.
             </p>
           </div>
 
-          <div>
+          <div className="pl-2">
             <h3 className="font-bold text-lg mb-3 md:mb-5">
               Thông tin liên hệ
             </h3>
 
             <div className="space-y-2 text-white/75 text-sm">
               <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 mt-1 text-white shrink-0" />
+                <MapPin className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
                 <p>
                   Thị trấn Phố Châu, <br />
                   Hương Sơn, Hà Tĩnh
@@ -693,12 +784,19 @@ function CartPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <Phone className="w-5 h-5 text-white shrink-0" />
+                <Phone className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
                 <p>
                   038 713 6878
                   <br />
                   076 877 4619
                 </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="w-5 h-5 flex items-center justify-center text-white">
+                  ✉
+                </span>
+                <p>dehuongson.ht@gmail.com</p>
               </div>
             </div>
           </div>
@@ -723,14 +821,22 @@ function CartPage() {
                 href="#"
                 className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
               >
-                f
+                <img
+                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/2021_Facebook_icon.svg/1280px-2021_Facebook_icon.svg.png"
+                  alt="facebook"
+                  className="w-5 h-5"
+                />
               </a>
 
               <a
                 href="#"
                 className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
               >
-                Z
+                <img
+                  src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg"
+                  alt="zalo"
+                  className="w-6 h-6"
+                />
               </a>
             </div>
           </div>
@@ -943,6 +1049,12 @@ function CartPage() {
                           },
                         ];
                       });
+                      showToast(
+                        "Đã cập nhật giỏ hàng",
+                        "đã được cập nhật",
+                        "success",
+                        selectedDish.name,
+                      );
 
                       setSelectedDish(null);
                     }}
@@ -954,6 +1066,44 @@ function CartPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showEmptyCartAlert && (
+        <div className="fixed inset-0 z-[999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 text-center">
+            <div className="w-20 h-20 rounded-full bg-[#fbf0dc] text-[#b88935] flex items-center justify-center mx-auto">
+              <ShoppingCart className="w-10 h-10" />
+            </div>
+
+            <h2 className="text-2xl font-black text-green-950 mt-5">
+              Giỏ hàng đang trống
+            </h2>
+
+            <p className="text-gray-500 mt-3 leading-relaxed">
+              Bạn chưa có món ăn nào trong giỏ hàng.
+              <br />
+              Hãy chọn món trước khi tiến hành thanh toán nhé.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 mt-7">
+              <button
+                onClick={() => setShowEmptyCartAlert(false)}
+                className="h-12 rounded-xl border border-gray-200 font-bold text-gray-700 hover:bg-gray-100 transition"
+              >
+                Đóng
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowEmptyCartAlert(false);
+                  navigate("/menu");
+                }}
+                className="h-12 rounded-xl bg-green-900 text-white font-bold hover:bg-green-950 transition"
+              >
+                Xem thực đơn
+              </button>
             </div>
           </div>
         </div>
@@ -984,16 +1134,54 @@ function CartPage() {
               >
                 Hủy
               </button>
-
+              {/* // nút xóa tất cả món ăn trong giỏ hàng */}
               <button
                 onClick={() => {
                   setCartItems([]);
                   setShowClearConfirm(false);
+
+                  showToast(
+                    "Đã xóa tất cả",
+                    "Tất cả món ăn đã được xóa khỏi giỏ hàng",
+                    "delete",
+                  );
                 }}
                 className="h-12 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition"
               >
                 Xóa tất cả
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* // toast thông báo khi xóa món ăn khỏi giỏ hàng */}
+      {toast.show && (
+        <div className="fixed top-20 right-5 z-[9999]">
+          <div className="bg-white border border-[#eadfcd] shadow-xl rounded-2xl px-4 py-3 flex items-center gap-3 w-[330px] max-w-[calc(100vw-32px)] animate-[slideIn_.25s_ease-out]">
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                toast.type === "delete" ? "bg-red-50" : "bg-green-50"
+              }`}
+            >
+              {toast.type === "delete" ? (
+                <Trash2 className="w-5 h-5 text-red-500" />
+              ) : (
+                <ShoppingCart className="w-5 h-5 text-green-700" />
+              )}
+            </div>
+
+            <div>
+              <p className="font-black text-green-900 tracking-wide">
+                {toast.title}
+              </p>
+              <p className="text-sm text-gray-600">
+                {toast.dishName && (
+                  <span className="font-black text-[#b88935]">
+                    "{toast.dishName}"
+                  </span>
+                )}{" "}
+                {toast.message}
+              </p>
             </div>
           </div>
         </div>

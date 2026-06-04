@@ -57,7 +57,7 @@ function MenuPage() {
     const savedCart = localStorage.getItem("cartItems");
     return savedCart ? JSON.parse(savedCart) : [];
   }); // profile menu
-  const [addCartToast, setAddCartToast] = useState(null);
+  const [toast, setToast] = useState(null);
   const [flyItem, setFlyItem] = useState(null);
   const cartIconRef = useRef(null);
   const desktopProfileRef = useRef(null);
@@ -227,6 +227,16 @@ function MenuPage() {
   const parsePrice = (price) => {
     return Number(price.replace(/[^\d]/g, ""));
   };
+  // hàm hiển thị toast thông báo với tự động ẩn sau 3 giây
+  const showToast = (dishName) => {
+    setToast({
+      dishName,
+    });
+
+    setTimeout(() => {
+      setToast(null);
+    }, 4000);
+  };
 
   const totalCartQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
 
@@ -286,12 +296,8 @@ function MenuPage() {
 
       setTimeout(() => setFlyItem(null), 900);
     }
-
-    setAddCartToast(`Đã thêm ${dish.name} vào giỏ hàng`);
-
-    setTimeout(() => {
-      setAddCartToast(null);
-    }, 2500);
+    // hiển thị toast khi thêm món vào giỏ hàng
+    showToast(dish.name);
   };
   // lọc món ăn theo danh mục
   const filteredDishes =
@@ -301,9 +307,27 @@ function MenuPage() {
 
   return (
     <div className="min-h-screen bg-[#fbf7ec] text-green-950">
-      {addCartToast && (
-        <div className="fixed left-1/2 top-1/2 z-[9999] -translate-x-1/2 -translate-y-1/2 bg-green-900 text-white px-6 py-4 rounded-2xl shadow-2xl font-bold animate-bounce text-center">
-          {addCartToast}
+      {/* Toast thông báo */}
+      {toast && (
+        <div className="fixed top-20 right-5 z-[9999]">
+          <div className="bg-white border border-[#eadfcd] shadow-xl rounded-2xl px-4 py-3 flex items-center gap-3 w-[330px] max-w-[calc(100vw-32px)] animate-[slideIn_.25s_ease-out]">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-green-50">
+              <ShoppingCart className="w-5 h-5 text-green-700" />
+            </div>
+
+            <div>
+              <p className="font-black text-green-900 tracking-wide">
+                Đã thêm vào giỏ hàng
+              </p>
+
+              <p className="text-sm text-gray-600">
+                <span className="font-black text-[#b88935]">
+                  "{toast.dishName}"
+                </span>{" "}
+                đã được thêm vào giỏ hàng
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -346,9 +370,9 @@ function MenuPage() {
               Thực đơn
             </Link>
             <Link to="/reservation">Đặt bàn</Link>
-            <a href="#">Khuyến mãi</a>
-            <a href="#">Giới thiệu</a>
-            <a href="#">Liên hệ</a>
+            <Link to="/deals">Khuyến mãi</Link>
+            <Link to="/about">Giới thiệu</Link>
+            <Link to="/contact">Liên hệ</Link>
           </nav>
 
           <div className="hidden md:flex gap-3">
@@ -364,7 +388,7 @@ function MenuPage() {
                 >
                   <ShoppingCart className="w-5 h-5" />
 
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-600 rounded-full text-[10px] text-white flex items-center justify-center">
+                  <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
                     {totalCartQty}
                   </span>
                 </Link>
@@ -466,8 +490,8 @@ function MenuPage() {
                       <Link to="/cart" className="relative text-green-900">
                         <ShoppingCart className="w-5 h-5" />
 
-                        <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-600 rounded-full text-[10px] text-white flex items-center justify-center">
-                          2
+                        <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
+                          {totalCartQty}
                         </span>
                       </Link>
 
@@ -909,19 +933,30 @@ after:pointer-events-none
                 </p>
               </div>
 
-              <button
-                onClick={() => {
-                  if (!isLoggedIn) {
-                    setShowLoginModal(true);
-                    return;
-                  }
+              <div className="booking-highlight inline-block rounded-xl">
+                <button
+                  onClick={() => {
+                    if (!isLoggedIn) {
+                      setShowLoginModal(true);
+                      return;
+                    }
 
-                  navigate("/reservation");
-                }}
-                className="bg-[#d6a84f] hover:bg-[#c99a45] text-green-950 font-bold px-7 py-3 rounded-xl"
-              >
-                Đặt bàn ngay
-              </button>
+                    navigate("/reservation");
+                  }}
+                  className="
+    booking-btn
+    bg-[#d6a84f]
+    hover:bg-[#c99a45]
+    text-green-950
+    font-bold
+    px-7
+    py-3
+    rounded-xl
+  "
+                >
+                  Đặt bàn ngay
+                </button>
+              </div>
             </div>
           </main>
         </div>

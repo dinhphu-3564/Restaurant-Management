@@ -45,7 +45,7 @@ function Home() {
   const [showLoginToast, setShowLoginToast] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false); //state mở menu profile
-  const [addCartToast, setAddCartToast] = useState(null);
+  const [toast, setToast] = useState(null);
   const [flyItem, setFlyItem] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [cartItems, setCartItems] = useState(() => {
@@ -70,6 +70,16 @@ function Home() {
       qty: 1,
       image: dish.image,
       tag: dish.tag || "",
+    };
+    // Hàm hiển thị toast thông báo với tự động ẩn sau 4 giây
+    const showToast = (dishName) => {
+      setToast({
+        dishName,
+      });
+
+      setTimeout(() => {
+        setToast(null);
+      }, 4000);
     };
 
     const existed = cartItems.find((item) => item.id === cartDish.id);
@@ -103,11 +113,11 @@ function Home() {
       setTimeout(() => setFlyItem(null), 900);
     }
 
-    setAddCartToast(`Đã thêm ${dish.name} vào giỏ hàng`);
+    setToast({ dishName: dish.name });
 
     setTimeout(() => {
-      setAddCartToast(null);
-    }, 3000);
+      setToast(null);
+    }, 4000);
   };
   const profileMenuRef = useRef(null);
   const cartIconRef = useRef(null);
@@ -244,9 +254,27 @@ function Home() {
           Đăng nhập thành công!
         </div>
       )}
-      {addCartToast && (
-        <div className="fixed left-1/2 top-1/2 z-[9999] -translate-x-1/2 -translate-y-1/2 bg-green-900 text-white px-6 py-4 rounded-2xl shadow-2xl font-bold animate-bounce text-center">
-          {addCartToast}
+      {/* // Toast thông báo thêm món vào giỏ hàng */}
+      {toast && (
+        <div className="fixed top-20 right-5 z-[9999]">
+          <div className="bg-white border border-[#eadfcd] shadow-xl rounded-2xl px-4 py-3 flex items-center gap-3 w-[330px] max-w-[calc(100vw-32px)] animate-[slideIn_.25s_ease-out]">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-green-50">
+              <ShoppingCart className="w-5 h-5 text-green-700" />
+            </div>
+
+            <div>
+              <p className="font-black text-green-900 tracking-wide">
+                Đã thêm vào giỏ hàng
+              </p>
+
+              <p className="text-sm text-gray-600">
+                <span className="font-black text-[#b88935]">
+                  "{toast.dishName}"
+                </span>{" "}
+                đã được thêm vào giỏ hàng
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -290,9 +318,9 @@ function Home() {
             </a>
             <Link to="/menu">Thực đơn</Link>
             <Link to="/reservation">Đặt bàn</Link>
-            <a href="#">Khuyến mãi</a>
-            <a href="#">Giới thiệu</a>
-            <a href="#">Liên hệ</a>
+            <Link to="/deals">Khuyến mãi</Link>
+            <Link to="/about">Giới thiệu</Link>
+            <Link to="/contact">Liên hệ</Link>
           </nav>
 
           <div className="hidden md:flex gap-3">
@@ -306,7 +334,7 @@ function Home() {
                   <ShoppingCart className="w-5 h-5" />
 
                   {totalCartQty > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-600 rounded-full text-[10px] text-white flex items-center justify-center">
+                    <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
                       {totalCartQty}
                     </span>
                   )}
@@ -408,7 +436,7 @@ function Home() {
                         <ShoppingCart className="w-5 h-5" />
 
                         {totalCartQty > 0 && (
-                          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-600 rounded-full text-[10px] text-white flex items-center justify-center">
+                          <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
                             {totalCartQty}
                           </span>
                         )}
@@ -559,13 +587,30 @@ function Home() {
                   Khám phá ngay
                 </button>
 
-                <button
-                  onClick={() => navigate("/reservation")}
-                  className="bg-[#c99a45] hover:bg-[#b88935] text-white px-5 py-2 rounded-full font-semibold shadow-lg border-2 border-white transition"
-                >
-                  <CalendarDays className="w-4 h-4 inline mr-2" />
-                  Đặt bàn ngay
-                </button>
+                <div className="booking-wrapper">
+                  <button
+                    onClick={() => navigate("/reservation")}
+                    className="
+  bg-[#c99a45]
+  hover:bg-[#b88935]
+  text-white
+  px-5 md:px-7
+  py-2.5 md:
+  py-3
+  rounded-full
+  font-bold
+  text-sm md:text-base
+  border-2
+  border-white
+  shadow-lg
+  transition-all
+  duration-300
+"
+                  >
+                    <CalendarDays className="w-4 h-4 inline mr-2" />
+                    Đặt bàn ngay
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -742,6 +787,12 @@ function Home() {
               discount="-15%"
               price="Đặt ngay"
             />
+            <Link
+              to="/deals"
+              className="mt-4 inline-block bg-white text-green-900 px-5 py-2 rounded-full font-black"
+            >
+              Xem tất cả khuyến mãi →
+            </Link>
           </div>
 
           <div className="bg-white rounded-3xl p-6 shadow-md">
@@ -813,7 +864,7 @@ function Home() {
           <Service
             icon={<Phone />}
             title="Hotline đặt bàn"
-            text="076 877 4619"
+            text="076 877 4619 / 038 713 6878"
           />
         </div>
       </section>
