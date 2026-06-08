@@ -45,6 +45,10 @@ function CartPage() {
   const profileMenuRef = useRef(null);
   const toastTimerRef = useRef(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  // mã giảm giá
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponMessage, setCouponMessage] = useState("");
 
   const defaultCartItems = [
     {
@@ -125,8 +129,21 @@ function CartPage() {
     dishName: "",
     type: "delete",
   });
+  // Kiểm tra trạng thái đăng nhập khi component được mount
   useEffect(() => {
     setIsLoggedIn(localStorage.getItem("isLoggedIn") === "true");
+  }, []);
+  // Lưu trạng thái mã giảm giá đã áp dụng vào localStorage để giữ khi reload trang
+  useEffect(() => {
+    const savedCoupon = JSON.parse(localStorage.getItem("appliedCoupon"));
+
+    if (savedCoupon) {
+      setAppliedCoupon(savedCoupon);
+      setCouponCode(savedCoupon.code);
+      setCouponMessage(
+        `Đã áp dụng mã ${savedCoupon.code} - giảm ${savedCoupon.percent}% cho đơn hàng.`,
+      );
+    }
   }, []);
   useEffect(() => {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
@@ -148,6 +165,50 @@ function CartPage() {
 
   const formatPrice = (price) => {
     return price.toLocaleString("vi-VN") + "đ";
+  };
+  // Hàm áp dụng mã giảm giá với các điều kiện kiểm tra và lưu trạng thái đã áp dụng
+  const applyCoupon = () => {
+    const code = couponCode.trim().toUpperCase();
+
+    const coupon = promotionCoupons.find(
+      (item) => item.code.toUpperCase() === code,
+    );
+
+    if (!code) {
+      setAppliedCoupon(null);
+      setCouponMessage("Vui lòng nhập mã ưu đãi.");
+      localStorage.removeItem("appliedCoupon");
+      return;
+    }
+
+    if (!coupon) {
+      setAppliedCoupon(null);
+      setCouponMessage("Mã ưu đãi không tồn tại hoặc không đúng.");
+      localStorage.removeItem("appliedCoupon");
+      return;
+    }
+
+    if (coupon.status !== "active") {
+      setAppliedCoupon(null);
+      setCouponMessage("Mã ưu đãi hiện không còn hiệu lực.");
+      localStorage.removeItem("appliedCoupon");
+      return;
+    }
+
+    if (subtotal < coupon.minOrder) {
+      setAppliedCoupon(null);
+      setCouponMessage(
+        `Đơn hàng cần tối thiểu ${formatPrice(coupon.minOrder)} để dùng mã ${coupon.code}.`,
+      );
+      localStorage.removeItem("appliedCoupon");
+      return;
+    }
+
+    setAppliedCoupon(coupon);
+    localStorage.setItem("appliedCoupon", JSON.stringify(coupon));
+    setCouponMessage(
+      `Đã áp dụng mã ${coupon.code} - giảm ${coupon.percent}% cho đơn hàng.`,
+    );
   };
   // Hàm hiển thị toast thông báo với tự động ẩn sau 3 giây
   const showToast = (title, message, type = "delete", dishName = "") => {
@@ -172,6 +233,33 @@ function CartPage() {
       });
     }, 4000);
   };
+  // Dữ liệu khuyến mãi cho trang Deals
+  const promotionCoupons = [
+    {
+      id: "family-combo",
+      code: "FAMILY20",
+      title: "Combo gia đình",
+      percent: 20,
+      minOrder: 1000000,
+      status: "active",
+    },
+    {
+      id: "birthday",
+      code: "BIRTHDAY15",
+      title: "Ưu đãi sinh nhật",
+      percent: 15,
+      minOrder: 0,
+      status: "active",
+    },
+    {
+      id: "online-order",
+      code: "ONLINE10",
+      title: "Đặt món online",
+      percent: 10,
+      minOrder: 300000,
+      status: "active",
+    },
+  ];
   // Tính toán subtotal, discount và total giảm giá
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.price * item.qty,
@@ -186,10 +274,15 @@ function CartPage() {
       condition: subtotal >= 2000000,
     },
   ];
+  // Tính toán tổng giảm giá tự động và từ mã ưu đãi nếu có, sau đó tính tổng cuối cùng
+  const autoDiscountTotal =
+    !appliedCoupon && subtotal >= 2000000 ? subtotal * 0.05 : 0;
 
-  const discountTotal = discountRules
-    .filter((rule) => rule.condition)
-    .reduce((sum, rule) => sum + (subtotal * rule.percent) / 100, 0);
+  const couponDiscountTotal = appliedCoupon
+    ? (subtotal * appliedCoupon.percent) / 100
+    : 0;
+
+  const discountTotal = appliedCoupon ? couponDiscountTotal : autoDiscountTotal;
 
   const total = subtotal - discountTotal;
 
@@ -556,6 +649,51 @@ function CartPage() {
               TÓM TẮT ĐƠN HÀNG
             </h2>
             <div className="w-12 h-[2px] bg-[#c99a45] my-3"></div>
+            <div className="mb-5 bg-[#fbf7ec] border border-[#eadfcd] rounded-xl p-3">
+              <p className="font-black text-green-900 text-sm mb-2">
+                Mã ưu đãi
+              </p>
+
+              <div className="flex gap-2">
+                <input
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value)}
+                  placeholder="Nhập mã: ONLINE10"
+                  className="flex-1 h-11 rounded-lg border border-[#eadfcd] px-3 outline-none text-sm bg-white uppercase"
+                />
+
+                <button
+                  onClick={applyCoupon}
+                  className="h-11 px-4 rounded-lg bg-green-900 text-white font-bold hover:bg-green-950"
+                >
+                  Áp dụng
+                </button>
+              </div>
+
+              {couponMessage && (
+                <p
+                  className={`text-xs mt-2 font-medium ${
+                    appliedCoupon ? "text-green-800" : "text-red-500"
+                  }`}
+                >
+                  {couponMessage}
+                </p>
+              )}
+
+              {appliedCoupon && (
+                <button
+                  onClick={() => {
+                    setAppliedCoupon(null);
+                    setCouponCode("");
+                    setCouponMessage("");
+                    localStorage.removeItem("appliedCoupon");
+                  }}
+                  className="text-xs text-red-500 font-bold mt-2"
+                >
+                  Gỡ mã ưu đãi
+                </button>
+              )}
+            </div>
 
             <div className="space-y-4 text-sm">
               <div className="flex justify-between">
@@ -571,24 +709,28 @@ function CartPage() {
                 </div>
 
                 <div className="mt-2 space-y-1 pl-3 border-l-2 border-[#eadfcd]">
-                  {discountRules.map((rule) => (
-                    <div
-                      key={rule.id}
-                      className={`flex justify-between text-xs ${
-                        rule.condition ? "text-green-800" : "text-gray-400"
-                      }`}
-                    >
+                  {appliedCoupon ? (
+                    <div className="flex justify-between gap-3 text-xs text-green-800">
                       <span>
-                        {rule.title} giảm {rule.percent}%
+                        Mã {appliedCoupon.code} - {appliedCoupon.title} giảm{" "}
+                        {appliedCoupon.percent}%
                       </span>
 
-                      <span>
-                        {rule.condition
-                          ? `- ${formatPrice((subtotal * rule.percent) / 100)}`
-                          : "Chưa đạt"}
+                      <span className="shrink-0">
+                        - {formatPrice(couponDiscountTotal)}
                       </span>
                     </div>
-                  ))}
+                  ) : (
+                    subtotal >= 2000000 && (
+                      <div className="flex justify-between gap-3 text-xs text-green-800">
+                        <span>Hóa đơn trên 2.000.000đ giảm 5%</span>
+
+                        <span className="shrink-0">
+                          - {formatPrice(autoDiscountTotal)}
+                        </span>
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
             </div>
@@ -612,6 +754,17 @@ function CartPage() {
                   return;
                 }
 
+                localStorage.setItem(
+                  "checkoutSummary",
+                  JSON.stringify({
+                    subtotal,
+                    autoDiscountTotal,
+                    couponDiscountTotal,
+                    discountTotal,
+                    total,
+                    appliedCoupon,
+                  }),
+                );
                 navigate("/checkout");
               }}
               className={`mt-5 w-full h-12 rounded-lg font-black transition ${
@@ -624,38 +777,52 @@ function CartPage() {
               TIẾN HÀNH THANH TOÁN
             </button>
 
-            <div className="mt-10 bg-[#f8f0df] rounded-xl p-5">
-              <div className="flex gap-3">
-                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-green-800">
-                  <Gift className="w-5 h-5" />
-                </div>
-
-                <div>
-                  <h3 className="font-black text-green-900">ƯU ĐÃI CHO BẠN</h3>
-                  <p className="text-sm text-gray-600 mt-3 leading-relaxed">
-                    Đơn hàng từ <b>2.000.000đ</b> sẽ được giảm 5% và tặng món
-                    tráng miệng.
-                  </p>
-
-                  <div className="h-2 bg-[#dfcfad] rounded-full mt-4 overflow-hidden">
-                    <div
-                      className="h-full bg-green-900 rounded-full"
-                      style={{
-                        width: `${Math.min((subtotal / 2000000) * 100, 100)}%`,
-                      }}
-                    ></div>
+            {!appliedCoupon && (
+              <div className="mt-10 bg-[#f8f0df] rounded-xl p-5">
+                <div className="flex gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-green-800">
+                    <Gift className="w-5 h-5" />
                   </div>
 
-                  <p className="text-xs text-gray-500 mt-3">
-                    Bạn cần thêm{" "}
-                    <b className="text-[#b88935]">
-                      {formatPrice(Math.max(0, 2000000 - subtotal))}
-                    </b>{" "}
-                    để được giảm 5%
-                  </p>
+                  <div>
+                    <h3 className="font-black text-green-900">
+                      ƯU ĐÃI CHO BẠN
+                    </h3>
+
+                    <p className="text-sm text-gray-600 mt-3 leading-relaxed">
+                      Đơn hàng từ <b>2.000.000đ</b> sẽ được giảm 5% và tặng món
+                      tráng miệng.
+                    </p>
+
+                    <div className="h-2 bg-[#dfcfad] rounded-full mt-4 overflow-hidden">
+                      <div
+                        className="h-full bg-green-900 rounded-full"
+                        style={{
+                          width: `${Math.min(
+                            (subtotal / 2000000) * 100,
+                            100,
+                          )}%`,
+                        }}
+                      />
+                    </div>
+
+                    {subtotal >= 2000000 ? (
+                      <p className="text-xs text-green-700 mt-3 font-semibold">
+                        ✓ Đơn hàng của bạn đã đủ điều kiện giảm 5%
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 mt-3">
+                        Bạn cần thêm{" "}
+                        <b className="text-[#b88935]">
+                          {formatPrice(2000000 - subtotal)}
+                        </b>{" "}
+                        để được giảm 5%
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </aside>
         </div>
 

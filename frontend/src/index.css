@@ -178,3 +178,37 @@ input[type="number"]::-webkit-inner-spin-button {
     transform: translateX(0);
   }
 }
+/* Swiper lướt khuyến mãi */
+.deal-swiper .swiper-button-prev,
+.deal-swiper .swiper-button-next {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: white;
+  color: #064e3b;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.deal-swiper .swiper-button-prev::after,
+.deal-swiper .swiper-button-next::after {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.deal-swiper .swiper-pagination-bullet {
+  background: #d6a84f;
+  opacity: 0.4;
+}
+
+.deal-swiper .swiper-pagination-bullet-active {
+  opacity: 1;
+  width: 22px;
+  border-radius: 999px;
+}
+
+@media (max-width: 640px) {
+  .deal-swiper .swiper-button-prev,
+  .deal-swiper .swiper-button-next {
+    display: none;
+  }
+}

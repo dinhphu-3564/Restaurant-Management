@@ -29,6 +29,10 @@ function CheckoutPage() {
 
   const [errors, setErrors] = useState({});
   const [showEmptyCartModal, setShowEmptyCartModal] = useState(false);
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+  });
   const navigate = useNavigate();
 
   const [serviceType, setServiceType] = useState("dinein");
@@ -44,32 +48,30 @@ function CheckoutPage() {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  // tính tổng tiền tạm tính
+  // Tính tổng tiền tạm tính
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.price * item.qty,
     0,
   );
+  const checkoutSummary =
+    JSON.parse(localStorage.getItem("checkoutSummary")) || null;
+
+  const savedCoupon = checkoutSummary?.appliedCoupon || null;
+
+  // Chỉ cho áp mã khi ăn tại quán
+  const appliedCoupon = serviceType === "dinein" ? savedCoupon : null;
+
+  const autoDiscountTotal =
+    !appliedCoupon && subtotal >= 2000000 ? subtotal * 0.05 : 0;
+
+  const couponDiscountTotal = appliedCoupon
+    ? (subtotal * appliedCoupon.percent) / 100
+    : 0;
+
+  const discountTotal = appliedCoupon ? couponDiscountTotal : autoDiscountTotal;
 
   // tính tổng số lượng món
   const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0);
-  //trừ đi các ưu đãi nếu có
-  const discountRules = [
-    {
-      id: 1,
-      title: "Hóa đơn trên 2.000.000đ",
-      percent: 5,
-      condition: subtotal >= 2000000,
-    },
-  ];
-  // Hiển thị thông báo khi xóa món ăn
-  const [toast, setToast] = useState({
-    show: false,
-    message: "",
-  });
-
-  const discountTotal = discountRules
-    .filter((rule) => rule.condition)
-    .reduce((sum, rule) => sum + (subtotal * rule.percent) / 100, 0);
 
   const phoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
 
@@ -577,18 +579,51 @@ function CheckoutPage() {
                 </b>
               </div>
 
-              <div className="flex justify-between">
-                <span>
-                  {serviceType === "delivery"
-                    ? "Phí giao hàng"
-                    : "Phí lấy hàng"}
-                </span>
-                <b>{formatPrice(shippingFee)}</b>
-              </div>
+              {serviceType === "delivery" && (
+                <div className="flex justify-between">
+                  <span>Phí giao hàng</span>
+                  <b>{formatPrice(shippingFee)}</b>
+                </div>
+              )}
 
-              <div className="flex justify-between">
-                <span>Giảm giá</span>
-                <b className="text-green-800">- {formatPrice(discountTotal)}</b>
+              <div>
+                {/* // Hiển thị chi tiết giảm giá trong checkout */}
+                <div className="flex justify-between">
+                  <span>Giảm giá</span>
+                  <b className="text-green-800">
+                    - {formatPrice(discountTotal)}
+                  </b>
+                </div>
+                <div className="mt-2 space-y-1 pl-3 border-l-2 border-[#eadfcd]">
+                  {appliedCoupon ? (
+                    <div className="flex justify-between gap-3 text-xs text-green-800">
+                      <span>
+                        Mã {appliedCoupon.code} - {appliedCoupon.title} giảm{" "}
+                        {appliedCoupon.percent}%
+                      </span>
+
+                      <span className="shrink-0">
+                        - {formatPrice(couponDiscountTotal)}
+                      </span>
+                    </div>
+                  ) : (
+                    subtotal >= 2000000 && (
+                      <div className="flex justify-between gap-3 text-xs text-green-800">
+                        <span>Hóa đơn trên 2.000.000đ giảm 5%</span>
+
+                        <span className="shrink-0">
+                          - {formatPrice(autoDiscountTotal)}
+                        </span>
+                      </div>
+                    )
+                  )}
+
+                  {savedCoupon && serviceType !== "dinein" && (
+                    <p className="text-xs text-red-500 mt-2">
+                      Mã giảm giá chỉ áp dụng khi ăn tại quán.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -620,6 +655,9 @@ function CheckoutPage() {
                   paymentMethod:
                     serviceType === "dinein" ? "pay_after_meal" : paymentMethod,
                   subtotal,
+                  appliedCoupon,
+                  autoDiscountTotal,
+                  couponDiscountTotal,
                   discountTotal,
                   shippingFee,
                   total,

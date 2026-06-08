@@ -11,6 +11,7 @@ import OrderSuccessPage from "../pages/OrderSuccessPage";
 import ReservationPage from "../pages/ReservationPage";
 import BookingSuccessPage from "../pages/BookingSuccessPage";
 import DealsPage from "../pages/DealsPage";
+import DealDetailPage from "../pages/DealDetailPage";
 
 function AppRoutes() {
   return (
@@ -30,6 +31,7 @@ function AppRoutes() {
         <Route path="/reservation" element={<ReservationPage />} />
         <Route path="/booking-success" element={<BookingSuccessPage />} />
         <Route path="/deals" element={<DealsPage />} />
+        <Route path="/deals/:dealId" element={<DealDetailPage />} />
       </Routes>
     </BrowserRouter>
   );
