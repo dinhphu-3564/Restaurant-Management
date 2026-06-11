@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-
+import goatIcon from "../assets/images/Icon_De.png";
 import hero1 from "../assets/images/Home/hero-1.png";
 import hero2 from "../assets/images/Home/hero-2.png";
 import hero3 from "../assets/images/Home/hero-3.png";
@@ -9,6 +9,16 @@ import deNuongTang from "../assets/images/menu/de-nuong-tang.jpg";
 import lauDe from "../assets/images/menu/lau-de.jpg";
 import deXaoLan from "../assets/images/menu/de-xao-lan.jpg";
 import deHapTiaTo from "../assets/images/menu/de-hap-tia-to.jpg";
+
+import comboCardImg from "../assets/images/Deals/combo-card.png";
+import onlineCardImg from "../assets/images/Deals/online-card.png";
+
+import tangTret from "../assets/images/About/tang-tret.png";
+import tangHai from "../assets/images/About/tang-hai.png";
+import phongVip from "../assets/images/About/phong-vip.png";
+
+const FACEBOOK_URL = "https://www.facebook.com/profile.php?id=100088682802201";
+const MAP_URL = "https://maps.app.goo.gl/wSkET5ThBjNm9f29A";
 import {
   Leaf,
   ShoppingCart,
@@ -19,6 +29,7 @@ import {
   Star,
   MapPin,
   Phone,
+  Mail,
   Clock,
   Mountain,
   CookingPot,
@@ -48,6 +59,7 @@ function Home() {
   const [toast, setToast] = useState(null);
   const [flyItem, setFlyItem] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSpaceModal, setShowSpaceModal] = useState(false);
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("cartItems");
     return savedCart ? JSON.parse(savedCart) : [];
@@ -128,6 +140,7 @@ function Home() {
       behavior: "smooth",
     });
   };
+
   useEffect(() => {
     const loginStatus = localStorage.getItem("isLoggedIn");
 
@@ -153,6 +166,7 @@ function Home() {
 
     return () => clearInterval(timer);
   }, []);
+
   //  Nhấn vào bất kỳ đâu ngoài menu profile sẽ đóng menu lại
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -163,13 +177,12 @@ function Home() {
         setIsProfileOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
-
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
   useEffect(() => {
     const updateCartQty = () => {
       const savedCart = localStorage.getItem("cartItems");
@@ -178,14 +191,25 @@ function Home() {
 
     window.addEventListener("storage", updateCartQty);
     window.addEventListener("cartUpdated", updateCartQty);
-
     updateCartQty();
-
     return () => {
       window.removeEventListener("storage", updateCartQty);
       window.removeEventListener("cartUpdated", updateCartQty);
     };
   }, []);
+
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === "Escape") {
+        setShowSpaceModal(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEsc);
+
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
+
   const dishes = [
     {
       id: 101,
@@ -219,9 +243,35 @@ function Home() {
     },
   ];
 
+  // khuyến mãi
+  const promos = [
+    {
+      id: "family-combo",
+      title: "Combo gia đình",
+      discount: "-20%",
+      price: "1.199.000đ",
+      image: comboCardImg,
+      desc: "Ưu đãi đặc biệt dành cho khách đi theo nhóm gia đình.",
+    },
+    {
+      id: "online-order",
+      title: "Giảm giá đặt online",
+      discount: "-10%",
+      price: "Đặt ngay",
+      image: onlineCardImg,
+      desc: "Ưu đãi khi đặt món online qua website.",
+    },
+  ];
+
   const reasons = [
     {
-      icon: <Leaf />,
+      icon: (
+        <img
+          src={goatIcon}
+          alt="Dê Hương Sơn"
+          className="w-7 h-7 object-contain"
+        />
+      ),
       title: "Thịt dê tươi mỗi ngày",
       text: "Đảm bảo độ tươi ngon, không đông lạnh",
     },
@@ -249,6 +299,19 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-[#fbf7ec] text-green-950">
+      {/* SƯƠNG MỜ */}
+      <div className="fog fog-1"></div>
+      <div className="fog fog-2"></div>
+      <div className="leaf-float">
+        <span>🍂</span>
+        <span>🍁</span>
+        <span>🍂</span>
+        <span>🍁</span>
+        <span>🍂</span>
+        <span>🍁</span>
+        <span>🍂</span>
+        <span>🍁</span>
+      </div>
       {showLoginToast && (
         <div className="fixed top-24 right-5 z-[999] bg-green-700 text-white px-5 py-3 rounded-xl shadow-2xl animate-bounce">
           Đăng nhập thành công!
@@ -300,7 +363,11 @@ function Home() {
             onClick={scrollToTop}
             className="flex items-center gap-2"
           >
-            <Leaf className="w-8 h-8 text-green-800" />
+            <img
+              src={goatIcon}
+              alt="Dê Hương Sơn"
+              className="w-10 h-10 object-contain"
+            />
             <div>
               <h1 className="font-bold text-green-800 leading-4">
                 Dê Hương Sơn
@@ -530,22 +597,20 @@ function Home() {
           />
         ))}
 
-        {/* OVERLAY CINEMATIC */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/25 to-transparent"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-[#fbf7ec]/45"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-[#fbf7ec]/35 via-transparent to-transparent"></div>
+        {/* OVERLAY SÁNG NHẸ */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#fbf7ec]/35"></div>
 
-        {/* LỚP MỜ CHỈ Ở GIỮA NỬA BÊN TRÁI */}
+        {/* LỚP MỜ NHẸ Ở NỬA BÊN TRÁI */}
         <div
           className="
     absolute
-    left-[6%]
+    left-[4%]
     top-[48%]
     -translate-y-1/2
-    w-[42%]
-    h-[72%]
+    w-[48%]
+    h-[78%]
     rounded-full
-    bg-white/45
+    bg-white/75
     blur-3xl
   "
         ></div>
@@ -569,7 +634,11 @@ function Home() {
 
               <div className="flex items-center justify-center gap-4 my-5">
                 <div className="w-28 h-px bg-green-700"></div>
-                <Leaf className="w-6 h-6 text-green-800" />
+                <img
+                  src={goatIcon}
+                  alt="Dê Hương Sơn"
+                  className="w-10 h-10 object-contain"
+                />
                 <div className="w-28 h-px bg-green-700"></div>
               </div>
 
@@ -580,8 +649,8 @@ function Home() {
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
                 <button
-                  onClick={() => navigate("/menu")}
-                  className="bg-green-800 hover:bg-green-900 text-white px-5 md:px-7 py-2.5 md:py-3 rounded-full text-sm md:text-base font-semibold"
+                  onClick={() => navigate("/about")}
+                  className="bg-green-800 text-white px-5 md:px-7 py-2.5 md:py-3 rounded-full font-semibold border-2 border-white shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-xl"
                 >
                   <Leaf className="w-4 h-4 inline mr-2" />
                   Khám phá ngay
@@ -590,22 +659,7 @@ function Home() {
                 <div className="booking-wrapper">
                   <button
                     onClick={() => navigate("/reservation")}
-                    className="
-  bg-[#c99a45]
-  hover:bg-[#b88935]
-  text-white
-  px-5 md:px-7
-  py-2.5 md:
-  py-3
-  rounded-full
-  font-bold
-  text-sm md:text-base
-  border-2
-  border-white
-  shadow-lg
-  transition-all
-  duration-300
-"
+                    className=" bg-[#c99a45] hover:bg-[#b88935] text-white px-5 md:px-7 py-2.5 md: py-3 rounded-full font-bold text-sm md:text-base border-2 border-white shadow-lg transition-all duration-300"
                   >
                     <CalendarDays className="w-4 h-4 inline mr-2" />
                     Đặt bàn ngay
@@ -625,7 +679,13 @@ function Home() {
             text="Dê núi Hương Sơn thả tự nhiên"
           />
           <Feature
-            icon={<Leaf />}
+            icon={
+              <img
+                src={goatIcon}
+                alt="Dê Hương Sơn"
+                className="w-7 h-7 object-contain"
+              />
+            }
             title="Nguyên liệu tươi"
             text="Tuyển chọn mỗi ngày, đảm bảo chất lượng"
           />
@@ -734,7 +794,16 @@ function Home() {
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8 gap-x-4 text-center">
               <Info icon={<Mountain />} title="Đặc sản dê núi" />
-              <Info icon={<Leaf />} title="Nguyên liệu tươi" />
+              <Info
+                icon={
+                  <img
+                    src={goatIcon}
+                    alt="Dê Hương Sơn"
+                    className="w-7 h-7 object-contain"
+                  />
+                }
+                title="Nguyên liệu tươi"
+              />
               <Info icon={<CookingPot />} title="Chế biến truyền thống" />
               <Info icon={<Heart />} title="Không gian ấm cúng" />
             </div>
@@ -778,15 +847,21 @@ function Home() {
               <h2 className="text-xl font-black uppercase">
                 Khuyến mãi hấp dẫn
               </h2>
-              <PlayCircle className="w-6 h-6" />
+              <img
+                src={goatIcon}
+                alt="Dê Hương Sơn"
+                className="w-7 h-7 object-contain brightness-0 invert"
+              />
             </div>
 
-            <Promo title="Combo gia đình" discount="-20%" price="1.199.000đ" />
-            <Promo
-              title="Giảm giá đặt online"
-              discount="-15%"
-              price="Đặt ngay"
-            />
+            {promos.map((promo) => (
+              <Promo
+                key={promo.id}
+                {...promo}
+                onClick={() => navigate(`/deals/${promo.id}`)}
+              />
+            ))}
+
             <Link
               to="/deals"
               className="mt-4 inline-block bg-white text-green-900 px-5 py-2 rounded-full font-black"
@@ -797,28 +872,71 @@ function Home() {
 
           <div className="bg-white rounded-3xl p-6 shadow-md">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-black uppercase">
+              <h2 className="text-xl font-black uppercase text-green-950">
                 Không gian nhà hàng
               </h2>
+
               <div className="flex gap-2">
-                <button className="w-7 h-7 rounded-full border">‹</button>
-                <button className="w-7 h-7 rounded-full border">›</button>
+                <button className="w-8 h-8 rounded-full border border-green-900 text-green-900 hover:bg-green-900 hover:text-white transition">
+                  ‹
+                </button>
+                <button className="w-8 h-8 rounded-full border border-green-900 text-green-900 hover:bg-green-900 hover:text-white transition">
+                  ›
+                </button>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="h-40 bg-amber-100 rounded-2xl flex items-center justify-center text-green-800 font-semibold col-span-2">
-                Ảnh không gian lớn
-              </div>
-              <div className="h-28 bg-amber-100 rounded-2xl flex items-center justify-center text-sm">
-                Ảnh 1
-              </div>
-              <div className="h-28 bg-amber-100 rounded-2xl flex items-center justify-center text-sm">
-                Ảnh 2
-              </div>
+              <button
+                onClick={() => navigate("/about")}
+                className="relative h-40 rounded-2xl overflow-hidden col-span-2 group"
+              >
+                <img
+                  src={tangTret}
+                  alt="Không gian nhà hàng"
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                />
+                <div className="absolute inset-0 bg-black/25" />
+                <p className="absolute bottom-4 left-4 text-white font-black">
+                  Khu vực tầng trệt
+                </p>
+              </button>
+
+              <button
+                onClick={() => navigate("/about")}
+                className="relative h-28 rounded-2xl overflow-hidden group"
+              >
+                <img
+                  src={tangHai}
+                  alt="Khu vực tầng 2"
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                />
+                <div className="absolute inset-0 bg-black/25" />
+                <p className="absolute bottom-3 left-3 text-white text-sm font-bold">
+                  Tầng 2
+                </p>
+              </button>
+
+              <button
+                onClick={() => navigate("/about")}
+                className="relative h-28 rounded-2xl overflow-hidden group"
+              >
+                <img
+                  src={phongVip}
+                  alt="Phòng VIP"
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                />
+                <div className="absolute inset-0 bg-black/25" />
+                <p className="absolute bottom-3 left-3 text-white text-sm font-bold">
+                  Phòng VIP
+                </p>
+              </button>
             </div>
 
-            <button className="mt-5 w-full border border-green-800 text-green-800 py-2 rounded-lg font-semibold">
+            <button
+              onClick={() => setShowSpaceModal(true)}
+              className="mt-5 w-full border border-green-800 text-green-800 py-2 rounded-lg font-semibold hover:bg-green-800 hover:text-white transition"
+            >
               Xem thêm hình ảnh
             </button>
           </div>
@@ -864,22 +982,23 @@ function Home() {
           <Service
             icon={<Phone />}
             title="Hotline đặt bàn"
-            text="076 877 4619 / 038 713 6878"
+            text="038 713 6878"
           />
         </div>
       </section>
       {/* FOOTER */}
-      <footer className="bg-green-950 text-white">
+      <footer className="bg-green-900 text-white">
         <div className="max-w-7xl mx-auto px-4 md:px-5 py-7 md:py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-8">
           <div>
-            <Link
-              to="/home"
-              onClick={scrollToTop}
-              className="flex items-center gap-2 mb-3"
-            >
-              <Leaf className="w-8 h-8" />
+            <Link to="/home" className="flex items-center gap-2 mb-3">
+              <img
+                src={goatIcon}
+                alt="Dê Hương Sơn"
+                className="w-10 h-10 object-contain brightness-0 invert"
+              />
               <div>
                 <h3 className="text-xl font-bold leading-5">Dê Hương Sơn</h3>
+                <p className="text-sm text-white/70">Hà Tĩnh</p>
               </div>
             </Link>
 
@@ -888,93 +1007,166 @@ function Home() {
             </p>
           </div>
 
-          {/* Thông tin liên hệ */}
-          <div className="pl-2">
-            <h3 className="font-bold text-lg mb-3 md:mb-5">
-              Thông tin liên hệ
-            </h3>
-
-            <div className="space-y-2 text-white/75 text-sm">
-              <div className="flex items-start gap-3">
-                <MapPin className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
-                <p>
-                  Thị trấn Phố Châu, <br />
-                  Hương Sơn, Hà Tĩnh
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Phone className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
-                <p>
-                  038 713 6878
-                  <br />
-                  076 877 4619
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className="w-5 h-5 flex items-center justify-center text-white">
-                  ✉
-                </span>
-                <p>dehuongson.ht@gmail.com</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Giờ mở cửa */}
           <div>
-            <h3 className="font-bold text-lg mb-3 md:mb-5">Giờ mở cửa</h3>
+            <h3 className="font-bold text-lg mb-5">Thông tin liên hệ</h3>
 
-            <div className="flex items-center gap-3 text-white/75 text-sm leading-7">
-              <Clock className="w-5 h-5 text-white shrink-0" />
+            <div className="space-y-4 text-sm text-white/80">
+              <div className="flex items-start gap-3">
+                <MapPin className="w-5 h-5 text-[#d6a84f] shrink-0 mt-0.5" />
 
-              <div>
-                <p>08:00 - 22:00</p>
-                <p>Tất cả các ngày trong tuần</p>
+                <a
+                  href="https://maps.app.goo.gl/wSkET5ThBjNm9f29A"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-white transition"
+                >
+                  Đ. Vũ Lăng
+                  <br />
+                  Thanh Trì, Hà Nội
+                </a>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Phone className="w-5 h-5 text-[#d6a84f]" />
+                <a href="tel:0387136878" className="hover:text-white">
+                  038 713 6878
+                </a>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Mail className="w-5 h-5 text-[#d6a84f]" />
+                <a
+                  href="mailto:dehuongson.ht@gmail.com"
+                  className="hover:text-white break-all"
+                >
+                  dehuongson.ht@gmail.com
+                </a>
               </div>
             </div>
           </div>
 
-          {/* Kết nối với chúng tôi */}
+          <div>
+            <h3 className="font-bold text-lg mb-5">Giờ mở cửa</h3>
+
+            <div className="space-y-4 text-sm text-white/80">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-[#d6a84f]" />
+                <span>08:00 - 22:00</span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <CalendarDays className="w-5 h-5 text-[#d6a84f]" />
+                <span>Tất cả các ngày trong tuần</span>
+              </div>
+            </div>
+          </div>
+
           <div className="text-center">
             <h3 className="font-bold text-lg mb-5">Kết nối với chúng tôi</h3>
 
             <div className="flex gap-4 items-center justify-center">
               <a
-                href="#"
+                href={FACEBOOK_URL}
+                target="_blank"
+                rel="noreferrer"
                 className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
               >
                 <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/2021_Facebook_icon.svg/1280px-2021_Facebook_icon.svg.png"
-                  alt="facebook"
+                  src="https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg"
+                  alt="Facebook"
                   className="w-5 h-5"
                 />
               </a>
 
               <a
-                href="#"
+                href="tel:0387136878"
                 className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
               >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg"
-                  alt="zalo"
-                  className="w-6 h-6"
-                />
+                <Phone className="w-5 h-5" />
               </a>
             </div>
           </div>
-          <div className="text-center">
-            <h3 className="font-bold text-lg mb-5">Bản đồ</h3>
-            <div className="h-40 bg-white/15 rounded-2xl flex items-center justify-center text-white/80 text-sm">
-              Khu vực bản đồ
-            </div>
-          </div>
+
+          <a
+            href="https://maps.app.goo.gl/wSkET5ThBjNm9f29A"
+            target="_blank"
+            rel="noreferrer"
+            className="block overflow-hidden rounded-2xl border border-white/10 h-40 group"
+          >
+            <iframe
+              title="Bản đồ Dê Hương Sơn"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3939.8604880385988!2d105.84806467548728!3d20.937626480689012!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3135ad9f6221f4b3%3A0x23e41af49c85fe1a!2zTmjDoCBow6BuZyBC4bqjbyBMb25nIC0gRMOqIE7DumkgSMawxqFuZyBTxqFu!5e1!3m2!1svi!2s!4v1781164163918!5m2!1svi!2s"
+              className="w-full h-full border-0 pointer-events-none"
+              loading="lazy"
+            />
+          </a>
         </div>
 
         <div className="border-t border-white/15 text-center py-3 text-xs md:text-sm text-white/60">
           © 2026 Dê Hương Sơn Hà Tĩnh. All rights reserved.
         </div>
       </footer>
+      {showSpaceModal && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4"
+          onClick={() => setShowSpaceModal(false)}
+        >
+          <div
+            className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl p-5 md:p-7"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowSpaceModal(false)}
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-green-900 text-white flex items-center justify-center hover:bg-green-950"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h2 className="text-2xl md:text-3xl font-black text-green-900 uppercase text-center">
+              Không gian nhà hàng
+            </h2>
+
+            <div className="flex items-center justify-center gap-3 mt-3 mb-6">
+              <div className="w-16 h-px bg-[#d6a84f]" />
+              <img src={goatIcon} alt="" className="w-7 h-7 object-contain" />
+              <div className="w-16 h-px bg-[#d6a84f]" />
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-4">
+              <SpaceItem
+                image={tangTret}
+                title="Khu vực tầng trệt"
+                desc="Ấm cúng, phù hợp gia đình."
+                onClick={() => {
+                  setShowSpaceModal(false);
+                  navigate("/about");
+                }}
+              />
+
+              <SpaceItem
+                image={tangHai}
+                title="Tầng 2"
+                desc="Rộng rãi, thoáng mát."
+                onClick={() => {
+                  setShowSpaceModal(false);
+                  navigate("/about");
+                }}
+              />
+
+              <SpaceItem
+                image={phongVip}
+                title="Phòng VIP"
+                desc="Riêng tư, sang trọng."
+                onClick={() => {
+                  setShowSpaceModal(false);
+                  navigate("/about");
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {showLoginModal && (
         <LoginRequiredModal
           onClose={() => setShowLoginModal(false)}
@@ -982,6 +1174,28 @@ function Home() {
         />
       )}
     </div>
+  );
+}
+
+function SpaceItem({ image, title, desc, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="group rounded-2xl overflow-hidden border border-[#eadfcd] bg-[#fffaf0] text-left hover:-translate-y-1 hover:shadow-xl transition"
+    >
+      <div className="h-48 overflow-hidden">
+        <img
+          src={image}
+          alt={title}
+          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+        />
+      </div>
+
+      <div className="p-4">
+        <h3 className="font-black text-green-900">{title}</h3>
+        <p className="text-sm text-gray-600 mt-1">{desc}</p>
+      </div>
+    </button>
   );
 }
 
@@ -1037,24 +1251,33 @@ function Why({ icon, title, text }) {
   );
 }
 
-function Promo({ title, discount, price }) {
+function Promo({ title, discount, price, image, desc, onClick }) {
   return (
-    <div className="bg-white text-green-950 rounded-2xl p-4 mb-4 flex items-center gap-4">
-      <div className="w-24 h-24 bg-amber-100 rounded-2xl flex items-center justify-center text-xs text-green-800">
-        Ảnh món
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full bg-white text-green-950 rounded-2xl p-4 mb-4 flex items-center gap-4 text-left hover:-translate-y-1 hover:shadow-xl transition group"
+    >
+      <div className="w-24 h-24 rounded-2xl overflow-hidden bg-amber-100 shrink-0">
+        <img
+          src={image}
+          alt={title}
+          className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
+        />
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <span className="bg-green-800 text-white px-3 py-1 rounded-full text-xs font-bold">
           {discount}
         </span>
-        <h3 className="font-bold mt-2">{title}</h3>
-        <p className="text-xs text-gray-600 mt-1">
-          Ưu đãi đặc biệt dành cho khách hàng.
-        </p>
+
+        <h3 className="font-black mt-2 text-green-950 line-clamp-1">{title}</h3>
+
+        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{desc}</p>
+
         <p className="font-black text-green-800 mt-2">{price}</p>
       </div>
-    </div>
+    </button>
   );
 }
 

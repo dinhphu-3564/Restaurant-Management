@@ -1,0 +1,1156 @@
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Leaf,
+  Menu,
+  X,
+  User,
+  UserRound,
+  ClipboardList,
+  CalendarCheck,
+  LogOut,
+  ShoppingCart,
+  Phone,
+  Mail,
+  MapPin,
+  Clock,
+  Mountain,
+  Store,
+  Users,
+  Trophy,
+  ArrowRight,
+  ExternalLink,
+  CalendarDays,
+  ShieldCheck,
+  ChefHat,
+  Heart,
+  Star,
+  Quote,
+  Utensils,
+} from "lucide-react";
+
+import hero1 from "../assets/images/Home/hero-1.png";
+import hero3 from "../assets/images/Home/hero-3.png";
+
+import cauChuyenHS from "../assets/images/About/cau-chuyen-HS.png";
+import goatIcon from "../assets/images/Icon_De.png";
+
+import deNui from "../assets/images/About/de-nui.png";
+import camBu from "../assets/images/About/cam-bu.png";
+import nhungHuou from "../assets/images/About/nhung-huou.png";
+
+import baoHaTinhLogo from "../assets/images/About/logo-BHT.png";
+import baoCongLuanLogo from "../assets/images/About/logo-BCL.png";
+import qdndLogo from "../assets/images/About/logo-QDND.png";
+
+import rungNui from "../assets/images/About/nui-rung.png";
+import deAnCo from "../assets/images/About/de-an-co.png";
+import tuyenChon from "../assets/images/About/tuyen-chon.png";
+import dauBep from "../assets/images/About/dau-bep.png";
+import monAn from "../assets/images/About/mon-an.png";
+
+import tangTret from "../assets/images/About/tang-tret.png";
+import tangHai from "../assets/images/About/tang-hai.png";
+import phongVip from "../assets/images/About/phong-vip.png";
+import tiecSN from "../assets/images/About/tiec-sinh-nhat.png";
+
+const FACEBOOK_URL = "https://www.facebook.com/profile.php?id=100088682802201";
+const MAP_URL = "https://maps.app.goo.gl/wSkET5ThBjNm9f29A";
+
+function AboutPage() {
+  const navigate = useNavigate();
+  const profileMenuRef = useRef(null);
+
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [cartItems, setCartItems] = useState(() => {
+    const savedCart = localStorage.getItem("cartItems");
+    return savedCart ? JSON.parse(savedCart) : [];
+  });
+
+  const totalCartQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
+
+  useEffect(() => {
+    setIsLoggedIn(localStorage.getItem("isLoggedIn") === "true");
+
+    const updateCart = () => {
+      const savedCart = localStorage.getItem("cartItems");
+      setCartItems(savedCart ? JSON.parse(savedCart) : []);
+    };
+
+    window.addEventListener("cartUpdated", updateCart);
+    window.addEventListener("storage", updateCart);
+
+    return () => {
+      window.removeEventListener("cartUpdated", updateCart);
+      window.removeEventListener("storage", updateCart);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(e.target)
+      ) {
+        setIsProfileOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+  const timeline = [
+    {
+      year: "2008",
+      title: "Khởi nguồn",
+      icon: <Mountain />,
+      text: "Khởi nguồn từ tình yêu với ẩm thực quê hương Hương Sơn.",
+    },
+    {
+      year: "2012",
+      title: "Nhà hàng đầu tiên",
+      icon: <Store />,
+      text: "Nhà hàng Dê Hương Sơn đầu tiên chính thức được ra đời.",
+    },
+    {
+      year: "2018",
+      title: "1000+ khách hàng",
+      icon: <Users />,
+      text: "Phục vụ hơn 1000+ khách hàng, được yêu mến và tin tưởng lựa chọn.",
+    },
+    {
+      year: "2026",
+      title: "Không ngừng vươn xa",
+      icon: <Trophy />,
+      text: "Tiếp tục nâng tầm thương hiệu, mang đặc sản Hương Sơn đến muôn nơi.",
+    },
+  ];
+
+  const specialties = [
+    {
+      name: "Dê núi Hương Sơn",
+      image: deNui,
+      text: "Là giống dê cỏ được chăn thả tự nhiên trên các đồi núi. Thịt dê săn chắc, có độ dai ngọt tự nhiên, rất ít mỡ",
+      link: "https://baohatinh.vn/de-nui-huong-son-post66810.html",
+    },
+    {
+      name: "Nhung hươu Hương Sơn",
+      image: nhungHuou,
+      text: "Dược liệu quý giúp bồi bổ cơ thể, tăng cường sinh lực và nâng cao hệ miễn dịch.",
+      link: "https://baohatinh.vn/nhung-huou-huong-son-duoc-lieu-vang-danh-cho-suc-khoe-post271332.html",
+    },
+    {
+      name: "Cam bù Hương Sơn",
+      image: camBu,
+      text: "Đặc sản trứ danh, quả to tròn, ngọt thanh, mọng nước. Mang vị ngọt thanh lẫn chút chua dịu và hương thơm tinh dầu rất đặc trưng",
+      link: "https://baohatinh.vn/huong-vi-cam-bu-ha-tinh-post225864.html",
+    },
+  ];
+
+  const news = [
+    {
+      source: "Báo Hà Tĩnh",
+      logo: baoHaTinhLogo,
+      title: "Hương Sơn non nước hữu tình",
+      link: "https://baohatinh.vn/huong-son-non-nuoc-huu-tinh-post258123.html",
+    },
+    {
+      source: "Báo Hà Tĩnh",
+      logo: baoHaTinhLogo,
+      title: "Hương Sơn – vùng đất giàu tiềm năng phát triển du lịch",
+      link: "https://baohatinh.vn/huong-son-trong-tieng-vong-ngan-xua-post272388.html",
+    },
+    {
+      source: "Báo Công Luận",
+      logo: baoCongLuanLogo,
+      title: "Đất và người - xứ sở “Núi tỏa hương”",
+      link: "https://congluan.vn/dat-va-nguoi-xu-so-nui-toa-huong-post58306.html",
+    },
+    {
+      source: "Quân đội Nhân dân",
+      logo: qdndLogo,
+      title: "Câu chuyện tình nghĩa ở Hương Sơn",
+      link: "https://www.qdnd.vn/quoc-phong-an-ninh/xay-dung-quan-doi/cau-chuyen-tinh-nghia-o-huong-son-520531",
+    },
+  ];
+
+  const processSteps = [
+    {
+      number: "01",
+      icon: <Mountain />,
+      title: "Núi rừng Hương Sơn",
+      text: "Vùng đất trong lành, khí hậu mát mẻ, thảm thực vật phong phú và nguồn nước trong lành từ núi rừng.",
+      image: rungNui,
+    },
+    {
+      number: "02",
+      icon: <Leaf />,
+      title: "Dê núi Hương Sơn",
+      text: "Được chăn thả tự nhiên trên các triền núi đá, ăn lá cây rừng và thảo mộc bản địa, thịt săn chắc, đậm vị.",
+      image: deAnCo,
+    },
+    {
+      number: "03",
+      icon: <ShieldCheck />,
+      title: "Tuyển chọn kỹ lưỡng",
+      text: "Lựa chọn kỹ lưỡng từng con dê từ nguồn nguyên liệu tươi ngon, đảm bảo chất lượng.",
+      image: tuyenChon,
+    },
+    {
+      number: "04",
+      icon: <ChefHat />,
+      title: "Chế biến truyền thống",
+      text: "Chế biến theo công thức truyền thống, giữ trọn hương vị đặc trưng.",
+      image: dauBep,
+    },
+    {
+      number: "05",
+      icon: <Utensils />,
+      title: "Tinh hoa trong từng món ăn",
+      text: "Mang hương vị núi rừng đến bàn ăn của bạn.",
+      image: monAn,
+    },
+  ];
+
+  const values = [
+    {
+      icon: <ShieldCheck />,
+      title: "Tươi ngon",
+      text: "Nguyên liệu tuyển chọn mỗi ngày.",
+    },
+    {
+      icon: <ChefHat />,
+      title: "Truyền thống",
+      text: "Công thức giữ trọn vị quê.",
+    },
+    { icon: <Heart />, title: "Tận tâm", text: "Phục vụ chu đáo, thân thiện." },
+    { icon: <Star />, title: "Chất lượng", text: "Cam kết trong từng món ăn." },
+  ];
+
+  const reviews = [
+    {
+      name: "Anh Tuấn",
+      address: "Hà Tĩnh",
+      text: "Thịt dê tươi, chế biến đậm vị, không gian sạch sẽ và phục vụ rất nhiệt tình.",
+    },
+    {
+      name: "Chị Hương",
+      address: "Vinh, Nghệ An",
+      text: "Lẩu dê ngon, nước dùng ngọt thanh, rất hợp cho gia đình cuối tuần.",
+    },
+    {
+      name: "Anh Dũng",
+      address: "Đồng Hới, Quảng Bình",
+      text: "Phòng riêng đẹp, yên tĩnh, phù hợp tiếp khách và tổ chức sinh nhật.",
+    },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#fbf7ec] text-green-950">
+      {/* SƯƠNG MỜ */}
+      <div className="fog fog-1"></div>
+      <div className="fog fog-2"></div>
+      <div className="leaf-float">
+        <span>🍂</span>
+        <span>🍁</span>
+        <span>🍂</span>
+        <span>🍁</span>
+        <span>🍂</span>
+        <span>🍁</span>
+        <span>🍂</span>
+        <span>🍁</span>
+      </div>
+      {/* HEADER */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur shadow-sm">
+        <div className="max-w-7xl mx-auto h-16 px-5 flex items-center justify-between">
+          <Link
+            to="/home"
+            onClick={scrollToTop}
+            className="flex items-center gap-2"
+          >
+            <img
+              src={goatIcon}
+              alt="Dê Hương Sơn"
+              className="w-10 h-10 object-contain"
+            />
+            <div>
+              <h1 className="font-bold text-green-800 leading-4">
+                Dê Hương Sơn
+              </h1>
+              <p className="text-xs text-green-700 font-medium">HÀ TĨNH</p>
+            </div>
+          </Link>
+
+          <nav className="hidden lg:flex gap-8 text-sm font-semibold text-green-950">
+            <Link to="/home" className="hover:text-green-800 transition">
+              Trang chủ
+            </Link>
+
+            <Link to="/menu" className="hover:text-green-800 transition">
+              Thực đơn
+            </Link>
+
+            <Link to="/reservation" className="hover:text-green-800 transition">
+              Đặt bàn
+            </Link>
+
+            <Link to="/deals" className="hover:text-green-800 transition">
+              Khuyến mãi
+            </Link>
+
+            <Link
+              to="/about"
+              className="text-green-800 border-b-2 border-green-800 pb-2"
+            >
+              Giới thiệu
+            </Link>
+
+            <Link to="/contact" className="hover:text-green-800 transition">
+              Liên hệ
+            </Link>
+          </nav>
+
+          <div className="hidden md:flex items-center gap-3">
+            {isLoggedIn ? (
+              <div
+                ref={profileMenuRef}
+                className="relative flex items-center gap-3"
+              >
+                <Link to="/cart" className="relative text-green-900">
+                  <ShoppingCart className="w-5 h-5" />
+
+                  {totalCartQty > 0 && (
+                    <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
+                      {totalCartQty}
+                    </span>
+                  )}
+                </Link>
+
+                <button
+                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                  className="w-11 h-11 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
+                >
+                  <User className="w-6 h-6" />
+                </button>
+
+                {isProfileOpen && (
+                  <div className="absolute right-0 top-14 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[999]">
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
+                    >
+                      <UserRound className="w-5 h-5" />
+                      Thông tin tài khoản
+                    </Link>
+
+                    <Link
+                      to="/order-history"
+                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
+                    >
+                      <ClipboardList className="w-5 h-5" />
+                      Lịch sử đơn hàng
+                    </Link>
+
+                    <Link
+                      to="/my-booking"
+                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
+                    >
+                      <CalendarCheck className="w-5 h-5" />
+                      Đặt bàn của tôi
+                    </Link>
+
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem("isLoggedIn");
+                        setIsLoggedIn(false);
+                        setIsProfileOpen(false);
+                        navigate("/home");
+                      }}
+                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50 text-red-600 font-medium border-t"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      Đăng xuất
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
+                >
+                  Đăng nhập
+                </Link>
+
+                <Link
+                  to="/register"
+                  className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
+                >
+                  Đăng ký
+                </Link>
+              </>
+            )}
+          </div>
+
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="lg:hidden w-10 h-10 rounded-lg border border-green-800 text-green-800 flex items-center justify-center"
+          >
+            {isMenuOpen ? <X /> : <Menu />}
+          </button>
+        </div>
+
+        {isMenuOpen && (
+          <div className="lg:hidden bg-white border-t border-gray-100 shadow-md">
+            <nav className="px-5 py-4 flex flex-col gap-4 text-sm font-semibold text-green-950">
+              <Link to="/home">Trang chủ</Link>
+              <Link to="/menu">Thực đơn</Link>
+              <Link to="/reservation">Đặt bàn</Link>
+              <Link to="/deals">Khuyến mãi</Link>
+              <Link to="/about" className="text-green-800 font-black">
+                Giới thiệu
+              </Link>
+              <Link to="/contact">Liên hệ</Link>
+
+              <div className="flex gap-3 pt-3 border-t border-gray-100">
+                {isLoggedIn ? (
+                  <div className="flex items-center gap-4">
+                    <Link to="/cart" className="relative text-green-900">
+                      <ShoppingCart className="w-5 h-5" />
+
+                      {totalCartQty > 0 && (
+                        <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
+                          {totalCartQty}
+                        </span>
+                      )}
+                    </Link>
+
+                    <Link
+                      to="/profile"
+                      className="w-12 h-12 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700"
+                    >
+                      <User className="w-7 h-7" />
+                    </Link>
+                  </div>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      className="flex-1 border border-green-800 text-green-800 px-4 py-2 rounded-lg font-semibold text-center"
+                    >
+                      Đăng nhập
+                    </Link>
+
+                    <Link
+                      to="/register"
+                      className="flex-1 bg-green-800 text-white px-4 py-2 rounded-lg font-semibold text-center"
+                    >
+                      Đăng ký
+                    </Link>
+                  </>
+                )}
+              </div>
+            </nav>
+          </div>
+        )}
+      </header>
+
+      {/* HERO */}
+      <section
+        className="relative min-h-screen -mt-16 pt-16 bg-cover bg-center overflow-hidden"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, rgba(251,247,236,.96) 0%, rgba(251,247,236,.78) 35%, rgba(251,247,236,.18) 65%),
+            url(${hero1})
+          `,
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-5 min-h-[calc(100vh-64px)] flex items-center">
+          <div className="max-w-3xl pt-8">
+            <p
+              className="text-5xl md:text-7xl text-[#c99a45] mb-1 leading-none"
+              style={{ fontFamily: "'Great Vibes', cursive" }}
+            >
+              Giới thiệu
+            </p>
+
+            <h1
+              className=" text-5xl md:text-[76px] text-green-800 leading-[1.15] uppercase max-w-3xl"
+              style={{
+                fontFamily: "'Playfair Display', serif",
+                fontWeight: 800,
+              }}
+            >
+              Dê Hương Sơn <br /> Hà Tĩnh
+            </h1>
+
+            <div className="w-28 h-1 bg-[#c99a45] rounded-full mt-6 mb-7"></div>
+
+            <p className="text-gray-700 max-w-xl leading-8 text-lg">
+              Hơn 15 năm gìn giữ hương vị đặc sản núi rừng Hà Tĩnh, mang đến
+              trải nghiệm ẩm thực đậm đà, gần gũi và tinh tế.
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm md:text-base text-green-800 font-black">
+              <span>✓ Đặc sản dê núi Hương Sơn</span>
+              <span>✓ Không gian rộng rãi</span>
+              <span>✓ Phòng VIP riêng tư</span>
+            </div>
+
+            <div className="mt-9 flex flex-col sm:flex-row gap-4">
+              <div className="booking-wrapper">
+                <button
+                  onClick={() => navigate("/reservation")}
+                  className="
+            bg-[#c99a45]
+            hover:bg-[#b88935]
+            text-white
+            px-9 md:px-11
+            py-4
+            rounded-full
+            font-black
+            text-base
+            border-[3px] border-white
+            shadow-xl
+            transition-all duration-300
+            hover:-translate-y-1
+            hover:shadow-2xl
+            flex items-center justify-center gap-3
+          "
+                >
+                  <CalendarDays className="w-5 h-5" />
+                  Đặt bàn ngay
+                </button>
+              </div>
+
+              <button
+                onClick={() => navigate("/menu")}
+                className="bg-white/90 backdrop-blur text-green-800 px-9 md:px-11 py-4 rounded-full font-black text-base border-2 border-green-800 shadow-md transition-all duration-300 hover:bg-green-800 hover:text-white hover:-translate-y-1 hover:shadow-xl flex items-center justify-center gap-3"
+              >
+                <Utensils className="w-5 h-5" />
+                Xem thực đơn
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* TIMELINE */}
+      <section className="relative bg-[#fbf7ec] px-5 py-10 md:py-14 overflow-hidden">
+        <div className="max-w-7xl mx-auto">
+          <SectionTitle title="Hành trình thương hiệu" />
+
+          <div className="relative mt-10">
+            {/* LINE CHÍNH */}
+            <div className="hidden lg:block absolute top-[42px] left-[10%] right-[10%]">
+              <div className="relative h-px bg-[#d8b46a]">
+                <span className="absolute left-[16.66%] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#d8b46a]" />
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#d8b46a]" />
+                <span className="absolute right-[16.66%] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#d8b46a]" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-10 gap-x-8 relative z-10">
+              {timeline.map((item) => (
+                <div key={item.year} className="text-center">
+                  {/* ICON */}
+                  <div className="relative flex items-center justify-center mb-5">
+                    <div className="w-[82px] h-[82px] rounded-full bg-[#fbf7ec] border-2 border-[#d8b46a] shadow-[0_0_0_7px_rgba(216,180,106,0.12)] flex items-center justify-center text-green-900 shrink-0 z-10">
+                      <div className="w-11 h-11 flex items-center justify-center [&>svg]:w-9 [&>svg]:h-9">
+                        {item.icon}
+                      </div>
+                    </div>
+                  </div>
+
+                  <h3 className="text-[28px] font-black text-green-900 leading-none">
+                    {item.year}
+                  </h3>
+
+                  <p className="mt-3 font-black text-green-900 text-base">
+                    {item.title}
+                  </p>
+
+                  <p className="mt-5 text-sm text-gray-600 leading-7 max-w-[230px] mx-auto">
+                    {item.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* STORY */}
+      <section className="max-w-7xl mx-auto px-5 pb-10">
+        <div className="grid lg:grid-cols-2 gap-6 items-stretch">
+          {/* Ảnh bên trái */}
+          <div className="h-[405px] rounded-3xl overflow-hidden shadow-md">
+            <img
+              src={cauChuyenHS}
+              alt="Hương Sơn Hà Tĩnh"
+              className="w-full h-full object-contain"
+            />
+          </div>
+
+          {/* Nội dung bên phải */}
+
+          <div className="h-[405px] bg-[#fffaf0] border border-[#eadfcd] rounded-3xl shadow-sm relative overflow-hidden">
+            <img
+              src={goatIcon}
+              alt=""
+              className="absolute right-4 bottom-4 w-52 opacity-[0.09] pointer-events-none select-none"
+            />
+            <div className="h-full flex flex-col p-6">
+              {/* Tiêu đề */}
+              <div className="shrink-0">
+                <h2 className="text-2xl font-black text-green-900 uppercase">
+                  Câu chuyện Hương Sơn
+                </h2>
+
+                <div className="w-16 h-1 bg-[#d6a84f] rounded-full mt-3"></div>
+              </div>
+
+              {/* Nội dung cuộn */}
+              <div className="flex-1 overflow-y-auto pr-3 mt-4 custom-scroll">
+                <p className="text-gray-700 leading-relaxed">
+                  Giữa miền sơn cước phía Tây Hà Tĩnh, Hương Sơn hiện lên với
+                  những dãy núi trùng điệp, dòng suối mát lành và những cánh
+                  đồng trải dài theo thung lũng.
+                </p>
+
+                <p className="text-gray-700 leading-relaxed mt-4">
+                  Thiên nhiên ưu đãi đã tạo nên một vùng đất giàu sản vật, nơi
+                  dê núi được chăn thả tự nhiên trên các triền đồi, cam bù chín
+                  vàng trong nắng và hươu sao mang đến nguồn nhung quý nổi tiếng
+                  khắp cả nước.
+                </p>
+
+                <p className="text-gray-700 leading-relaxed mt-4">
+                  Không chỉ là quê hương của những đặc sản trứ danh, Hương Sơn
+                  còn lưu giữ những giá trị văn hóa, lịch sử và tinh thần hiếu
+                  khách của người dân miền núi Hà Tĩnh.
+                </p>
+
+                <p className="text-gray-700 leading-relaxed mt-4">
+                  Chính từ nguồn cảm hứng ấy, Dê Hương Sơn ra đời như một cách
+                  kể lại câu chuyện quê hương bằng hương vị, để mỗi thực khách
+                  đều cảm nhận được nét đẹp của vùng đất này qua từng món ăn.
+                </p>
+              </div>
+
+              {/* Nút */}
+              <div className="pt-4 shrink-0">
+                <a
+                  href="https://baohatinh.vn/de-huong-son-ha-tinh-duoc-cap-giay-chung-nhan-dang-ky-nhan-hieu-post307752.html"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-green-900 text-white px-5 py-3 rounded-xl font-bold hover:bg-green-950 inline-flex items-center gap-2"
+                >
+                  Tìm hiểu thêm về Dê Hương Sơn
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SPECIALTY */}
+      <section className="max-w-7xl mx-auto px-5 pb-8">
+        <SectionTitle title="Đặc sản Hương Sơn" />
+
+        <div className="grid md:grid-cols-3 gap-5 mt-7">
+          {specialties.map((item) => (
+            <div
+              key={item.name}
+              className="bg-white border border-[#eadfcd] rounded-2xl shadow-sm overflow-hidden grid grid-cols-[45%_55%] h-[220px]"
+            >
+              <div className="h-full overflow-hidden bg-[#fbf7ec]">
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              <div className="p-5 flex flex-col h-full">
+                <h3 className="font-black text-green-900 uppercase text-[12px] md:text-[13px] leading-snug whitespace-nowrap">
+                  {item.name}
+                </h3>
+
+                <p className="text-sm text-gray-600 mt-3 leading-6 line-clamp-3">
+                  {item.text}
+                </p>
+
+                <a
+                  href={item.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className=" mt-auto inline-flex items-center gap-2 text-sm font-bold text-green-900 border border-green-900 px-4 py-2.5 rounded-lg hover:bg-green-900 hover:text-white w-fit transition"
+                >
+                  Tìm hiểu thêm <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* NEWS */}
+      <section className="max-w-7xl mx-auto px-5 pb-10">
+        <SectionTitle title="Báo chí nói về Hương Sơn" />
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-7">
+          {news.map((item) => (
+            <a
+              key={item.title}
+              href={item.link}
+              target="_blank"
+              rel="noreferrer"
+              className="bg-white border border-[#eadfcd] rounded-2xl p-4 shadow-sm transition-all duration-300 hover:bg-[#fffaf0] hover:border-[#d6a84f] hover:shadow-xl hover:-translate-y-2"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <img
+                  src={item.logo}
+                  alt={item.source}
+                  className="w-20 h-12 object-contain shrink-0"
+                />
+
+                <p className="text-sm text-[#b88935] font-black">
+                  {item.source}
+                </p>
+              </div>
+              <h3 className="font-black text-green-900 text-lg leading-snug min-h-[72px]">
+                {item.title}
+              </h3>
+              <p className="mt-auto pt-5 text-sm font-bold text-green-800 flex items-center gap-1">
+                Xem bài viết <ExternalLink className="w-3 h-3" />
+              </p>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      {/* PROCESS */}
+      <section className="relative max-w-7xl mx-auto px-5 pb-14 overflow-hidden">
+        <div className="text-center">
+          <div className="flex items-center justify-center gap-4 mb-2 text-[#c99a45]">
+            <span className="hidden sm:block w-10 h-px bg-[#d6a84f]"></span>
+
+            <p
+              className="text-3xl md:text-4xl tracking-[2px]"
+              style={{ fontFamily: "'Allura', cursive" }}
+            >
+              Hành trình đặc sản
+            </p>
+
+            <span className="hidden sm:block w-10 h-px bg-[#d6a84f]"></span>
+          </div>
+
+          <SectionTitle title="Từ núi rừng đến bàn ăn" />
+
+          <p className="mt-5 text-gray-600 max-w-xl mx-auto leading-7"></p>
+        </div>
+
+        <div className="relative mt-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 relative z-10">
+            {processSteps.map((item) => (
+              <Process
+                key={item.number}
+                number={item.number}
+                icon={item.icon}
+                title={item.title}
+                text={item.text}
+                image={item.image}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* SPACE */}
+      <section className="max-w-7xl mx-auto px-5 pb-10">
+        <SectionTitle title="Không gian nhà hàng" />
+
+        <div className="grid md:grid-cols-3 gap-4 mt-7">
+          <ImageCard
+            image={tangTret}
+            title="Khu vực tầng trệt"
+            text="Ấm cúng, phù hợp gia đình."
+          />
+          <ImageCard
+            image={tangHai}
+            title="Khu vực tầng 2"
+            text="Rộng rãi, thoáng mát."
+          />
+          <div className="grid gap-4">
+            <ImageCard
+              image={phongVip}
+              title="Phòng VIP"
+              text="Riêng tư, sang trọng."
+              small
+            />
+            <ImageCard
+              image={tiecSN}
+              title="Tiệc sinh nhật"
+              text="Trang trí theo yêu cầu."
+              small
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* VALUES + STATS */}
+      <section className="max-w-7xl mx-auto px-5 pb-10">
+        <div className="grid lg:grid-cols-2 gap-5">
+          <div className="bg-green-950 rounded-3xl p-6 md:p-8 text-white">
+            <h2 className="text-2xl font-black text-[#d6a84f] uppercase mb-6">
+              Giá trị cốt lõi
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+              {values.map((item) => (
+                <div key={item.title} className="text-center">
+                  <div className="w-12 h-12 mx-auto rounded-full border border-[#d6a84f] text-[#d6a84f] flex items-center justify-center">
+                    {item.icon}
+                  </div>
+                  <h3 className="font-black text-[#d6a84f] mt-3 text-sm">
+                    {item.title}
+                  </h3>
+                  <p className="text-xs text-white/70 mt-2">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-green-950 rounded-3xl p-6 md:p-8 text-white">
+            <h2 className="text-2xl font-black text-[#d6a84f] uppercase mb-6">
+              Những con số ấn tượng
+            </h2>
+            <div className="grid grid-cols-4 gap-4 text-center">
+              <Stat number="15+" label="Năm hoạt động" />
+              <Stat number="50+" label="Món ăn đặc sản" />
+              <Stat number="1000+" label="Khách hàng hài lòng" />
+              <Stat number="200+" label="Chỗ ngồi rộng rãi" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* REVIEWS */}
+      <section className="max-w-7xl mx-auto px-5 pb-10">
+        <SectionTitle title="Khách hàng nói về chúng tôi" />
+
+        <div className="grid md:grid-cols-3 gap-5 mt-7">
+          {reviews.map((item) => (
+            <div
+              key={item.name}
+              className="bg-white border border-[#eadfcd] rounded-2xl p-6 shadow-sm"
+            >
+              <Quote className="w-9 h-9 text-[#d6a84f]/40" />
+              <div className="text-[#d6a84f] mt-2">★★★★★</div>
+              <p className="text-gray-600 text-sm leading-relaxed mt-3">
+                {item.text}
+              </p>
+              <div className="mt-5">
+                <h3 className="font-black text-green-900">{item.name}</h3>
+                <p className="text-xs text-gray-500">{item.address}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="max-w-7xl mx-auto px-5 pb-12">
+        <div
+          className="
+      relative overflow-hidden rounded-[32px]
+      bg-cover bg-center
+      border border-[#d6a84f]/40
+      shadow-xl
+    "
+          style={{
+            backgroundImage: `
+        linear-gradient(to right, rgba(0,45,24,.92), rgba(0,65,34,.78), rgba(0,45,24,.45)),
+        url(${hero3})
+      `,
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-green-950/75 via-green-950/45 to-transparent" />
+
+          <div className="relative z-10 px-6 md:px-10 py-8 md:py-10 flex flex-col lg:flex-row gap-7 items-center justify-between">
+            <div className="text-center lg:text-left">
+              <p className="text-[#d6a84f] font-black uppercase tracking-wide">
+                Sẵn sàng trải nghiệm
+              </p>
+
+              <h2 className="text-2xl md:text-4xl font-black text-[#d6a84f] uppercase mt-2 leading-tight">
+                Hương vị dê núi Hương Sơn?
+              </h2>
+
+              <p className="text-white/85 mt-3 max-w-2xl leading-7">
+                Đặt bàn ngay hôm nay để thưởng thức món đặc sản trong không gian
+                ấm cúng và sang trọng.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <button
+                onClick={() => navigate("/reservation")}
+                className="bg-[#d6a84f] text-green-950 px-7 py-3.5 rounded-2xl font-black hover:bg-[#c99a45] hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 shadow-lg"
+              >
+                <CalendarDays className="w-5 h-5" />
+                Đặt bàn ngay
+              </button>
+
+              <a
+                href="tel:0387136878"
+                className="bg-green-950/70 text-white px-7 py-3.5 rounded-2xl font-black border border-[#d6a84f]hover:bg-green-900 hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 shadow-lg"
+              >
+                <Phone className="w-5 h-5" />
+                038 713 6878
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="bg-green-900 text-white">
+        <div className="max-w-7xl mx-auto px-4 md:px-5 py-7 md:py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-8">
+          <div>
+            <Link to="/home" className="flex items-center gap-2 mb-3">
+              <img
+                src={goatIcon}
+                alt="Dê Hương Sơn"
+                className="w-10 h-10 object-contain brightness-0 invert"
+              />
+              <div>
+                <h3 className="text-xl font-bold leading-5">Dê Hương Sơn</h3>
+                <p className="text-sm text-white/70">Hà Tĩnh</p>
+              </div>
+            </Link>
+
+            <p className="text-white/75 text-sm leading-relaxed mb-2 md:mb-5 max-w-xs">
+              Dê núi Hương Sơn – đậm đà bản sắc, tươi ngon, bổ dưỡng.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="font-bold text-lg mb-5">Thông tin liên hệ</h3>
+
+            <div className="space-y-4 text-sm text-white/80">
+              <div className="flex items-start gap-3">
+                <MapPin className="w-5 h-5 text-[#d6a84f] shrink-0 mt-0.5" />
+
+                <a
+                  href="https://maps.app.goo.gl/wSkET5ThBjNm9f29A"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-white transition"
+                >
+                  Đ. Vũ Lăng
+                  <br />
+                  Thanh Trì, Hà Nội
+                </a>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Phone className="w-5 h-5 text-[#d6a84f]" />
+                <a href="tel:0387136878" className="hover:text-white">
+                  038 713 6878
+                </a>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Mail className="w-5 h-5 text-[#d6a84f]" />
+                <a
+                  href="mailto:dehuongson.ht@gmail.com"
+                  className="hover:text-white break-all"
+                >
+                  dehuongson.ht@gmail.com
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-bold text-lg mb-5">Giờ mở cửa</h3>
+
+            <div className="space-y-4 text-sm text-white/80">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-[#d6a84f]" />
+                <span>08:00 - 22:00</span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <CalendarDays className="w-5 h-5 text-[#d6a84f]" />
+                <span>Tất cả các ngày trong tuần</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <h3 className="font-bold text-lg mb-5">Kết nối với chúng tôi</h3>
+
+            <div className="flex gap-4 items-center justify-center">
+              <a
+                href={FACEBOOK_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
+              >
+                <img
+                  src="https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg"
+                  alt="Facebook"
+                  className="w-5 h-5"
+                />
+              </a>
+
+              <a
+                href="tel:0387136878"
+                className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
+              >
+                <Phone className="w-5 h-5" />
+              </a>
+            </div>
+          </div>
+
+          <a
+            href="https://maps.app.goo.gl/wSkET5ThBjNm9f29A"
+            target="_blank"
+            rel="noreferrer"
+            className="block overflow-hidden rounded-2xl border border-white/10 h-40 group"
+          >
+            <iframe
+              title="Bản đồ Dê Hương Sơn"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3939.8604880385988!2d105.84806467548728!3d20.937626480689012!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3135ad9f6221f4b3%3A0x23e41af49c85fe1a!2zTmjDoCBow6BuZyBC4bqjbyBMb25nIC0gRMOqIE7DumkgSMawxqFuZyBTxqFu!5e1!3m2!1svi!2s!4v1781164163918!5m2!1svi!2s"
+              className="w-full h-full border-0 pointer-events-none"
+              loading="lazy"
+            />
+          </a>
+        </div>
+
+        <div className="border-t border-white/15 text-center py-3 text-xs md:text-sm text-white/60">
+          © 2026 Dê Hương Sơn Hà Tĩnh. All rights reserved.
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function SectionTitle({ title }) {
+  return (
+    <div className="text-center">
+      <h2
+        className="text-2xl md:text-[34px] text-green-800 uppercase tracking-wide"
+        style={{
+          fontFamily: "'Playfair Display', serif",
+          fontWeight: 800,
+        }}
+      >
+        {title}
+      </h2>
+
+      <div className="flex items-center justify-center gap-4 mt-3">
+        <div className="w-24 h-px bg-[#d6a84f]" />
+
+        <img
+          src={goatIcon}
+          alt="Dê Hương Sơn"
+          className="w-8 h-8 object-contain opacity-90"
+        />
+
+        <div className="w-24 h-px bg-[#d6a84f]" />
+      </div>
+    </div>
+  );
+}
+
+function Process({ number, icon, title, text, image }) {
+  return (
+    <div className="group text-center">
+      <div className="relative">
+        {/* KHUNG ẢNH UỐN LƯỢN */}
+        <div className=" h-[250px] overflow-hidden bg-white shadow-md border border-[#eadfcd] transition-all duration-300 group-hover:-translate-y-2 group-hover:shadow-2xl rounded-tl-[34px] rounded-tr-[34px] rounded-bl-[34px] rounded-br-[80px]">
+          <img
+            src={image}
+            alt={title}
+            className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
+          />
+        </div>
+
+        {/* SỐ + ICON */}
+        <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 flex items-center gap-3">
+          <span className="w-11 h-11 rounded-full bg-green-900 text-[#d8b46a] font-black flex items-center justify-center shadow-lg border-2 border-[#fbf7ec]">
+            {number}
+          </span>
+        </div>
+      </div>
+
+      <div className="pt-12">
+        <h3 className="font-black text-green-900 uppercase text-sm leading-snug whitespace-nowrap">
+          {title}
+        </h3>
+
+        <div className="w-10 h-px bg-[#d8b46a] mx-auto my-3"></div>
+
+        <p className="text-sm text-gray-600 leading-6 max-w-[230px] mx-auto">
+          {text}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ImageCard({ image, title, text, small = false }) {
+  return (
+    <div
+      className={`group relative overflow-hidden rounded-[32px]
+      shadow-lg transition-all duration-500
+      hover:-translate-y-2 hover:shadow-2xl
+      ${small ? "h-[180px]" : "h-[380px]"}`}
+    >
+      <img
+        src={image}
+        alt={title}
+        className="w-full h-full object-cover transition duration-700 group-hover:scale-110"
+      />
+
+      <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
+
+      <div className="absolute bottom-5 left-5 text-white">
+        <h3 className="font-black text-xl">{title}</h3>
+        <p className="text-sm text-white/90">{text}</p>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ number, label }) {
+  return (
+    <div>
+      <p className="text-3xl md:text-4xl font-black text-[#d6a84f]">{number}</p>
+      <p className="text-xs md:text-sm text-white/80 uppercase font-bold mt-2">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function FooterBlock({ title, children }) {
+  return (
+    <div className="text-white/75 text-sm space-y-2 flex flex-col">
+      <h3 className="font-bold text-lg text-white mb-2">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+export default AboutPage;
