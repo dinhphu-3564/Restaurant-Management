@@ -1,10 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+
+import LoginRequiredModal from "../components/LoginRequiredModal";
+
 import goatIcon from "../assets/images/Icon_De.png";
 import hero1 from "../assets/images/Home/hero-1.png";
 import hero2 from "../assets/images/Home/hero-2.png";
 import hero3 from "../assets/images/Home/hero-3.png";
 import hero4 from "../assets/images/Home/hero-4.png";
+import homeSpace from "../assets/images/Home/home-space.png";
+
 import deNuongTang from "../assets/images/menu/de-nuong-tang.jpg";
 import lauDe from "../assets/images/menu/lau-de.jpg";
 import deXaoLan from "../assets/images/menu/de-xao-lan.jpg";
@@ -14,62 +19,89 @@ import comboCardImg from "../assets/images/Deals/combo-card.png";
 import onlineCardImg from "../assets/images/Deals/online-card.png";
 
 import tangTret from "../assets/images/About/tang-tret.png";
-import tangHai from "../assets/images/About/tang-hai.png";
-import phongVip from "../assets/images/About/phong-vip.png";
+import tangTret1 from "../assets/images/About/tang-tret-1.png";
+import tangTret2 from "../assets/images/About/tang-tret-2.png";
+import tangTret3 from "../assets/images/About/tang-tret-3.png";
+import tangTret4 from "../assets/images/About/tang-tret-4.png";
+import tangTret5 from "../assets/images/About/tang-tret-5.png";
 
-const FACEBOOK_URL = "https://www.facebook.com/profile.php?id=100088682802201";
-const MAP_URL = "https://maps.app.goo.gl/wSkET5ThBjNm9f29A";
+import tangHai from "../assets/images/About/tang-hai.png";
+import tangHai1 from "../assets/images/About/tang-hai-1.png";
+import tangHai2 from "../assets/images/About/tang-hai-2.png";
+import tangHai3 from "../assets/images/About/tang-hai-3.png";
+import tangHai4 from "../assets/images/About/tang-hai-4.png";
+import tangHai5 from "../assets/images/About/tang-hai-5.png";
+
+import phongVip from "../assets/images/About/phong-vip.png";
+import phongVip1 from "../assets/images/About/phong-vip-1.png";
+import phongVip2 from "../assets/images/About/phong-vip-2.png";
+import phongVip3 from "../assets/images/About/phong-vip-3.png";
+import phongVip4 from "../assets/images/About/phong-vip-4.png";
+import phongVip5 from "../assets/images/About/phong-vip-5.png";
+
 import {
   Leaf,
   ShoppingCart,
-  ShieldCheck,
   CalendarDays,
   ChefHat,
   Heart,
-  Star,
-  MapPin,
   Phone,
-  Mail,
   Clock,
   Mountain,
   CookingPot,
+  X,
   Users,
   Award,
   Truck,
-  PlayCircle,
-  Menu,
-  X,
-  User,
-  UserRound,
-  ClipboardList,
-  CalendarCheck,
-  LogOut,
 } from "lucide-react";
+
+const SPACE_TABS = [
+  {
+    key: "ground",
+    label: "Tầng trệt",
+    images: [tangTret, tangTret1, tangTret2, tangTret3, tangTret4, tangTret5],
+  },
+  {
+    key: "floor2",
+    label: "Tầng 2",
+    images: [tangHai, tangHai1, tangHai2, tangHai3, tangHai4, tangHai5],
+  },
+  {
+    key: "vip",
+    label: "Phòng VIP",
+    images: [phongVip, phongVip1, phongVip2, phongVip3, phongVip4, phongVip5],
+  },
+];
 
 function Home() {
   const navigate = useNavigate();
   const heroImages = [hero1, hero2, hero3, hero4];
 
   const [currentHero, setCurrentHero] = useState(0);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const location = useLocation();
   const [showLoginToast, setShowLoginToast] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false); //state mở menu profile
+
   const [toast, setToast] = useState(null);
-  const [flyItem, setFlyItem] = useState(null);
+
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSpaceModal, setShowSpaceModal] = useState(false);
+
+  const [activeSpaceTab, setActiveSpaceTab] = useState("ground");
+  const [previewImage, setPreviewImage] = useState(null);
+  const [previewIndex, setPreviewIndex] = useState(0);
+
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("cartItems");
     return savedCart ? JSON.parse(savedCart) : [];
   });
-  const totalCartQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
+
   const parsePrice = (price) => {
     return Number(price.replace(/[^\d]/g, ""));
   };
 
-  const addToCart = (dish, event) => {
+  const addToCart = (dish) => {
     if (!isLoggedIn) {
       setShowLoginModal(true);
       return;
@@ -82,16 +114,6 @@ function Home() {
       qty: 1,
       image: dish.image,
       tag: dish.tag || "",
-    };
-    // Hàm hiển thị toast thông báo với tự động ẩn sau 4 giây
-    const showToast = (dishName) => {
-      setToast({
-        dishName,
-      });
-
-      setTimeout(() => {
-        setToast(null);
-      }, 4000);
     };
 
     const existed = cartItems.find((item) => item.id === cartDish.id);
@@ -106,48 +128,29 @@ function Home() {
     localStorage.setItem("cartItems", JSON.stringify(newCart));
     window.dispatchEvent(new Event("cartUpdated"));
 
-    const imageRect = event.currentTarget
-      .closest(".dish-card")
-      ?.querySelector("img")
-      ?.getBoundingClientRect();
-
-    const cartRect = cartIconRef.current?.getBoundingClientRect();
-
-    if (imageRect && cartRect) {
-      setFlyItem({
-        image: dish.image,
-        startX: imageRect.left + imageRect.width / 2,
-        startY: imageRect.top + imageRect.height / 2,
-        endX: cartRect.left + cartRect.width / 2,
-        endY: cartRect.top + cartRect.height / 2,
-      });
-
-      setTimeout(() => setFlyItem(null), 900);
-    }
-
     setToast({ dishName: dish.name });
 
     setTimeout(() => {
       setToast(null);
     }, 4000);
   };
-  const profileMenuRef = useRef(null);
-  const cartIconRef = useRef(null);
 
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
+  const [dishSlide, setDishSlide] = useState(0);
 
   useEffect(() => {
-    const loginStatus = localStorage.getItem("isLoggedIn");
-
-    if (loginStatus === "true") {
-      setIsLoggedIn(true);
+    if (location.state?.openSpace) {
+      setActiveSpaceTab(location.state.openSpace);
+      setShowSpaceModal(true);
     }
-  }, []);
+  }, [location.state]);
+
+  useEffect(() => {
+    const loginStatus =
+      localStorage.getItem("isLoggedIn") === "true" ||
+      sessionStorage.getItem("isLoggedIn") === "true";
+
+    setIsLoggedIn(loginStatus);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (location.state?.loginSuccess) {
@@ -167,22 +170,6 @@ function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  //  Nhấn vào bất kỳ đâu ngoài menu profile sẽ đóng menu lại
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        profileMenuRef.current &&
-        !profileMenuRef.current.contains(event.target)
-      ) {
-        setIsProfileOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
   useEffect(() => {
     const updateCartQty = () => {
       const savedCart = localStorage.getItem("cartItems");
@@ -198,18 +185,47 @@ function Home() {
     };
   }, []);
 
+  const activeSpace =
+    SPACE_TABS.find((item) => item.key === activeSpaceTab) || SPACE_TABS[0];
+
   useEffect(() => {
-    const handleEsc = (e) => {
+    const handleKeyDown = (e) => {
       if (e.key === "Escape") {
-        setShowSpaceModal(false);
+        if (previewImage) {
+          setPreviewImage(null);
+          return;
+        }
+
+        if (showSpaceModal) {
+          setShowSpaceModal(false);
+        }
+      }
+
+      if (!previewImage) return;
+
+      if (e.key === "ArrowLeft") {
+        const newIndex =
+          previewIndex === 0 ? activeSpace.images.length - 1 : previewIndex - 1;
+
+        setPreviewIndex(newIndex);
+        setPreviewImage(activeSpace.images[newIndex]);
+      }
+
+      if (e.key === "ArrowRight") {
+        const newIndex =
+          previewIndex === activeSpace.images.length - 1 ? 0 : previewIndex + 1;
+
+        setPreviewIndex(newIndex);
+        setPreviewImage(activeSpace.images[newIndex]);
       }
     };
 
-    window.addEventListener("keydown", handleEsc);
+    window.addEventListener("keydown", handleKeyDown);
 
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, []);
-
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [previewImage, previewIndex, activeSpace, showSpaceModal]);
   const dishes = [
     {
       id: 101,
@@ -241,7 +257,44 @@ function Home() {
       price: "289.000đ",
       image: deXaoLan,
     },
+    {
+      id: 105,
+      name: "Sườn dê nướng",
+      description: "Sườn dê ướp gia vị đặc biệt, nướng thơm trên than hoa.",
+      price: "269.000đ",
+      image: deNuongTang,
+    },
+    {
+      id: 106,
+      name: "Dê tái chanh",
+      description: "Thịt dê tái chanh chua nhẹ, ăn kèm rau thơm.",
+      price: "229.000đ",
+      image: deHapTiaTo,
+    },
+    {
+      id: 107,
+      name: "Dê xào lăn",
+      description: "Thịt dê xào lăn béo thơm, đậm vị.",
+      price: "289.000đ",
+      image: deXaoLan,
+    },
+    {
+      id: 108,
+      name: "Lẩu dê thuốc bắc",
+      description: "Lẩu dê hầm cùng thuốc bắc, bổ dưỡng.",
+      price: "429.000đ",
+      image: lauDe,
+    },
   ];
+
+  //danh sách món
+  const dishesPerSlide = 4;
+  const totalDishSlides = Math.ceil(dishes.length / dishesPerSlide);
+
+  const visibleDishes = dishes.slice(
+    dishSlide * dishesPerSlide,
+    dishSlide * dishesPerSlide + dishesPerSlide,
+  );
 
   // khuyến mãi
   const promos = [
@@ -317,6 +370,7 @@ function Home() {
           Đăng nhập thành công!
         </div>
       )}
+
       {/* // Toast thông báo thêm món vào giỏ hàng */}
       {toast && (
         <div className="fixed top-20 right-5 z-[9999]">
@@ -341,246 +395,6 @@ function Home() {
         </div>
       )}
 
-      {flyItem && (
-        <img
-          src={flyItem.image}
-          alt=""
-          className="fixed z-[9999] w-14 h-14 rounded-full object-cover pointer-events-none shadow-2xl animate-fly-to-cart"
-          style={{
-            left: flyItem.startX,
-            top: flyItem.startY,
-            "--end-x": `${flyItem.endX - flyItem.startX}px`,
-            "--end-y": `${flyItem.endY - flyItem.startY}px`,
-          }}
-        />
-      )}
-
-      {/* HEADER */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur shadow-sm">
-        <div className="max-w-7xl mx-auto h-16 px-5 flex items-center justify-between">
-          <Link
-            to="/home"
-            onClick={scrollToTop}
-            className="flex items-center gap-2"
-          >
-            <img
-              src={goatIcon}
-              alt="Dê Hương Sơn"
-              className="w-10 h-10 object-contain"
-            />
-            <div>
-              <h1 className="font-bold text-green-800 leading-4">
-                Dê Hương Sơn
-              </h1>
-              <p className="text-xs text-green-700 font-medium">HÀ TĨNH</p>
-            </div>
-          </Link>
-
-          <nav className="hidden lg:flex gap-8 text-sm font-semibold">
-            <a
-              className="text-green-800 border-b-2 border-green-800 pb-2"
-              href="#"
-            >
-              Trang chủ
-            </a>
-            <Link to="/menu">Thực đơn</Link>
-            <Link to="/reservation">Đặt bàn</Link>
-            <Link to="/deals">Khuyến mãi</Link>
-            <Link to="/about">Giới thiệu</Link>
-            <Link to="/contact">Liên hệ</Link>
-          </nav>
-
-          <div className="hidden md:flex gap-3">
-            {isLoggedIn ? (
-              <div className="relative flex items-center gap-3">
-                <Link
-                  ref={cartIconRef}
-                  to="/cart"
-                  className="relative text-green-900"
-                >
-                  <ShoppingCart className="w-5 h-5" />
-
-                  {totalCartQty > 0 && (
-                    <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
-                      {totalCartQty}
-                    </span>
-                  )}
-                </Link>
-
-                <button
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className="w-11 h-11 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
-                >
-                  <User className="w-6 h-6" />
-                </button>
-                {/* menu profile */}
-                {isProfileOpen && (
-                  <div className="absolute right-0 top-14 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[999]">
-                    <Link
-                      to="/profile"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <UserRound className="w-6 h-6" />
-                      Thông tin tài khoản
-                    </Link>
-
-                    <Link
-                      to="/order-history"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <ClipboardList className="w-6 h-6" />
-                      Lịch sử đơn hàng
-                    </Link>
-
-                    <Link
-                      to="/my-booking"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <CalendarCheck className="w-6 h-6" />
-                      Đặt bàn của tôi
-                    </Link>
-
-                    <button
-                      onClick={() => {
-                        localStorage.removeItem("isLoggedIn");
-                        setIsLoggedIn(false);
-                        setIsProfileOpen(false);
-                        setIsMenuOpen(false);
-                        navigate("/home");
-                      }}
-                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50 text-red-600 font-medium border-t"
-                    >
-                      <LogOut className="w-6 h-6" />
-                      Đăng xuất
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
-                >
-                  Đăng nhập
-                </Link>
-
-                <Link
-                  to="/register"
-                  className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
-                >
-                  Đăng ký
-                </Link>
-              </>
-            )}
-          </div>
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="lg:hidden w-10 h-10 rounded-lg border border-green-800 text-green-800 flex items-center justify-center"
-          >
-            {isMenuOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
-          </button>
-        </div>
-        {isMenuOpen && (
-          <div className="lg:hidden bg-white border-t border-gray-100 shadow-md">
-            <nav className="px-5 py-4 flex flex-col gap-4 text-sm font-semibold text-green-950">
-              <Link to="/home">Trang chủ</Link>
-              <Link to="/menu">Thực đơn</Link>
-              <Link to="/reservation">Đặt bàn</Link>
-              <Link to="/deals">Khuyến mãi</Link>
-              <Link to="/about">Giới thiệu</Link>
-              <Link to="/contact">Liên hệ</Link>
-
-              <div className="flex gap-3 pt-3 border-t border-gray-100">
-                {isLoggedIn ? (
-                  <div ref={profileMenuRef} className="w-full">
-                    <div className="flex items-center gap-4">
-                      <Link to="/cart" className="relative text-green-900">
-                        <ShoppingCart className="w-5 h-5" />
-
-                        {totalCartQty > 0 && (
-                          <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
-                            {totalCartQty}
-                          </span>
-                        )}
-                      </Link>
-
-                      <button
-                        onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className="w-12 h-12 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
-                      >
-                        <User className="w-7 h-7" />
-                      </button>
-                    </div>
-
-                    {isProfileOpen && (
-                      <div className="w-full mt-3 bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-md">
-                        <Link
-                          to="/profile"
-                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition"
-                        >
-                          <UserRound className="w-5 h-5" />
-                          Thông tin tài khoản
-                        </Link>
-
-                        <Link
-                          to="/order-history"
-                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium border-t"
-                        >
-                          <ClipboardList className="w-5 h-5" />
-                          Lịch sử đơn hàng
-                        </Link>
-
-                        <Link
-                          to="/my-booking"
-                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium border-t"
-                        >
-                          <CalendarCheck className="w-5 h-5" />
-                          Đặt bàn của tôi
-                        </Link>
-
-                        <button
-                          onClick={() => {
-                            localStorage.removeItem("isLoggedIn");
-                            setIsLoggedIn(false);
-                            setIsProfileOpen(false);
-                            setIsMenuOpen(false);
-                            navigate("/home");
-                          }}
-                          className="w-full flex items-center gap-4 px-4 py-3 text-red-600 font-medium border-t"
-                        >
-                          <LogOut className="w-5 h-5" />
-                          Đăng xuất
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <Link
-                      to="/login"
-                      className="flex-1 border border-green-800 text-green-800 px-4 py-2 rounded-lg font-semibold text-center"
-                    >
-                      Đăng nhập
-                    </Link>
-
-                    <Link
-                      to="/register"
-                      className="flex-1 bg-green-800 text-white px-4 py-2 rounded-lg font-semibold text-center"
-                    >
-                      Đăng ký
-                    </Link>
-                  </>
-                )}
-              </div>
-            </nav>
-          </div>
-        )}
-      </header>
       {/* HERO */}
       <section className="relative h-screen overflow-hidden">
         {/* BACKGROUND SLIDER */}
@@ -601,19 +415,7 @@ function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#fbf7ec]/35"></div>
 
         {/* LỚP MỜ NHẸ Ở NỬA BÊN TRÁI */}
-        <div
-          className="
-    absolute
-    left-[4%]
-    top-[48%]
-    -translate-y-1/2
-    w-[48%]
-    h-[78%]
-    rounded-full
-    bg-white/75
-    blur-3xl
-  "
-        ></div>
+        <div className="absolute left-[4%] top-[48%] -translate-y-1/2 w-[48%] h-[78%] rounded-full bg-white/75 blur-3xl"></div>
         <div className="relative max-w-7xl mx-auto px-5 pt-36 md:pt-48 pb-24 md:pb-36">
           <div className="w-full lg:w-1/2 flex justify-center">
             <div className="text-center max-w-2xl">
@@ -659,7 +461,7 @@ function Home() {
                 <div className="booking-wrapper">
                   <button
                     onClick={() => navigate("/reservation")}
-                    className=" bg-[#c99a45] hover:bg-[#b88935] text-white px-5 md:px-7 py-2.5 md: py-3 rounded-full font-bold text-sm md:text-base border-2 border-white shadow-lg transition-all duration-300"
+                    className=" bg-[#c99a45] hover:bg-[#b88935] text-white px-5 md:px-7 py-2.5 md:py-3 rounded-full font-bold text-sm md:text-base border-2 border-white shadow-lg transition-all duration-300"
                   >
                     <CalendarDays className="w-4 h-4 inline mr-2" />
                     Đặt bàn ngay
@@ -670,6 +472,7 @@ function Home() {
           </div>
         </div>
       </section>
+
       {/* FEATURES */}
       <section className="max-w-6xl mx-auto px-5 -mt-16 md:-mt-24 relative z-10">
         <div className="bg-white rounded-3xl shadow-xl grid grid-cols-2 lg:grid-cols-4 overflow-hidden">
@@ -703,31 +506,63 @@ function Home() {
       </section>
       {/* DISHES */}
       <section className="max-w-7xl mx-auto px-5 py-16">
-        <div className="flex items-end justify-between mb-7">
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8">
           <div>
-            <h2 className="text-xl md:text-3xl font-black uppercase">
+            <p
+              className="text-3xl md:text-4xl text-[#c99a45] leading-none mb-1"
+              style={{ fontFamily: "'Great Vibes', cursive" }}
+            >
+              Món ngon
+            </p>
+
+            <h2 className="text-2xl md:text-4xl font-black uppercase text-green-700">
               Món ngon nổi bật
             </h2>
-            <p className="text-xs md:text-base text-gray-600 mt-1">
+
+            <p className="text-sm md:text-base text-gray-600 mt-2">
               Những món ăn được yêu thích nhất tại Dê Hương Sơn
             </p>
           </div>
 
-          <Link
-            to="/menu"
-            className="hidden md:block text-green-800 text-sm font-bold hover:text-green-900"
-          >
-            Xem tất cả thực đơn →
-          </Link>
+          <div className="flex items-center justify-end gap-2">
+            <div className="hidden md:flex items-center gap-2">
+              <button
+                onClick={() =>
+                  setDishSlide((prev) =>
+                    prev === 0 ? totalDishSlides - 1 : prev - 1,
+                  )
+                }
+                className="w-11 h-11 rounded-full border border-green-800 text-green-800 flex items-center justify-center text-2xl hover:bg-green-800 hover:text-white transition"
+              >
+                ‹
+              </button>
+
+              <button
+                onClick={() =>
+                  setDishSlide((prev) =>
+                    prev === totalDishSlides - 1 ? 0 : prev + 1,
+                  )
+                }
+                className="w-11 h-11 rounded-full border border-green-800 text-green-800 flex items-center justify-center text-2xl hover:bg-green-800 hover:text-white transition"
+              >
+                ›
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-          {dishes.map((dish) => (
+        {/* LIST */}
+        <div
+          key={dishSlide}
+          className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 animate-[fadeIn_.35s_ease-out]"
+        >
+          {visibleDishes.map((dish) => (
             <div
-              key={dish.name}
-              className="dish-card bg-white rounded-2xl shadow-md overflow-hidden hover:-translate-y-1 transition"
+              key={dish.id}
+              className="dish-card bg-white rounded-2xl shadow-md overflow-hidden hover:-translate-y-1 hover:shadow-xl transition duration-300"
             >
-              <div className="relative h-28 md:h-44 overflow-hidden">
+              <div className="relative h-32 md:h-48 overflow-hidden">
                 {dish.tag && (
                   <span className="absolute top-3 left-3 z-10 bg-green-800 text-white text-xs px-3 py-1 rounded-full uppercase">
                     {dish.tag}
@@ -742,16 +577,17 @@ function Home() {
               </div>
 
               <div className="p-3 md:p-4">
-                <h3 className="font-bold mb-1 text-sm md:text-base">
+                <h3 className="font-black text-green-950 mb-1 text-sm md:text-lg line-clamp-1">
                   {dish.name}
                 </h3>
-                <p className="text-green-800 font-bold mb-3 md:mb-4 text-sm md:text-base">
+
+                <p className="text-green-800 font-black mb-3 md:mb-5 text-base md:text-xl">
                   {dish.price}
                 </p>
 
                 <button
-                  onClick={(e) => addToCart(dish, e)}
-                  className="w-full border border-green-800 text-green-800 rounded-lg py-2 text-sm font-semibold hover:bg-green-800 hover:text-white transition"
+                  onClick={() => addToCart(dish)}
+                  className="w-full border border-green-800 text-green-800 rounded-xl py-2.5 text-sm md:text-base font-black hover:bg-green-800 hover:text-white transition"
                 >
                   <ShoppingCart className="w-4 h-4 inline mr-2" />
                   Đặt món
@@ -761,17 +597,63 @@ function Home() {
           ))}
         </div>
 
-        <div className="flex justify-center gap-2 mt-6">
-          <span className="w-2 h-2 rounded-full bg-green-800"></span>
-          <span className="w-2 h-2 rounded-full bg-gray-300"></span>
-          <span className="w-2 h-2 rounded-full bg-gray-300"></span>
+        {/* MOBILE ARROWS */}
+        <div className="md:hidden flex justify-center gap-3 mt-6">
+          <button
+            onClick={() =>
+              setDishSlide((prev) =>
+                prev === 0 ? totalDishSlides - 1 : prev - 1,
+              )
+            }
+            className="w-10 h-10 rounded-full border border-green-800 text-green-800 flex items-center justify-center text-2xl"
+          >
+            ‹
+          </button>
+
+          <button
+            onClick={() =>
+              setDishSlide((prev) =>
+                prev === totalDishSlides - 1 ? 0 : prev + 1,
+              )
+            }
+            className="w-10 h-10 rounded-full border border-green-800 text-green-800 flex items-center justify-center text-2xl"
+          >
+            ›
+          </button>
+        </div>
+
+        {/* DOTS */}
+        <div className="flex justify-center gap-2 mt-5">
+          {Array.from({ length: totalDishSlides }).map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setDishSlide(index)}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                dishSlide === index
+                  ? "w-8 bg-green-800"
+                  : "w-2 bg-gray-300 hover:bg-green-300"
+              }`}
+            />
+          ))}
+        </div>
+        <div className="flex justify-end mt-6">
+          <Link
+            to="/menu"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-green-800 text-green-800 font-bold hover:bg-green-800 hover:text-white transition"
+          >
+            Xem tất cả thực đơn →
+          </Link>
         </div>
       </section>
       {/* ABOUT */}
       <section className="max-w-7xl mx-auto px-4 md:px-5 pb-10">
         <div className="grid lg:grid-cols-2 gap-8 items-stretch">
-          <div className="min-h-[420px] bg-amber-100 rounded-3xl flex items-center justify-center text-green-800 font-bold shadow-md">
-            Khu vực ảnh nhà hàng / đầu bếp
+          <div className="min-h-[420px] rounded-3xl overflow-hidden shadow-md">
+            <img
+              src={homeSpace}
+              alt="Không gian nhà hàng Dê Hương Sơn"
+              className="w-full h-full object-cover"
+            />
           </div>
 
           <div className="bg-[#fffaf0] rounded-3xl p-8 md:p-10 shadow-md">
@@ -809,9 +691,15 @@ function Home() {
             </div>
 
             <div className="text-center mt-8">
-              <button className="bg-green-800 text-white px-7 py-3 rounded-full font-semibold hover:bg-green-900">
-                Tìm hiểu thêm về chúng tôi →
-              </button>
+              <Link
+                to="/about"
+                className="group inline-flex items-center justify-center bg-green-800 text-white px-5.5 py-2.5 rounded-full font-bold text-base transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+              >
+                Tìm hiểu thêm về chúng tôi
+                <span className="ml-2 transition-transform duration-300 group-hover:translate-x-2">
+                  →
+                </span>
+              </Link>
             </div>
           </div>
         </div>
@@ -819,7 +707,7 @@ function Home() {
       {/* WHY */}
       <section className="max-w-7xl mx-auto px-5 pb-12">
         <div className="bg-white rounded-3xl shadow-md p-5 md:p-8">
-          <h2 className="text-lg md:text-2xl font-black text-center uppercase mb-5 md:mb-8">
+          <h2 className="text-lg md:text-2xl font-black text-center uppercase mb-5 md:mb-8 text-green-700">
             Vì sao chọn chúng tôi?
           </h2>
 
@@ -862,17 +750,22 @@ function Home() {
               />
             ))}
 
-            <Link
-              to="/deals"
-              className="mt-4 inline-block bg-white text-green-900 px-5 py-2 rounded-full font-black"
-            >
-              Xem tất cả khuyến mãi →
-            </Link>
+            <div className="flex justify-center">
+              <Link
+                to="/deals"
+                className="group inline-flex items-center justify-center bg-white text-green-800 px-4.5 py-2 rounded-full font-bold text-base transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl"
+              >
+                Xem tất cả khuyến mãi
+                <span className="ml-2 transition-transform duration-300 group-hover:translate-x-2">
+                  →
+                </span>
+              </Link>
+            </div>
           </div>
 
           <div className="bg-white rounded-3xl p-6 shadow-md">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-black uppercase text-green-950">
+              <h2 className="text-xl font-black uppercase text-green-700">
                 Không gian nhà hàng
               </h2>
 
@@ -888,7 +781,10 @@ function Home() {
 
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => navigate("/about")}
+                onClick={() => {
+                  setActiveSpaceTab("ground");
+                  setShowSpaceModal(true);
+                }}
                 className="relative h-40 rounded-2xl overflow-hidden col-span-2 group"
               >
                 <img
@@ -903,7 +799,10 @@ function Home() {
               </button>
 
               <button
-                onClick={() => navigate("/about")}
+                onClick={() => {
+                  setActiveSpaceTab("floor2");
+                  setShowSpaceModal(true);
+                }}
                 className="relative h-28 rounded-2xl overflow-hidden group"
               >
                 <img
@@ -918,7 +817,10 @@ function Home() {
               </button>
 
               <button
-                onClick={() => navigate("/about")}
+                onClick={() => {
+                  setActiveSpaceTab("vip");
+                  setShowSpaceModal(true);
+                }}
                 className="relative h-28 rounded-2xl overflow-hidden group"
               >
                 <img
@@ -934,7 +836,10 @@ function Home() {
             </div>
 
             <button
-              onClick={() => setShowSpaceModal(true)}
+              onClick={() => {
+                setActiveSpaceTab("ground");
+                setShowSpaceModal(true);
+              }}
               className="mt-5 w-full border border-green-800 text-green-800 py-2 rounded-lg font-semibold hover:bg-green-800 hover:text-white transition"
             >
               Xem thêm hình ảnh
@@ -942,7 +847,7 @@ function Home() {
           </div>
 
           <div className="bg-[#fffaf0] rounded-3xl p-6 shadow-md">
-            <h2 className="text-lg md:text-xl font-black uppercase mb-4 md:mb-5">
+            <h2 className="text-lg md:text-xl font-black uppercase mb-4 md:mb-5 text-green-700">
               Khách hàng nói về chúng tôi
             </h2>
 
@@ -986,133 +891,15 @@ function Home() {
           />
         </div>
       </section>
-      {/* FOOTER */}
-      <footer className="bg-green-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-5 py-7 md:py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-8">
-          <div>
-            <Link to="/home" className="flex items-center gap-2 mb-3">
-              <img
-                src={goatIcon}
-                alt="Dê Hương Sơn"
-                className="w-10 h-10 object-contain brightness-0 invert"
-              />
-              <div>
-                <h3 className="text-xl font-bold leading-5">Dê Hương Sơn</h3>
-                <p className="text-sm text-white/70">Hà Tĩnh</p>
-              </div>
-            </Link>
 
-            <p className="text-white/75 text-sm leading-relaxed mb-2 md:mb-5 max-w-xs">
-              Dê núi Hương Sơn – đậm đà bản sắc, tươi ngon, bổ dưỡng.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-lg mb-5">Thông tin liên hệ</h3>
-
-            <div className="space-y-4 text-sm text-white/80">
-              <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-[#d6a84f] shrink-0 mt-0.5" />
-
-                <a
-                  href="https://maps.app.goo.gl/wSkET5ThBjNm9f29A"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="hover:text-white transition"
-                >
-                  Đ. Vũ Lăng
-                  <br />
-                  Thanh Trì, Hà Nội
-                </a>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Phone className="w-5 h-5 text-[#d6a84f]" />
-                <a href="tel:0387136878" className="hover:text-white">
-                  038 713 6878
-                </a>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Mail className="w-5 h-5 text-[#d6a84f]" />
-                <a
-                  href="mailto:dehuongson.ht@gmail.com"
-                  className="hover:text-white break-all"
-                >
-                  dehuongson.ht@gmail.com
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-lg mb-5">Giờ mở cửa</h3>
-
-            <div className="space-y-4 text-sm text-white/80">
-              <div className="flex items-center gap-3">
-                <Clock className="w-5 h-5 text-[#d6a84f]" />
-                <span>08:00 - 22:00</span>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <CalendarDays className="w-5 h-5 text-[#d6a84f]" />
-                <span>Tất cả các ngày trong tuần</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <h3 className="font-bold text-lg mb-5">Kết nối với chúng tôi</h3>
-
-            <div className="flex gap-4 items-center justify-center">
-              <a
-                href={FACEBOOK_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
-              >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg"
-                  alt="Facebook"
-                  className="w-5 h-5"
-                />
-              </a>
-
-              <a
-                href="tel:0387136878"
-                className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
-              >
-                <Phone className="w-5 h-5" />
-              </a>
-            </div>
-          </div>
-
-          <a
-            href="https://maps.app.goo.gl/wSkET5ThBjNm9f29A"
-            target="_blank"
-            rel="noreferrer"
-            className="block overflow-hidden rounded-2xl border border-white/10 h-40 group"
-          >
-            <iframe
-              title="Bản đồ Dê Hương Sơn"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3939.8604880385988!2d105.84806467548728!3d20.937626480689012!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3135ad9f6221f4b3%3A0x23e41af49c85fe1a!2zTmjDoCBow6BuZyBC4bqjbyBMb25nIC0gRMOqIE7DumkgSMawxqFuZyBTxqFu!5e1!3m2!1svi!2s!4v1781164163918!5m2!1svi!2s"
-              className="w-full h-full border-0 pointer-events-none"
-              loading="lazy"
-            />
-          </a>
-        </div>
-
-        <div className="border-t border-white/15 text-center py-3 text-xs md:text-sm text-white/60">
-          © 2026 Dê Hương Sơn Hà Tĩnh. All rights reserved.
-        </div>
-      </footer>
+      {/*xem không gian*/}
       {showSpaceModal && (
         <div
           className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4"
           onClick={() => setShowSpaceModal(false)}
         >
           <div
-            className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl p-5 md:p-7"
+            className="relative w-full max-w-5xl bg-[#fffaf0] rounded-3xl shadow-2xl p-5 md:p-7"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -1132,37 +919,100 @@ function Home() {
               <div className="w-16 h-px bg-[#d6a84f]" />
             </div>
 
-            <div className="grid md:grid-cols-3 gap-4">
-              <SpaceItem
-                image={tangTret}
-                title="Khu vực tầng trệt"
-                desc="Ấm cúng, phù hợp gia đình."
-                onClick={() => {
-                  setShowSpaceModal(false);
-                  navigate("/about");
-                }}
-              />
-
-              <SpaceItem
-                image={tangHai}
-                title="Tầng 2"
-                desc="Rộng rãi, thoáng mát."
-                onClick={() => {
-                  setShowSpaceModal(false);
-                  navigate("/about");
-                }}
-              />
-
-              <SpaceItem
-                image={phongVip}
-                title="Phòng VIP"
-                desc="Riêng tư, sang trọng."
-                onClick={() => {
-                  setShowSpaceModal(false);
-                  navigate("/about");
-                }}
-              />
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              {SPACE_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveSpaceTab(tab.key)}
+                  className={`h-11 rounded-xl border font-black transition ${
+                    activeSpaceTab === tab.key
+                      ? "bg-green-900 text-white border-green-900"
+                      : "bg-white text-green-900 border-[#eadfcd] hover:bg-green-50"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[430px] overflow-y-auto pr-1">
+              {activeSpace.images.map((image, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setPreviewImage(image);
+                    setPreviewIndex(index);
+                  }}
+                  className="h-32 md:h-44 rounded-2xl overflow-hidden border border-[#eadfcd] group"
+                >
+                  <img
+                    src={image}
+                    alt={activeSpace.label}
+                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                  />
+                </button>
+              ))}
+            </div>
+
+            <p className="text-center text-sm text-gray-500 mt-4">
+              Nhấn vào ảnh để xem lớn hơn
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* popup xem ảnh toàn màn hình */}
+      {previewImage && (
+        <div className="fixed inset-0 z-[10000] bg-black/90 flex items-center justify-center px-4">
+          <button
+            onClick={() => setPreviewImage(null)}
+            className="absolute top-5 right-5 w-11 h-11 rounded-full bg-white text-green-900 flex items-center justify-center"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          <button
+            onClick={() => {
+              const newIndex =
+                previewIndex === 0
+                  ? activeSpace.images.length - 1
+                  : previewIndex - 1;
+
+              setPreviewIndex(newIndex);
+              setPreviewImage(activeSpace.images[newIndex]);
+            }}
+            className="absolute left-5 w-12 h-12 rounded-full bg-white/90 text-green-900 text-3xl flex items-center justify-center"
+          >
+            ‹
+          </button>
+
+          <img
+            src={previewImage}
+            alt=""
+            className="max-w-[90vw] max-h-[82vh] object-contain rounded-2xl shadow-2xl"
+          />
+
+          <button
+            onClick={() => {
+              const newIndex =
+                previewIndex === activeSpace.images.length - 1
+                  ? 0
+                  : previewIndex + 1;
+
+              setPreviewIndex(newIndex);
+              setPreviewImage(activeSpace.images[newIndex]);
+            }}
+            className="absolute right-5 w-12 h-12 rounded-full bg-white/90 text-green-900 text-3xl flex items-center justify-center"
+          >
+            ›
+          </button>
+
+          <div className="absolute top-6 left-6 text-white font-bold">
+            {activeSpace.label} - {previewIndex + 1} /{" "}
+            {activeSpace.images.length}
+          </div>
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-white/70 text-sm">
+            ← → Chuyển ảnh • ESC Đóng
           </div>
         </div>
       )}
@@ -1308,88 +1158,4 @@ function Service({ icon, title, text }) {
   );
 }
 
-function FooterItem({ icon, title, text }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-3">
-        <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-          {icon}
-        </span>
-        <h3 className="font-bold">{title}</h3>
-      </div>
-      <p className="text-white/75 text-sm leading-relaxed">{text}</p>
-    </div>
-  );
-}
-function LoginRequiredModal({ onClose, onLogin }) {
-  return (
-    <div className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-sm flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl px-6 py-8 text-center relative">
-        <div className="w-28 h-28 rounded-full bg-[#fbf3df] mx-auto flex items-center justify-center relative">
-          <div className="w-16 h-16 rounded-2xl border-4 border-green-800 flex items-center justify-center">
-            <div className="w-5 h-5 rounded-full border-4 border-green-800"></div>
-          </div>
-
-          <div className="absolute right-4 bottom-5 w-12 h-12 rounded-xl bg-[#d6a84f] flex items-center justify-center text-white text-xl">
-            🔒
-          </div>
-        </div>
-
-        <h2 className="mt-6 text-2xl font-black text-green-950 leading-tight">
-          Vui lòng đăng nhập
-          <br />
-          để đặt món và đặt bàn
-        </h2>
-
-        <div className="flex items-center justify-center gap-3 mt-4">
-          <div className="w-20 h-px bg-[#d6a84f]"></div>
-          <span className="text-[#b88935]">🐐</span>
-          <div className="w-20 h-px bg-[#d6a84f]"></div>
-        </div>
-
-        <p className="text-sm text-gray-500 mt-5 leading-relaxed">
-          Đăng nhập để lưu thông tin, theo dõi đơn hàng
-          <br />
-          và nhận nhiều ưu đãi hấp dẫn từ Dê Hương Sơn.
-        </p>
-
-        <div className="grid grid-cols-2 gap-4 mt-8">
-          <button
-            onClick={onClose}
-            className="
-      h-14 rounded-2xl
-      border-2 border-[#e7d8bb]
-      text-gray-700
-      font-bold
-      hover:bg-[#faf7ef]
-      transition
-    "
-          >
-            Bỏ qua
-          </button>
-
-          <button
-            onClick={onLogin}
-            className="
-      h-14 rounded-2xl
-      bg-green-900
-      text-white
-      font-bold
-      hover:bg-green-950
-      transition
-      shadow-lg
-    "
-          >
-            Đăng nhập / Đăng ký
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mt-2 text-xs text-gray-500">
-          <p>Không đặt món, đặt bàn</p>
-          <p>Tiếp tục đặt món, đặt bàn</p>
-        </div>
-      </div>
-    </div>
-  );
-}
 export default Home;

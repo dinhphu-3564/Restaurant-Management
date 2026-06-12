@@ -1,4 +1,7 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
+
 import Home from "../pages/Home";
 import Register from "../pages/Register";
 import Login from "../pages/Login";
@@ -12,6 +15,35 @@ import ReservationPage from "../pages/ReservationPage";
 import BookingSuccessPage from "../pages/BookingSuccessPage";
 import DealsPage from "../pages/DealsPage";
 import DealDetailPage from "../pages/DealDetailPage";
+import AboutPage from "../pages/AboutPage";
+import ContactPage from "../pages/ContactPage";
+
+function MainLayout({ children }) {
+  const location = useLocation();
+
+  const pathToPage = {
+    "/": "home",
+    "/home": "home",
+    "/menu": "menu",
+    "/cart": "cart",
+    "/checkout": "cart",
+    "/reservation": "reservation",
+    "/deals": "deals",
+    "/about": "about",
+    "/contact": "contact",
+  };
+
+  const currentPage = pathToPage[location.pathname] || "";
+
+  return (
+    <>
+      <Header currentPage={currentPage} />
+      <div className="h-16"></div>
+      {children}
+      <Footer />
+    </>
+  );
+}
 
 function AppRoutes() {
   return (
@@ -19,19 +51,103 @@ function AppRoutes() {
       <ScrollToTop />
 
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/home" element={<Home />} />
+        <Route
+          path="/"
+          element={
+            <MainLayout>
+              <Home />
+            </MainLayout>
+          }
+        />
+
+        <Route
+          path="/home"
+          element={
+            <MainLayout>
+              <Home />
+            </MainLayout>
+          }
+        />
+
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/menu" element={<MenuPage />} />
-        <Route path="/cart" element={<CartPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
+
+        <Route
+          path="/menu"
+          element={
+            <MainLayout>
+              <MenuPage />
+            </MainLayout>
+          }
+        />
+
+        <Route
+          path="/cart"
+          element={
+            <MainLayout>
+              <CartPage />
+            </MainLayout>
+          }
+        />
+
+        <Route
+          path="/checkout"
+          element={
+            <MainLayout>
+              <CheckoutPage />
+            </MainLayout>
+          }
+        />
+
         <Route path="/payment-qr" element={<PaymentQRPage />} />
         <Route path="/order-success" element={<OrderSuccessPage />} />
-        <Route path="/reservation" element={<ReservationPage />} />
+
+        <Route
+          path="/reservation"
+          element={
+            <MainLayout>
+              <ReservationPage />
+            </MainLayout>
+          }
+        />
+
         <Route path="/booking-success" element={<BookingSuccessPage />} />
-        <Route path="/deals" element={<DealsPage />} />
-        <Route path="/deals/:dealId" element={<DealDetailPage />} />
+
+        <Route
+          path="/deals"
+          element={
+            <MainLayout>
+              <DealsPage />
+            </MainLayout>
+          }
+        />
+
+        <Route
+          path="/deals/:dealId"
+          element={
+            <MainLayout>
+              <DealDetailPage />
+            </MainLayout>
+          }
+        />
+
+        <Route
+          path="/about"
+          element={
+            <MainLayout>
+              <AboutPage />
+            </MainLayout>
+          }
+        />
+
+        <Route
+          path="/contact"
+          element={
+            <MainLayout>
+              <ContactPage />
+            </MainLayout>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

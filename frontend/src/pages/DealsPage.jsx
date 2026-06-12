@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination, Autoplay } from "swiper/modules";
 
@@ -9,22 +10,9 @@ import "swiper/css/pagination";
 import {
   Gift,
   Cake,
-  ShoppingCart,
   CalendarDays,
   Percent,
   Star,
-  CreditCard,
-  Leaf,
-  User,
-  UserRound,
-  ClipboardList,
-  CalendarCheck,
-  LogOut,
-  Menu,
-  X,
-  MapPin,
-  Phone,
-  Clock,
   Users,
   PhoneCall,
   CheckCircle,
@@ -35,6 +23,7 @@ import {
   PartyPopper,
 } from "lucide-react";
 
+import goatIcon from "../assets/images/Icon_De.png";
 import familyComboImg from "../assets/images/Deals/family-combo.png";
 import birthdayImg from "../assets/images/Deals/birthday.png";
 import onlineOrderImg from "../assets/images/Deals/online-order.png";
@@ -47,26 +36,9 @@ import goatFood from "../assets/images/Deals/goat-food.png";
 
 function DealsPage() {
   const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const [activeDealType, setActiveDealType] = useState("all");
   const [currentBanner, setCurrentBanner] = useState(0);
-  const profileMenuRef = useRef(null);
-
-  const cartItems = JSON.parse(localStorage.getItem("cartItems")) || [];
-  const totalQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
-
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-  // Đóng menu khi click ra ngoài
-  useEffect(() => {
-    setIsLoggedIn(localStorage.getItem("isLoggedIn") === "true");
-  }, []);
 
   const [isAnimating, setIsAnimating] = useState(true);
 
@@ -243,232 +215,7 @@ function DealsPage() {
   };
   return (
     <div className="min-h-screen bg-[#fbf7ec] text-green-950">
-      {/* HEADER */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur shadow-sm">
-        <div className="max-w-7xl mx-auto h-16 px-5 flex items-center justify-between">
-          <Link
-            to="/home"
-            onClick={scrollToTop}
-            className="flex items-center gap-2"
-          >
-            <Leaf className="w-8 h-8 text-green-800" />
-            <div>
-              <h1 className="font-bold text-green-800 leading-4">
-                Dê Hương Sơn
-              </h1>
-              <p className="text-xs text-green-700 font-medium">HÀ TĨNH</p>
-            </div>
-          </Link>
-
-          <nav className="hidden lg:flex gap-8 text-sm font-semibold">
-            <Link to="/">Trang chủ</Link>
-            <Link to="/menu">Thực đơn</Link>
-            <Link to="/reservation">Đặt bàn</Link>
-            <Link
-              to="/deals"
-              className="text-green-800 border-b-2 border-green-800 pb-2"
-            >
-              Khuyến mãi
-            </Link>
-            <Link to="/about">Giới thiệu</Link>
-            <Link to="/contact">Liên hệ</Link>
-          </nav>
-
-          <div className="hidden md:flex gap-3">
-            {isLoggedIn ? (
-              <div
-                ref={profileMenuRef}
-                className="relative flex items-center gap-3"
-              >
-                <Link to="/cart" className="relative text-green-900">
-                  <ShoppingCart className="w-5 h-5" />
-
-                  <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
-                    {totalQty}
-                  </span>
-                </Link>
-
-                <button
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className="w-11 h-11 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
-                >
-                  <User className="w-6 h-6" />
-                </button>
-
-                {isProfileOpen && (
-                  <div className="absolute right-0 top-14 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[999]">
-                    <Link
-                      to="/profile"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <UserRound className="w-5 h-5" />
-                      Thông tin tài khoản
-                    </Link>
-
-                    <Link
-                      to="/order-history"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <ClipboardList className="w-5 h-5" />
-                      Lịch sử đơn hàng
-                    </Link>
-
-                    <Link
-                      to="/my-booking"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <CalendarCheck className="w-5 h-5" />
-                      Đặt bàn của tôi
-                    </Link>
-
-                    <button
-                      onClick={() => {
-                        localStorage.removeItem("isLoggedIn");
-                        setIsLoggedIn(false);
-                        setIsProfileOpen(false);
-                        setIsMenuOpen(false);
-                        navigate("/home");
-                      }}
-                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50 text-red-600 font-medium border-t"
-                    >
-                      <LogOut className="w-5 h-5" />
-                      Đăng xuất
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
-                >
-                  Đăng nhập
-                </Link>
-
-                <Link
-                  to="/register"
-                  className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
-                >
-                  Đăng ký
-                </Link>
-              </>
-            )}
-          </div>
-
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="lg:hidden w-10 h-10 rounded-lg border border-green-800 text-green-800 flex items-center justify-center"
-          >
-            {isMenuOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
-          </button>
-        </div>
-
-        {isMenuOpen && (
-          <div className="lg:hidden bg-white border-t border-gray-100 shadow-md">
-            <nav className="px-5 py-4 flex flex-col gap-4 text-sm font-semibold text-green-950">
-              <Link to="/">Trang chủ</Link>
-              <Link to="/menu">Thực đơn</Link>
-              <Link to="/reservation">Đặt bàn</Link>
-              <Link
-                to="/deals"
-                className="text-green-800 border-b-2 border-green-800 pb-2"
-              >
-                Khuyến mãi
-              </Link>
-              <Link to="/about">Giới thiệu</Link>
-              <Link to="/contact">Liên hệ</Link>
-
-              <div className="flex gap-3 pt-3 border-t border-gray-100">
-                {isLoggedIn ? (
-                  <div ref={profileMenuRef} className="w-full">
-                    <div className="flex items-center gap-4">
-                      <Link to="/cart" className="relative text-green-900">
-                        <ShoppingCart className="w-5 h-5" />
-
-                        <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
-                          {totalQty}
-                        </span>
-                      </Link>
-
-                      <button
-                        onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className="w-11 h-11 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
-                      >
-                        <User className="w-6 h-6" />
-                      </button>
-                    </div>
-                    {/* mobile menu profile */}
-                    {isProfileOpen && (
-                      <div className="w-full mt-3 bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-md">
-                        <Link
-                          to="/profile"
-                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium"
-                        >
-                          <UserRound className="w-5 h-5" />
-                          Thông tin tài khoản
-                        </Link>
-
-                        <Link
-                          to="/order-history"
-                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium border-t"
-                        >
-                          <ClipboardList className="w-5 h-5" />
-                          Lịch sử đơn hàng
-                        </Link>
-
-                        <Link
-                          to="/my-booking"
-                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium border-t"
-                        >
-                          <CalendarCheck className="w-5 h-5" />
-                          Đặt bàn của tôi
-                        </Link>
-
-                        <button
-                          onClick={() => {
-                            localStorage.removeItem("isLoggedIn");
-                            setIsLoggedIn(false);
-                            setIsProfileOpen(false);
-                            setIsMenuOpen(false);
-                            navigate("/home");
-                          }}
-                          className="w-full flex items-center gap-4 px-4 py-3 text-red-600 font-medium border-t"
-                        >
-                          <LogOut className="w-5 h-5" />
-                          Đăng xuất
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <Link
-                      to="/login"
-                      className="flex-1 text-center border border-green-800 text-green-800 px-4 py-2 rounded-lg font-semibold"
-                    >
-                      Đăng nhập
-                    </Link>
-
-                    <Link
-                      to="/register"
-                      className="flex-1 text-center bg-green-800 text-white px-4 py-2 rounded-lg font-semibold"
-                    >
-                      Đăng ký
-                    </Link>
-                  </>
-                )}
-              </div>
-            </nav>
-          </div>
-        )}
-      </header>
-
-      <main className="max-w-[1500px] mx-auto px-4 md:px-6 pt-[105px] pb-10">
+      <main className="max-w-[1500px] mx-auto px-4 md:px-6 py-10">
         {/* HERO PROMO */}
         <section
           className={`relative h-[315px] sm:h-[380px] md:h-[500px] overflow-hidden rounded-[22px] md:rounded-[30px] shadow-xl transition-all duration-1000 ease-in-out ${
@@ -808,15 +555,7 @@ function DealsPage() {
           <div
             className="relative overflow-hidden rounded-3xl min-h-[230px] md:min-h-[300px] p-6 md:p-10 flex flex-col justify-center"
             style={{
-              backgroundImage: `
-    linear-gradient(
-  90deg,
-  rgba(0,50,25,.95) 0%,
-  rgba(0,50,25,.82) 45%,
-  rgba(0,50,25,.35) 100%
-),
-    url(${restaurantSpace})
-  `,
+              backgroundImage: `linear-gradient(90deg, rgba(0,50,25,.95) 0%, rgba(0,50,25,.82) 45%, rgba(0,50,25,.35) 100%), url(${restaurantSpace})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
             }}
@@ -851,15 +590,7 @@ function DealsPage() {
           <div
             className="relative overflow-hidden rounded-3xl min-h-[300px] p-8 md:p-10 flex flex-col justify-center"
             style={{
-              backgroundImage: `
-    linear-gradient(
-  90deg,
-  rgba(0,50,25,.95) 0%,
-  rgba(0,50,25,.82) 45%,
-  rgba(0,50,25,.35) 100%
-),
-    url(${goatFood})
-  `,
+              backgroundImage: `linear-gradient(90deg, rgba(0,50,25,.95) 0%, rgba(0,50,25,.82) 45%, rgba(0,50,25,.35) 100%), url(${goatFood})`,
               backgroundSize: "cover",
               backgroundPosition: "right center",
             }}
@@ -891,112 +622,6 @@ function DealsPage() {
           </div>
         </section>
       </main>
-
-      {/* FOOTER */}
-      <footer className="bg-green-950 text-white overflow-hidden">
-        <div className="w-full max-w-7xl mx-auto px-4 md:px-5 py-7 md:py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-8">
-          <div>
-            <Link
-              to="/home"
-              onClick={scrollToTop}
-              className="flex items-center gap-2 mb-3"
-            >
-              <Leaf className="w-8 h-8" />
-              <div>
-                <h3 className="text-xl font-bold leading-5">Dê Hương Sơn</h3>
-                <p className="text-sm text-white/70">Hà Tĩnh</p>
-              </div>
-            </Link>
-
-            <p className="text-white/75 text-sm leading-relaxed mb-2 md:mb-5 max-w-xs">
-              Dê núi Hương Sơn – đậm đà bản sắc, tươi ngon, bổ dưỡng.
-            </p>
-          </div>
-
-          <div className="pl-2">
-            <h3 className="font-bold text-lg mb-3 md:mb-5">
-              Thông tin liên hệ
-            </h3>
-
-            <div className="space-y-2 text-white/75 text-sm">
-              <div className="flex items-start gap-3">
-                <MapPin className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
-                <p>
-                  Thị trấn Phố Châu, <br />
-                  Hương Sơn, Hà Tĩnh
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Phone className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
-                <p>
-                  038 713 6878
-                  <br />
-                  076 877 4619
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className="w-5 h-5 flex items-center justify-center text-white">
-                  ✉
-                </span>
-                <p>dehuongson.ht@gmail.com</p>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-lg mb-3 md:mb-5">Giờ mở cửa</h3>
-
-            <div className="flex items-center gap-3 text-white/75 text-sm leading-7">
-              <Clock className="w-5 h-5 text-white shrink-0" />
-              <div>
-                <p>08:00 - 22:00</p>
-                <p>Tất cả các ngày trong tuần</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <h3 className="font-bold text-lg mb-5">Kết nối với chúng tôi</h3>
-
-            <div className="flex gap-4 items-center justify-center">
-              <a
-                href="#"
-                className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/20 backdrop-blur text-[#f6d47a] flex items-center justify-center shrink-0"
-              >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/2021_Facebook_icon.svg/1280px-2021_Facebook_icon.svg.png"
-                  alt="facebook"
-                  className="w-5 h-5"
-                />
-              </a>
-
-              <a
-                href="#"
-                className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/20 backdrop-blur text-[#f6d47a] flex items-center justify-center shrink-0"
-              >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg"
-                  alt="zalo"
-                  className="w-6 h-6"
-                />
-              </a>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <h3 className="font-bold text-lg mb-5">Bản đồ</h3>
-            <div className="h-40 bg-white/15 rounded-2xl flex items-center justify-center text-white/80 text-sm">
-              Khu vực bản đồ
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-white/15 text-center py-3 text-xs md:text-sm text-white/60">
-          © 2026 Dê Hương Sơn Hà Tĩnh. All rights reserved.
-        </div>
-      </footer>
     </div>
   );
 }
@@ -1004,17 +629,23 @@ function DealsPage() {
 function SectionTitle({ title, subtitle }) {
   return (
     <section className="text-center my-8">
-      <div className="flex items-center justify-center gap-3">
-        <Leaf className="w-5 h-5 text-green-800" />
-        <div className="w-7 sm:w-10 h-px bg-[#d6a84f]"></div>
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-green-900 uppercase leading-tight">
-          {title}
-        </h2>
-        <div className="w-7 sm:w-10 h-px bg-[#d6a84f]"></div>
-        <Leaf className="w-5 h-5 text-green-800" />
-      </div>
+      <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-green-900 uppercase leading-tight">
+        {title}
+      </h2>
 
       {subtitle && <p className="text-gray-500 text-sm mt-2">{subtitle}</p>}
+
+      <div className="flex items-center justify-center gap-4 mt-3">
+        <div className="w-20 sm:w-28 h-px bg-[#d6a84f]"></div>
+
+        <img
+          src={goatIcon}
+          alt="Dê Hương Sơn"
+          className="w-8 h-8 object-contain"
+        />
+
+        <div className="w-20 sm:w-28 h-px bg-[#d6a84f]"></div>
+      </div>
     </section>
   );
 }

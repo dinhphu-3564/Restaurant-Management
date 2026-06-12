@@ -1,17 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { checkLogin } from "../utils/auth";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+
 import {
-  Leaf,
   ShoppingCart,
-  User,
-  UserRound,
-  ClipboardList,
-  CalendarCheck,
-  LogOut,
-  Menu,
-  X,
-  MapPin,
-  Phone,
   Clock,
   CalendarDays,
   ShieldCheck,
@@ -23,31 +15,26 @@ import {
 
 function CheckoutPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const profileMenuRef = useRef(null);
-
   const [errors, setErrors] = useState({});
   const [showEmptyCartModal, setShowEmptyCartModal] = useState(false);
   const [toast, setToast] = useState({
     show: false,
     message: "",
   });
-  const navigate = useNavigate();
 
+  const navigate = useNavigate();
   const [serviceType, setServiceType] = useState("dinein");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [deliveryTimeType, setDeliveryTimeType] = useState("now");
-
-  const cartItems = JSON.parse(localStorage.getItem("cartItems")) || [];
-  const totalQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
+  const [cartItems, setCartItems] = useState(() => {
+    const savedCart = localStorage.getItem("cartItems");
+    return savedCart ? JSON.parse(savedCart) : [];
+  });
 
   const formatPrice = (price) => {
     return price.toLocaleString("vi-VN") + "đ";
   };
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+
   // Tính tổng tiền tạm tính
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.price * item.qty,
@@ -55,7 +42,6 @@ function CheckoutPage() {
   );
   const checkoutSummary =
     JSON.parse(localStorage.getItem("checkoutSummary")) || null;
-
   const savedCoupon = checkoutSummary?.appliedCoupon || null;
 
   // Chỉ cho áp mã khi ăn tại quán
@@ -72,12 +58,9 @@ function CheckoutPage() {
 
   // tính tổng số lượng món
   const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0);
-
   const phoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
-
   const validateOrder = () => {
     const newErrors = {};
-
     const name = document.querySelector('input[name="name"]')?.value.trim();
     const phone = document.querySelector('input[name="phone"]')?.value.trim();
     const date = document.querySelector('input[name="date"]')?.value;
@@ -122,7 +105,6 @@ function CheckoutPage() {
     if (needDateTime && date && time) {
       const selectedDateTime = new Date(`${date}T${time}`);
       const now = new Date();
-
       const selectedDateOnly = new Date(`${date}T00:00`);
       const todayOnly = new Date(
         now.getFullYear(),
@@ -144,30 +126,24 @@ function CheckoutPage() {
 
   const shippingFee = serviceType === "delivery" ? 15000 : 0;
   const total = subtotal - discountTotal + shippingFee;
+
   // Kiểm tra trạng thái đăng nhập khi component được mount
   useEffect(() => {
-    setIsLoggedIn(localStorage.getItem("isLoggedIn") === "true");
+    setIsLoggedIn(checkLogin());
   }, []);
 
+  //lưu giỏ hàng
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        profileMenuRef.current &&
-        !profileMenuRef.current.contains(event.target)
-      ) {
-        setIsProfileOpen(false);
-      }
-    };
+    localStorage.setItem("cartItems", JSON.stringify(cartItems));
+    window.dispatchEvent(new Event("cartUpdated"));
+  }, [cartItems]);
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
   // Hàm xóa món trong checkout và thông báo khi xóa
   const removeCheckoutItem = (id) => {
     const removedItem = cartItems.find((item) => item.id === id);
     const newCartItems = cartItems.filter((item) => item.id !== id);
 
-    localStorage.setItem("cartItems", JSON.stringify(newCartItems));
+    setCartItems(newCartItems);
 
     setToast({
       show: true,
@@ -179,10 +155,9 @@ function CheckoutPage() {
         show: false,
         message: "",
       });
-
-      window.location.reload();
     }, 3000);
   };
+
   // Hàm cập nhật số lượng món trong checkout
   const updateCheckoutQty = (id, type) => {
     const newCartItems = cartItems.map((item) =>
@@ -194,205 +169,11 @@ function CheckoutPage() {
         : item,
     );
 
-    localStorage.setItem("cartItems", JSON.stringify(newCartItems));
-
-    window.location.reload();
+    setCartItems(newCartItems);
   };
+
   return (
     <div className="min-h-screen bg-[#fbf7ec] text-green-950">
-      {/* HEADER */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur shadow-sm">
-        <div className="max-w-7xl mx-auto h-16 px-5 flex items-center justify-between">
-          <Link
-            to="/home"
-            onClick={scrollToTop}
-            className="flex items-center gap-2"
-          >
-            <Leaf className="w-8 h-8 text-green-800" />
-            <div>
-              <h1 className="font-bold text-green-800 leading-4">
-                Dê Hương Sơn
-              </h1>
-              <p className="text-xs text-green-700 font-medium">HÀ TĨNH</p>
-            </div>
-          </Link>
-
-          <nav className="hidden lg:flex gap-8 text-sm font-semibold">
-            <Link to="/home">Trang chủ</Link>
-            <Link to="/menu">Thực đơn</Link>
-            <Link to="/reservation">Đặt bàn</Link>
-            <Link to="/deals">Khuyến mãi</Link>
-            <Link to="/about">Giới thiệu</Link>
-            <Link to="/contact">Liên hệ</Link>
-          </nav>
-
-          <div className="hidden md:flex gap-3">
-            {isLoggedIn ? (
-              <div
-                ref={profileMenuRef}
-                className="relative flex items-center gap-3"
-              >
-                <Link
-                  to="/cart"
-                  className="relative text-green-900 flex flex-col items-center"
-                >
-                  <ShoppingCart className="w-5 h-5" />
-
-                  <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
-                    {totalQty}
-                  </span>
-
-                  <span className="absolute -bottom-4 w-8 h-[2px] bg-green-800 rounded-full"></span>
-                </Link>
-
-                <button
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className="w-11 h-11 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
-                >
-                  <User className="w-6 h-6" />
-                </button>
-
-                {isProfileOpen && (
-                  <div className="absolute right-0 top-14 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[999]">
-                    <Link
-                      to="/profile"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <UserRound className="w-5 h-5" />
-                      Thông tin tài khoản
-                    </Link>
-
-                    <Link
-                      to="/order-history"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <ClipboardList className="w-5 h-5" />
-                      Lịch sử đơn hàng
-                    </Link>
-
-                    <Link
-                      to="/my-booking"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <CalendarCheck className="w-5 h-5" />
-                      Đặt bàn của tôi
-                    </Link>
-
-                    <button
-                      onClick={() => {
-                        localStorage.removeItem("isLoggedIn");
-                        setIsLoggedIn(false);
-                        setIsProfileOpen(false);
-                        navigate("/home");
-                      }}
-                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50 text-red-600 font-medium border-t"
-                    >
-                      <LogOut className="w-5 h-5" />
-                      Đăng xuất
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
-                >
-                  Đăng nhập
-                </Link>
-
-                <Link
-                  to="/register"
-                  className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
-                >
-                  Đăng ký
-                </Link>
-              </>
-            )}
-          </div>
-
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="lg:hidden w-10 h-10 rounded-lg border border-green-800 text-green-800 flex items-center justify-center"
-          >
-            {isMenuOpen ? <X /> : <Menu />}
-          </button>
-        </div>
-        {/* MENU MOBILE */}
-        {isMenuOpen && (
-          <div className="lg:hidden bg-white border-t border-gray-100 shadow-md">
-            <nav className="px-5 py-4 flex flex-col gap-4 text-sm font-semibold text-green-950">
-              <Link onClick={() => setIsMenuOpen(false)} to="/home">
-                Trang chủ
-              </Link>
-
-              <Link onClick={() => setIsMenuOpen(false)} to="/menu">
-                Thực đơn
-              </Link>
-
-              <Link onClick={() => setIsMenuOpen(false)} to="/reservation">
-                Đặt bàn
-              </Link>
-
-              <Link onClick={() => setIsMenuOpen(false)} to="/deals">
-                Khuyến mãi
-              </Link>
-
-              <Link onClick={() => setIsMenuOpen(false)} to="/about">
-                Giới thiệu
-              </Link>
-
-              <Link onClick={() => setIsMenuOpen(false)} to="/contact">
-                Liên hệ
-              </Link>
-
-              <div className="flex items-center gap-4 pt-3 border-t border-gray-100">
-                <Link
-                  onClick={() => setIsMenuOpen(false)}
-                  to="/cart"
-                  className="relative w-11 h-11 rounded-xl bg-green-50 text-green-800 border border-green-100 flex items-center justify-center"
-                >
-                  <ShoppingCart className="w-5 h-5" />
-
-                  {totalQty > 0 && (
-                    <span className="absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
-                      {totalQty}
-                    </span>
-                  )}
-                </Link>
-
-                {isLoggedIn ? (
-                  <button
-                    onClick={() => setIsProfileOpen(!isProfileOpen)}
-                    className="w-11 h-11 rounded-xl bg-green-50 text-green-800 border border-green-100 flex items-center justify-center"
-                  >
-                    <User className="w-5 h-5" />
-                  </button>
-                ) : (
-                  <>
-                    <Link
-                      onClick={() => setIsMenuOpen(false)}
-                      to="/login"
-                      className="flex-1 border border-green-800 text-green-800 px-4 py-2.5 rounded-lg font-semibold text-center"
-                    >
-                      Đăng nhập
-                    </Link>
-
-                    <Link
-                      onClick={() => setIsMenuOpen(false)}
-                      to="/register"
-                      className="flex-1 bg-green-800 text-white px-4 py-2.5 rounded-lg font-semibold text-center"
-                    >
-                      Đăng ký
-                    </Link>
-                  </>
-                )}
-              </div>
-            </nav>
-          </div>
-        )}
-      </header>
       <main className="max-w-[1500px] mx-auto px-3 md:px-6 py-5 md:py-8">
         <div className="mb-6">
           <h1 className="text-2xl md:text-4xl font-black text-green-900">
@@ -646,6 +427,13 @@ function CheckoutPage() {
                   return;
                 }
 
+                if (!checkLogin()) {
+                  navigate("/login");
+                  return;
+                }
+
+                if (!validateOrder()) return;
+
                 if (!validateOrder()) return;
 
                 const orderData = {
@@ -722,111 +510,7 @@ function CheckoutPage() {
           </aside>
         </div>
       </main>
-      {/* FOOTER */}
-      <footer className="bg-green-950 text-white overflow-hidden">
-        <div className="w-full max-w-7xl mx-auto px-4 md:px-5 py-7 md:py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-8">
-          <div>
-            <Link
-              to="/home"
-              onClick={scrollToTop}
-              className="flex items-center gap-2 mb-3"
-            >
-              <Leaf className="w-8 h-8" />
-              <div>
-                <h3 className="text-xl font-bold leading-5">Dê Hương Sơn</h3>
-                <p className="text-sm text-white/70">Hà Tĩnh</p>
-              </div>
-            </Link>
 
-            <p className="text-white/75 text-sm leading-relaxed mb-2 md:mb-5 max-w-xs">
-              Dê núi Hương Sơn – đậm đà bản sắc, tươi ngon, bổ dưỡng.
-            </p>
-          </div>
-
-          <div className="pl-2">
-            <h3 className="font-bold text-lg mb-3 md:mb-5">
-              Thông tin liên hệ
-            </h3>
-
-            <div className="space-y-2 text-white/75 text-sm">
-              <div className="flex items-start gap-3">
-                <MapPin className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
-                <p>
-                  Thị trấn Phố Châu, <br />
-                  Hương Sơn, Hà Tĩnh
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Phone className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
-                <p>
-                  038 713 6878
-                  <br />
-                  076 877 4619
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className="w-5 h-5 flex items-center justify-center text-white">
-                  ✉
-                </span>
-                <p>dehuongson.ht@gmail.com</p>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-lg mb-3 md:mb-5">Giờ mở cửa</h3>
-
-            <div className="flex items-center gap-3 text-white/75 text-sm leading-7">
-              <Clock className="w-5 h-5 text-white shrink-0" />
-              <div>
-                <p>08:00 - 22:00</p>
-                <p>Tất cả các ngày trong tuần</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <h3 className="font-bold text-lg mb-5">Kết nối với chúng tôi</h3>
-
-            <div className="flex gap-4 items-center justify-center">
-              <a
-                href="#"
-                className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
-              >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/2021_Facebook_icon.svg/1280px-2021_Facebook_icon.svg.png"
-                  alt="facebook"
-                  className="w-5 h-5"
-                />
-              </a>
-
-              <a
-                href="#"
-                className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
-              >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg"
-                  alt="zalo"
-                  className="w-6 h-6"
-                />
-              </a>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <h3 className="font-bold text-lg mb-5">Bản đồ</h3>
-            <div className="h-40 bg-white/15 rounded-2xl flex items-center justify-center text-white/80 text-sm">
-              Khu vực bản đồ
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-white/15 text-center py-3 text-xs md:text-sm text-white/60">
-          © 2026 Dê Hương Sơn Hà Tĩnh. All rights reserved.
-        </div>
-      </footer>
       {showEmptyCartModal && (
         <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center px-4">
           <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 text-center">
@@ -862,7 +546,7 @@ function CheckoutPage() {
           </div>
         </div>
       )}
-      // Component hiển thị thông báo khi xóa món ăn khỏi checkout
+      {/* Component hiển thị thông báo khi xóa món ăn khỏi checkout */}
       {toast.show && (
         <div className="fixed top-20 right-5 z-[9999]">
           <div className="bg-white border border-[#eadfcd] shadow-xl rounded-2xl px-4 py-3 flex items-center gap-3 w-[330px] max-w-[calc(100vw-32px)]">

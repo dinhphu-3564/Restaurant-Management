@@ -1,39 +1,28 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useLocation } from "react-router-dom";
+import { checkLogin } from "../utils/auth";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+
+import LoginRequiredModal from "../components/LoginRequiredModal";
+
+import goatIcon from "../assets/images/Icon_De.png";
 
 import {
   CalendarDays,
   Clock,
   Users,
   Phone,
+  Mail,
   User,
   ShieldCheck,
-  Leaf,
-  ShoppingCart,
-  UserRound,
-  ClipboardList,
-  CalendarCheck,
-  LogOut,
-  Menu,
-  X,
-  MapPin,
-  Headset,
   ChefHat,
+  Headset,
 } from "lucide-react";
 
 function ReservationPage() {
   const navigate = useNavigate();
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  const profileMenuRef = useRef(null);
-  const cartIconRef = useRef(null);
-
-  const cartItems = JSON.parse(localStorage.getItem("cartItems")) || [];
-  const totalCartQty = cartItems.reduce((sum, item) => sum + item.qty, 0);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const location = useLocation();
 
@@ -48,30 +37,9 @@ function ReservationPage() {
     (sum, item) => sum + item.qty,
     0,
   );
-
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
+  //kiểm tra đăng nhập
   useEffect(() => {
-    setIsLoggedIn(localStorage.getItem("isLoggedIn") === "true");
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        profileMenuRef.current &&
-        !profileMenuRef.current.contains(event.target)
-      ) {
-        setIsProfileOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    setIsLoggedIn(checkLogin());
   }, []);
 
   const [form, setForm] = useState({
@@ -93,7 +61,7 @@ function ReservationPage() {
   const areas = [
     {
       id: "floor1",
-      title: "Khu vực tầng 1",
+      title: "Khu vực tầng trệt",
       text: "Không gian rộng rãi, thoáng mát",
       tables: [101, 102, 103, 104, 105, 106, 107, 108, 109, 110],
     },
@@ -129,7 +97,9 @@ function ReservationPage() {
     }
     if (!form.date) newErrors.date = "Vui lòng chọn ngày";
     if (!form.time) newErrors.time = "Vui lòng chọn giờ";
-    if (!form.guests) newErrors.guests = "Vui lòng nhập số khách";
+    if (!form.guests || Number(form.guests) <= 0) {
+      newErrors.guests = "Số khách phải lớn hơn 0";
+    }
 
     if (form.date && form.time) {
       const selectedDateTime = new Date(`${form.date}T${form.time}`);
@@ -165,20 +135,40 @@ function ReservationPage() {
     const newBooking = {
       id: Date.now(),
       source: "reservation_page",
-      type: "table_only",
+
+      // Nếu có món đi kèm thì là đặt bàn kèm món
+      type: bookingCartItems.length > 0 ? "table_with_food" : "table_only",
+
       customerName: form.name,
       phone: form.phone,
+      email: form.email,
+
+      selectedArea,
+      selectedTable,
+      selectedAreaTitle: currentArea.title,
+
       date: form.date,
       time: form.time,
       guests: form.guests,
       note: form.note,
+
+      // Món bấm trực tiếp từ Menu
       selectedDish: selectedDish
         ? {
             id: selectedDish.id,
             name: selectedDish.name,
             price: selectedDish.price,
+            image: selectedDish.image,
           }
         : null,
+
+      // Danh sách món đã chọn trong giỏ khi chuyển qua đặt bàn
+      cartItems: bookingCartItems,
+
+      // Tổng tiền và tổng số lượng món
+      subtotal,
+      totalQty: totalBookingQty,
+
       status: "pending",
       createdAt: new Date().toISOString(),
     };
@@ -197,153 +187,6 @@ function ReservationPage() {
 
   return (
     <div className="min-h-screen bg-[#fbf7ec] text-green-950">
-      {/* HEADER */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur shadow-sm">
-        <div className="max-w-7xl mx-auto h-16 px-5 flex items-center justify-between">
-          <Link
-            to="/home"
-            onClick={scrollToTop}
-            className="flex items-center gap-2"
-          >
-            <Leaf className="w-8 h-8 text-green-800" />
-            <div>
-              <h1 className="font-bold text-green-800 leading-4">
-                Dê Hương Sơn
-              </h1>
-              <p className="text-xs text-green-700 font-medium">HÀ TĨNH</p>
-            </div>
-          </Link>
-
-          <nav className="hidden lg:flex gap-8 text-sm font-semibold">
-            <Link to="/home">Trang chủ</Link>
-            <Link to="/menu">Thực đơn</Link>
-            <Link
-              to="/reservation"
-              className="text-green-800 border-b-2 border-green-800 pb-2"
-            >
-              Đặt bàn
-            </Link>
-            <Link to="/deals">Khuyến mãi</Link>
-            <Link to="/about">Giới thiệu</Link>
-            <Link to="/contact">Liên hệ</Link>
-          </nav>
-
-          <div className="hidden md:flex gap-3">
-            {isLoggedIn ? (
-              <div
-                ref={profileMenuRef}
-                className="relative flex items-center gap-3"
-              >
-                <Link
-                  ref={cartIconRef}
-                  to="/cart"
-                  className="relative text-green-900"
-                >
-                  <ShoppingCart className="w-5 h-5" />
-
-                  {totalCartQty > 0 && (
-                    <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
-                      {totalCartQty}
-                    </span>
-                  )}
-                </Link>
-
-                <button
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className="w-11 h-11 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
-                >
-                  <User className="w-6 h-6" />
-                </button>
-
-                {isProfileOpen && (
-                  <div className="absolute right-0 top-14 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[999]">
-                    <Link
-                      to="/profile"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <UserRound className="w-5 h-5" />
-                      Thông tin tài khoản
-                    </Link>
-
-                    <Link
-                      to="/order-history"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <ClipboardList className="w-5 h-5" />
-                      Lịch sử đơn hàng
-                    </Link>
-
-                    <Link
-                      to="/my-booking"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <CalendarCheck className="w-5 h-5" />
-                      Đặt bàn của tôi
-                    </Link>
-
-                    <button
-                      onClick={() => {
-                        localStorage.removeItem("isLoggedIn");
-                        setIsLoggedIn(false);
-                        setIsProfileOpen(false);
-                        setIsMenuOpen(false);
-                        navigate("/home");
-                      }}
-                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50 text-red-600 font-medium border-t"
-                    >
-                      <LogOut className="w-5 h-5" />
-                      Đăng xuất
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
-                >
-                  Đăng nhập
-                </Link>
-
-                <Link
-                  to="/register"
-                  className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
-                >
-                  Đăng ký
-                </Link>
-              </>
-            )}
-          </div>
-
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="lg:hidden w-10 h-10 rounded-lg border border-green-800 text-green-800 flex items-center justify-center"
-          >
-            {isMenuOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
-          </button>
-        </div>
-
-        {isMenuOpen && (
-          <div className="lg:hidden bg-white border-t border-gray-100 shadow-md">
-            <nav className="px-5 py-4 flex flex-col gap-4 text-sm font-semibold text-green-950">
-              <Link to="/home">Trang chủ</Link>
-              <Link to="/menu">Thực đơn</Link>
-              <Link to="/reservation" className="text-green-800 font-black">
-                Đặt bàn
-              </Link>
-              <Link to="/deals">Khuyến mãi</Link>
-              <Link to="/about">Giới thiệu</Link>
-              <Link to="/contact">Liên hệ</Link>
-            </nav>
-          </div>
-        )}
-      </header>
-
       <main className="max-w-[1500px] mx-auto px-4 md:px-6 py-8">
         <div className="mb-6">
           <h1 className="text-3xl md:text-4xl font-black text-green-900">
@@ -612,7 +455,13 @@ function ReservationPage() {
         </section>
         <section className="mt-8 bg-[#fff8ea] rounded-2xl p-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <ServiceItem
-            icon={<Leaf className="w-6 h-6" />}
+            icon={
+              <img
+                src={goatIcon}
+                alt="Dê Hương Sơn"
+                className="w-7 h-7 object-contain"
+              />
+            }
             title="Nguyên liệu tươi ngon"
             text="Dê núi Hương Sơn tuyển chọn mỗi ngày"
           />
@@ -634,111 +483,6 @@ function ReservationPage() {
         </section>
       </main>
 
-      {/* FOOTER */}
-      <footer className="bg-green-950 text-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-5 py-7 md:py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-8">
-          <div>
-            <Link
-              to="/home"
-              onClick={scrollToTop}
-              className="flex items-center gap-2 mb-3"
-            >
-              <Leaf className="w-8 h-8" />
-              <div>
-                <h3 className="text-xl font-bold leading-5">Dê Hương Sơn</h3>
-                <p className="text-sm text-white/70">Hà Tĩnh</p>
-              </div>
-            </Link>
-
-            <p className="text-white/75 text-sm leading-relaxed mb-2 md:mb-5 max-w-xs">
-              Dê núi Hương Sơn – đậm đà bản sắc, tươi ngon, bổ dưỡng.
-            </p>
-          </div>
-
-          <div className="pl-2">
-            <h3 className="font-bold text-lg mb-3 md:mb-5">
-              Thông tin liên hệ
-            </h3>
-
-            <div className="space-y-2 text-white/75 text-sm">
-              <div className="flex items-start gap-3">
-                <MapPin className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
-                <p>
-                  Thị trấn Phố Châu, <br />
-                  Hương Sơn, Hà Tĩnh
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Phone className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
-                <p>
-                  038 713 6878
-                  <br />
-                  076 877 4619
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className="w-5 h-5 flex items-center justify-center text-white">
-                  ✉
-                </span>
-                <p>dehuongson.ht@gmail.com</p>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-lg mb-3 md:mb-5">Giờ mở cửa</h3>
-
-            <div className="flex items-center gap-3 text-white/75 text-sm leading-7">
-              <Clock className="w-5 h-5 text-white shrink-0" />
-              <div>
-                <p>08:00 - 22:00</p>
-                <p>Tất cả các ngày trong tuần</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <h3 className="font-bold text-lg mb-5">Kết nối với chúng tôi</h3>
-
-            <div className="flex gap-4 items-center justify-center">
-              <a
-                href="#"
-                className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
-              >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/2021_Facebook_icon.svg/1280px-2021_Facebook_icon.svg.png"
-                  alt="facebook"
-                  className="w-5 h-5"
-                />
-              </a>
-
-              <a
-                href="#"
-                className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
-              >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg"
-                  alt="zalo"
-                  className="w-6 h-6"
-                />
-              </a>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <h3 className="font-bold text-lg mb-5">Bản đồ</h3>
-            <div className="h-40 bg-white/15 rounded-2xl flex items-center justify-center text-white/80 text-sm">
-              Khu vực bản đồ
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-white/15 text-center py-3 text-xs md:text-sm text-white/60">
-          © 2026 Dê Hương Sơn Hà Tĩnh. All rights reserved.
-        </div>
-      </footer>
       {showLoginModal && (
         <LoginRequiredModal
           onClose={() => setShowLoginModal(false)}
@@ -785,14 +529,6 @@ function Input({
   );
 }
 
-function Info({ title, text }) {
-  return (
-    <div className="border-b border-white/10 pb-3">
-      <p className="font-bold text-white">{title}</p>
-      <p className="text-white/70 mt-1">{text}</p>
-    </div>
-  );
-}
 function AreaCard({ active, title, text, onClick }) {
   return (
     <button
@@ -838,77 +574,6 @@ function ServiceItem({ icon, title, text }) {
         <p className="font-black text-green-900 text-sm">{title}</p>
 
         <p className="text-xs text-gray-600 mt-1">{text}</p>
-      </div>
-    </div>
-  );
-}
-function LoginRequiredModal({ onClose, onLogin }) {
-  return (
-    <div className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-sm flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl px-6 py-8 text-center relative">
-        <div className="w-28 h-28 rounded-full bg-[#fbf3df] mx-auto flex items-center justify-center relative">
-          <div className="w-16 h-16 rounded-2xl border-4 border-green-800 flex items-center justify-center">
-            <div className="w-5 h-5 rounded-full border-4 border-green-800"></div>
-          </div>
-
-          <div className="absolute right-4 bottom-5 w-12 h-12 rounded-xl bg-[#d6a84f] flex items-center justify-center text-white text-xl">
-            🔒
-          </div>
-        </div>
-
-        <h2 className="mt-6 text-2xl font-black text-green-950 leading-tight">
-          Vui lòng đăng nhập
-          <br />
-          để đặt món và đặt bàn
-        </h2>
-
-        <div className="flex items-center justify-center gap-3 mt-4">
-          <div className="w-20 h-px bg-[#d6a84f]"></div>
-          <span className="text-[#b88935]">🐐</span>
-          <div className="w-20 h-px bg-[#d6a84f]"></div>
-        </div>
-
-        <p className="text-sm text-gray-500 mt-5 leading-relaxed">
-          Đăng nhập để lưu thông tin, theo dõi đơn hàng
-          <br />
-          và nhận nhiều ưu đãi hấp dẫn từ Dê Hương Sơn.
-        </p>
-
-        <div className="grid grid-cols-2 gap-4 mt-8">
-          <button
-            onClick={onClose}
-            className="
-      h-14 rounded-2xl
-      border-2 border-[#e7d8bb]
-      text-gray-700
-      font-bold
-      hover:bg-[#faf7ef]
-      transition
-    "
-          >
-            Bỏ qua
-          </button>
-
-          <button
-            onClick={onLogin}
-            className="
-      h-14 rounded-2xl
-      bg-green-900
-      text-white
-      font-bold
-      hover:bg-green-950
-      transition
-      shadow-lg
-    "
-          >
-            Đăng nhập / Đăng ký
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mt-2 text-xs text-gray-500">
-          <p>Không đặt món, đặt bàn</p>
-          <p>Tiếp tục đặt món, đặt bàn</p>
-        </div>
       </div>
     </div>
   );

@@ -1,6 +1,11 @@
+import { checkLogin } from "../utils/auth";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { GiMeat, GiCampCookingPot, GiBarbecue } from "react-icons/gi";
+
+import { dishes } from "../data/menuData";
+import { categories } from "../data/menuCategories";
+import DishCard from "../components/DishCard";
+import LoginRequiredModal from "../components/LoginRequiredModal";
 
 import {
   Search,
@@ -8,43 +13,24 @@ import {
   ChevronDown,
   ChevronUp,
   Leaf,
-  Menu,
   X,
-  MapPin,
-  Phone,
   Clock,
   ShieldCheck,
   Truck,
   ShoppingCart,
-  User,
-  UserRound,
-  ClipboardList,
-  CalendarCheck,
-  LogOut,
 } from "lucide-react";
 
-import {
-  PiBowlFoodLight,
-  PiCookingPotLight,
-  PiCoffeeLight,
-} from "react-icons/pi";
-
-import { TbSoup } from "react-icons/tb";
-
+import goatIcon from "../assets/images/Icon_De.png";
 import bannermenu from "../assets/images/menu/banner-menu.jpg";
-import deTaiChanh from "../assets/images/menu/de-tai-chanh.jpg";
-import deNuongTang from "../assets/images/menu/de-nuong-tang.jpg";
-import deXaoLan from "../assets/images/menu/de-xao-lan.jpg";
-import lauDe from "../assets/images/menu/lau-de.jpg";
-import deHapTiaTo from "../assets/images/menu/de-hap-tia-to.jpg";
-import suonDeNuong from "../assets/images/menu/suon-de-nuong.jpg";
 
 function MenuPage() {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState("Tất cả món");
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortType, setSortType] = useState("newest");
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [openCategory, setOpenCategory] = useState("Món khác");
+  const [openCategory, setOpenCategory] = useState("");
   const [selectedDish, setSelectedDish] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("description");
@@ -52,16 +38,13 @@ function MenuPage() {
   const modalScrollRef = useRef(null);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("cartItems");
     return savedCart ? JSON.parse(savedCart) : [];
   }); // profile menu
   const [toast, setToast] = useState(null);
-  const [flyItem, setFlyItem] = useState(null);
-  const cartIconRef = useRef(null);
-  const desktopProfileRef = useRef(null);
-  const mobileProfileRef = useRef(null);
+
   const previewImages =
     selectedDish?.images?.length > 0
       ? selectedDish.images
@@ -80,36 +63,7 @@ function MenuPage() {
   }, [selectedDish]);
   // kiểm tra đăng nhập
   useEffect(() => {
-    const loginStatus = localStorage.getItem("isLoggedIn");
-
-    if (loginStatus === "true") {
-      setIsLoggedIn(true);
-    } else {
-      setIsLoggedIn(false);
-    }
-  }, []);
-
-  // đóng menu profile khi click ra ngoài
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      const clickedOutsideDesktop =
-        desktopProfileRef.current &&
-        !desktopProfileRef.current.contains(event.target);
-
-      const clickedOutsideMobile =
-        mobileProfileRef.current &&
-        !mobileProfileRef.current.contains(event.target);
-
-      if (clickedOutsideDesktop || clickedOutsideMobile) {
-        setIsProfileOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    setIsLoggedIn(checkLogin());
   }, []);
 
   // lưu giỏ hàng vào localStorage
@@ -117,112 +71,6 @@ function MenuPage() {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
   }, [cartItems]);
 
-  //chuyển về đầu trang menu
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  const categories = [
-    {
-      name: "Tất cả món",
-      icon: <GiMeat className="w-5 h-5" />,
-    },
-
-    {
-      name: "Món khai vị",
-      icon: <TbSoup className="w-5 h-5" />,
-    },
-
-    {
-      name: "Dê hấp",
-      icon: <PiCookingPotLight className="w-5 h-5" />,
-    },
-
-    {
-      name: "Dê nướng",
-      icon: <GiBarbecue className="w-5 h-5" />,
-    },
-
-    {
-      name: "Dê xào",
-      icon: <PiBowlFoodLight className="w-5 h-5" />,
-    },
-
-    {
-      name: "Dê lẩu",
-      icon: <GiCampCookingPot className="w-5 h-5" />,
-    },
-
-    {
-      name: "Món khác",
-      icon: <PiBowlFoodLight className="w-5 h-5" />,
-      children: ["Hải sản", "Bò", "Heo", "Gà", "Vịt", "Ếch", "Cá", "Món chay"],
-    },
-
-    {
-      name: "Đồ uống",
-      icon: <PiCoffeeLight className="w-5 h-5" />,
-    },
-  ];
-  const dishes = [
-    {
-      id: 1,
-      name: "Dê tái chanh",
-      description: "Thịt dê tươi tái chanh, thơm ngon, đậm vị.",
-      price: "129.000đ",
-      category: "Món khai vị",
-      image: deTaiChanh,
-      status: "available",
-    },
-    {
-      id: 2,
-      name: "Dê nướng tảng",
-      description: "Thịt dê nướng tảng ướp gia vị đặc biệt.",
-      price: "399.000đ",
-      category: "Dê nướng",
-      image: deNuongTang,
-      status: "low",
-    },
-    {
-      id: 3,
-      name: "Dê xào lăn",
-      description: "Thịt dê xào cùng sả, ớt, hành tây, thơm nồng.",
-      price: "289.000đ",
-      category: "Dê xào",
-      image: deXaoLan,
-      status: "available",
-    },
-    {
-      id: 4,
-      name: "Lẩu dê Hương Sơn",
-      description: "Nước lẩu đậm đà từ xương dê, ăn kèm rau tươi.",
-      price: "399.000đ",
-      category: "Dê lẩu",
-      image: lauDe,
-      status: "soldout",
-    },
-    {
-      id: 5,
-      name: "Dê hấp tía tô",
-      description: "Thịt dê hấp cùng lá tía tô, giữ trọn vị ngọt tự nhiên.",
-      price: "399.000đ / đĩa",
-      category: "Dê hấp",
-      image: deHapTiaTo,
-      status: "available",
-    },
-    {
-      id: 6,
-      name: "Sườn dê nướng",
-      description: "Sườn dê nướng thơm lừng, mềm ngọt tự nhiên.",
-      price: "449.000đ / đĩa",
-      category: "Dê nướng",
-      image: suonDeNuong,
-      status: "soldout",
-    },
-  ];
   // hàm chuyển giá từ string sang number để tính tổng tiền
   const parsePrice = (price) => {
     return Number(price.replace(/[^\d]/g, ""));
@@ -273,38 +121,57 @@ function MenuPage() {
 
     window.dispatchEvent(new Event("cartUpdated"));
 
-    const imageRect =
-      event?.currentTarget
-        ?.closest(".dish-card")
-        ?.querySelector("img")
-        ?.getBoundingClientRect() ||
-      event?.currentTarget
-        ?.closest(".quick-view-content")
-        ?.querySelector("img")
-        ?.getBoundingClientRect();
-
-    const cartRect = cartIconRef.current?.getBoundingClientRect();
-
-    if (imageRect && cartRect) {
-      setFlyItem({
-        image: dish.image,
-        startX: imageRect.left + imageRect.width / 2,
-        startY: imageRect.top + imageRect.height / 2,
-        endX: cartRect.left + cartRect.width / 2,
-        endY: cartRect.top + cartRect.height / 2,
-      });
-
-      setTimeout(() => setFlyItem(null), 900);
-    }
     // hiển thị toast khi thêm món vào giỏ hàng
     showToast(dish.name);
   };
   // lọc món ăn theo danh mục
-  const filteredDishes =
-    selectedCategory === "Tất cả món"
-      ? dishes
-      : dishes.filter((dish) => dish.category === selectedCategory);
+  const filteredDishes = dishes.filter((dish) => {
+    const matchCategory =
+      selectedCategory === "Tất cả món" || dish.category === selectedCategory;
 
+    const matchSearch =
+      dish.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      dish.description.toLowerCase().includes(searchTerm.toLowerCase());
+
+    return matchCategory && matchSearch;
+  });
+
+  //Danh sách khi lọc
+  const displayedDishes = [...filteredDishes].sort((a, b) => {
+    const priceA = parsePrice(a.price);
+    const priceB = parsePrice(b.price);
+
+    if (sortType === "newest") {
+      return b.id - a.id;
+    }
+
+    if (sortType === "price-asc") {
+      return priceA - priceB;
+    }
+
+    if (sortType === "price-desc") {
+      return priceB - priceA;
+    }
+
+    if (sortType === "name-asc") {
+      return a.name.localeCompare(b.name, "vi");
+    }
+
+    if (sortType === "name-desc") {
+      return b.name.localeCompare(a.name, "vi");
+    }
+
+    return 0;
+  });
+
+  //Mở chi tiết món ăn
+  const handleOpenDishDetail = (dish) => {
+    setSelectedDish(dish);
+    setSelectedImage(dish.image);
+    setQuantity(1);
+    setSelectedImageIndex(0);
+    setActiveTab("description");
+  };
   return (
     <div className="min-h-screen bg-[#fbf7ec] text-green-950">
       {/* Toast thông báo */}
@@ -330,244 +197,6 @@ function MenuPage() {
           </div>
         </div>
       )}
-
-      {flyItem && (
-        <img
-          src={flyItem.image}
-          alt=""
-          className="fixed z-[9999] w-14 h-14 rounded-full object-cover pointer-events-none shadow-2xl animate-fly-to-cart"
-          style={{
-            left: flyItem.startX,
-            top: flyItem.startY,
-            "--end-x": `${flyItem.endX - flyItem.startX}px`,
-            "--end-y": `${flyItem.endY - flyItem.startY}px`,
-          }}
-        />
-      )}
-      {/* HEADER */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur shadow-sm">
-        <div className="max-w-7xl mx-auto h-16 px-5 flex items-center justify-between">
-          <Link
-            to="/home"
-            onClick={scrollToTop}
-            className="flex items-center gap-2"
-          >
-            <Leaf className="w-8 h-8 text-green-800" />
-            <div>
-              <h1 className="font-bold text-green-800 leading-4">
-                Dê Hương Sơn
-              </h1>
-              <p className="text-xs text-green-700 font-medium">HÀ TĨNH</p>
-            </div>
-          </Link>
-
-          <nav className="hidden lg:flex gap-8 text-sm font-semibold">
-            <Link to="/">Trang chủ</Link>
-            <Link
-              to="/menu"
-              className="text-green-800 border-b-2 border-green-800 pb-2"
-            >
-              Thực đơn
-            </Link>
-            <Link to="/reservation">Đặt bàn</Link>
-            <Link to="/deals">Khuyến mãi</Link>
-            <Link to="/about">Giới thiệu</Link>
-            <Link to="/contact">Liên hệ</Link>
-          </nav>
-
-          <div className="hidden md:flex gap-3">
-            {isLoggedIn ? (
-              <div
-                ref={desktopProfileRef}
-                className="relative flex items-center gap-3"
-              >
-                <Link
-                  ref={cartIconRef}
-                  to="/cart"
-                  className="relative text-green-900"
-                >
-                  <ShoppingCart className="w-5 h-5" />
-
-                  <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
-                    {totalCartQty}
-                  </span>
-                </Link>
-
-                <button
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className="w-11 h-11 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
-                >
-                  <User className="w-6 h-6" />
-                </button>
-
-                {isProfileOpen && (
-                  <div className="absolute right-0 top-14 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[999]">
-                    <Link
-                      to="/profile"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <UserRound className="w-5 h-5" />
-                      Thông tin tài khoản
-                    </Link>
-
-                    <Link
-                      to="/order-history"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <ClipboardList className="w-5 h-5" />
-                      Lịch sử đơn hàng
-                    </Link>
-
-                    <Link
-                      to="/my-booking"
-                      className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
-                    >
-                      <CalendarCheck className="w-5 h-5" />
-                      Đặt bàn của tôi
-                    </Link>
-
-                    <button
-                      onClick={() => {
-                        localStorage.removeItem("isLoggedIn");
-                        setIsLoggedIn(false);
-                        setIsProfileOpen(false);
-                        setIsMenuOpen(false);
-                        navigate("/home");
-                      }}
-                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50 text-red-600 font-medium border-t"
-                    >
-                      <LogOut className="w-5 h-5" />
-                      Đăng xuất
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
-                >
-                  Đăng nhập
-                </Link>
-
-                <Link
-                  to="/register"
-                  className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
-                >
-                  Đăng ký
-                </Link>
-              </>
-            )}
-          </div>
-
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="lg:hidden w-10 h-10 rounded-lg border border-green-800 text-green-800 flex items-center justify-center"
-          >
-            {isMenuOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
-          </button>
-        </div>
-
-        {isMenuOpen && (
-          <div className="lg:hidden bg-white border-t border-gray-100 shadow-md">
-            <nav className="px-5 py-4 flex flex-col gap-4 text-sm font-semibold text-green-950">
-              <Link to="/">Trang chủ</Link>
-              <Link to="/menu">Thực đơn</Link>
-              <Link to="/reservation">Đặt bàn</Link>
-              <Link to="/deals">Khuyến mãi</Link>
-              <Link to="/about">Giới thiệu</Link>
-              <Link to="/contact">Liên hệ</Link>
-
-              <div className="flex gap-3 pt-3 border-t border-gray-100">
-                {isLoggedIn ? (
-                  <div ref={mobileProfileRef} className="w-full">
-                    <div className="flex items-center gap-4">
-                      <Link to="/cart" className="relative text-green-900">
-                        <ShoppingCart className="w-5 h-5" />
-
-                        <span className="absolute -top-5 -right-4 min-w-[22px] h-[22px] px-1.5 bg-red-600 rounded-full text-[11px] font-bold text-white flex items-center justify-center border-2 border-white shadow">
-                          {totalCartQty}
-                        </span>
-                      </Link>
-
-                      <button
-                        onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className="w-12 h-12 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
-                      >
-                        <User className="w-7 h-7" />
-                      </button>
-                    </div>
-                    {/* mobile menu profile */}
-                    {isProfileOpen && (
-                      <div className="w-full mt-3 bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-md">
-                        <Link
-                          to="/profile"
-                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium"
-                        >
-                          <UserRound className="w-5 h-5" />
-                          Thông tin tài khoản
-                        </Link>
-
-                        <Link
-                          to="/order-history"
-                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium border-t"
-                        >
-                          <ClipboardList className="w-5 h-5" />
-                          Lịch sử đơn hàng
-                        </Link>
-
-                        <Link
-                          to="/my-booking"
-                          className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium border-t"
-                        >
-                          <CalendarCheck className="w-5 h-5" />
-                          Đặt bàn của tôi
-                        </Link>
-
-                        <button
-                          onClick={() => {
-                            localStorage.removeItem("isLoggedIn");
-                            setIsLoggedIn(false);
-                            setIsProfileOpen(false);
-                            setIsMenuOpen(false);
-                            navigate("/home");
-                          }}
-                          className="w-full flex items-center gap-4 px-4 py-3 text-red-600 font-medium border-t"
-                        >
-                          <LogOut className="w-5 h-5" />
-                          Đăng xuất
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <Link
-                      to="/login"
-                      className="flex-1 text-center border border-green-800 text-green-800 px-4 py-2 rounded-lg font-semibold"
-                    >
-                      Đăng nhập
-                    </Link>
-
-                    <Link
-                      to="/register"
-                      className="flex-1 text-center bg-green-800 text-white px-4 py-2 rounded-lg font-semibold"
-                    >
-                      Đăng ký
-                    </Link>
-                  </>
-                )}
-              </div>
-            </nav>
-          </div>
-        )}
-      </header>
-      <div className="h-13.5"></div>
 
       {/* BANNER */}
       <section
@@ -709,7 +338,7 @@ after:pointer-events-none
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      {category.icon}
+                      {category.icon && <category.icon className="w-5 h-5" />}
                       <span>{category.name}</span>
                     </div>
 
@@ -767,41 +396,31 @@ after:pointer-events-none
                     <Search className="w-4 h-4 text-gray-400" />
                     <input
                       type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Tìm món ăn..."
                       className="bg-transparent outline-none text-sm w-full"
                     />
                   </div>
-
-                  <button className="h-11 bg-[#fbf7ec] rounded-xl px-4 flex items-center gap-2 text-sm font-semibold">
-                    Sắp xếp: Món mới
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
+                  {/* Sắp xếp destop */}
+                  <div className="h-11 bg-[#fbf7ec] rounded-xl px-4 flex items-center gap-2 text-sm font-semibold">
+                    <select
+                      value={sortType}
+                      onChange={(e) => setSortType(e.target.value)}
+                      className="bg-transparent outline-none cursor-pointer"
+                    >
+                      <option value="newest">Món mới</option>
+                      <option value="price-asc">Giá tăng dần</option>
+                      <option value="price-desc">Giá giảm dần</option>
+                      <option value="name-asc">Tên A-Z</option>
+                      <option value="name-desc">Tên Z-A</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
             {/* MOBILE CATEGORY BAR */}
             <div className="lg:hidden mb-5 px-4">
-              {/* HEADER */}
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xl font-black text-green-900">
-                  {categories.find((item) =>
-                    item.children?.includes(selectedCategory),
-                  )
-                    ? `Món khác > ${selectedCategory}`
-                    : selectedCategory}
-                </h2>
-
-                <div className="flex items-center gap-2">
-                  <button className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-green-800">
-                    <Search className="w-4 h-4" />
-                  </button>
-
-                  <button className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-green-800">
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
               {/* CATEGORY LIST */}
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {categories.map((category) => (
@@ -828,7 +447,18 @@ after:pointer-events-none
                   </button>
                 ))}
               </div>
+              {/* tìm kiếm món ăn */}
+              <div className="h-11 bg-white rounded-xl px-4 flex items-center gap-2 shadow-sm mb-3">
+                <Search className="w-4 h-4 text-gray-400" />
 
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Tìm món ăn..."
+                  className="bg-transparent outline-none text-sm w-full"
+                />
+              </div>
               {/* SUB CATEGORY */}
               {openCategory === "Món khác" && (
                 <div className="flex gap-2 overflow-x-auto pb-2 mt-2">
@@ -851,75 +481,64 @@ after:pointer-events-none
               )}
             </div>
             {/* DISH GRID */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2200px]:grid-cols-6 gap-3 md:gap-5 px-4 md:px-0">
-              {filteredDishes.map((dish) => (
-                <div
-                  key={dish.name}
-                  onClick={() => {
-                    setSelectedDish(dish);
-                    setSelectedImage(dish.image);
-                    setQuantity(1);
-                    setSelectedImageIndex(0);
-                    setActiveTab("description");
-                  }}
-                  className={`dish-card relative w-full min-w-0 bg-white rounded-2xl md:rounded-3xl shadow-sm md:shadow-md overflow-hidden transition grid grid-cols-[110px_minmax(0,1fr)] md:flex md:flex-col md:min-h-[370px] cursor-pointer ${
-                    dish.status === "soldout" ? "" : "hover:-translate-y-1"
-                  }`}
-                >
-                  {dish.status === "soldout" && (
-                    <div className="absolute top-2 left-2 md:top-3 md:left-3 z-10 bg-red-600 text-white text-[9px] md:text-xs font-bold px-2 md:px-3 py-1 rounded-full shadow-lg whitespace-nowrap">
-                      <span className="md:hidden">TẠM HẾT</span>
-                      <span className="hidden md:inline">MÓN ĂN TẠM HẾT</span>
-                    </div>
-                  )}
-
-                  {dish.status === "low" && (
-                    <div className="absolute top-2 left-2 md:top-3 md:left-3 z-10 bg-yellow-500 text-white text-[9px] md:text-xs font-bold px-2 md:px-3 py-1 rounded-full shadow-lg whitespace-nowrap">
-                      SẮP HẾT
-                    </div>
-                  )}
-
-                  <div className="w-full h-28 md:h-48 overflow-hidden md:shrink-0">
-                    <img
-                      src={dish.image}
-                      alt={dish.name}
-                      className="w-full h-full object-cover hover:scale-105 transition duration-500"
-                    />
-                  </div>
-
-                  <div className="p-3 md:p-5 min-w-0 flex flex-col md:flex-1">
-                    <h3 className="font-black text-green-900 text-sm md:text-base">
-                      {dish.name}
-                    </h3>
-
-                    <p className="text-xs md:text-sm text-gray-500 mt-1 md:mt-2 leading-relaxed line-clamp-2 overflow-hidden break-words">
-                      {dish.description}
-                    </p>
-
-                    <div className="flex items-center justify-between mt-auto pt-4">
-                      <p className="font-black text-[#c99a45] text-xs md:text-base">
-                        {dish.price}
-                      </p>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addToCart(dish, 1, e);
-                        }}
-                        disabled={dish.status === "soldout"}
-                        className={`w-8 h-8 md:w-10 md:h-10 rounded-full transition flex items-center justify-center ${
-                          dish.status === "soldout"
-                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            : "border border-[#c99a45] text-[#c99a45] hover:bg-[#c99a45] hover:text-white"
-                        }`}
-                      >
-                        <Plus className="w-4 h-4 md:w-5 md:h-5" />
-                      </button>
-                    </div>
-                  </div>
+            {displayedDishes.length === 0 ? (
+              <div className="min-h-[430px] bg-white/70 border border-[#eadfcd] rounded-3xl shadow-sm flex flex-col items-center justify-center text-center px-5">
+                <div className="w-24 h-24 rounded-full bg-[#fbf0dc] flex items-center justify-center mb-5 opacity-80">
+                  <img
+                    src={goatIcon}
+                    alt=""
+                    className="w-14 h-14 object-contain opacity-40"
+                  />
                 </div>
-              ))}
-            </div>
+
+                <h3 className="text-xl md:text-2xl font-black text-green-900">
+                  {searchTerm
+                    ? "Không tìm thấy món ăn"
+                    : "Chưa có món ăn trong danh mục này"}
+                </h3>
+
+                <p className="text-gray-500 mt-2 max-w-md leading-relaxed">
+                  {searchTerm ? (
+                    <>
+                      Không có món nào phù hợp với từ khóa{" "}
+                      <span className="font-bold text-[#b88935]">
+                        "{searchTerm}"
+                      </span>
+                      .
+                    </>
+                  ) : (
+                    <>
+                      Hiện tại nhà hàng chưa cập nhật món ăn cho mục{" "}
+                      <span className="font-bold text-[#b88935]">
+                        "{selectedCategory}"
+                      </span>
+                      .
+                    </>
+                  )}
+                </p>
+
+                <button
+                  onClick={() => {
+                    setSearchTerm("");
+                    setSelectedCategory("Tất cả món");
+                  }}
+                  className="mt-6 px-6 py-3 rounded-xl bg-green-900 text-white font-bold hover:bg-green-950 transition"
+                >
+                  Xem tất cả món
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2200px]:grid-cols-6 gap-3 md:gap-5 px-4 md:px-0">
+                {displayedDishes.map((dish) => (
+                  <DishCard
+                    key={dish.id}
+                    dish={dish}
+                    onOpenDetail={handleOpenDishDetail}
+                    onAddToCart={addToCart}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* CTA ĐẶT BÀN */}
             <div className="hidden md:flex mt-10 bg-green-900 rounded-3xl p-6 md:p-8 flex-col md:flex-row gap-5 items-center justify-between text-center md:text-left overflow-hidden">
@@ -943,16 +562,7 @@ after:pointer-events-none
 
                     navigate("/reservation");
                   }}
-                  className="
-    booking-btn
-    bg-[#d6a84f]
-    hover:bg-[#c99a45]
-    text-green-950
-    font-bold
-    px-7
-    py-3
-    rounded-xl
-  "
+                  className="booking-btn bg-[#d6a84f] hover:bg-[#c99a45] text-green-950 font-bold px-7 py-3 rounded-xl"
                 >
                   Đặt bàn ngay
                 </button>
@@ -1381,188 +991,12 @@ after:pointer-events-none
         </div>
       )}
 
-      {/* FOOTER */}
-      <footer className="bg-green-950 text-white overflow-hidden">
-        <div className="w-full max-w-7xl mx-auto px-4 md:px-5 py-7 md:py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-8">
-          <div>
-            <Link
-              to="/home"
-              onClick={scrollToTop}
-              className="flex items-center gap-2 mb-3"
-            >
-              <Leaf className="w-8 h-8" />
-              <div>
-                <h3 className="text-xl font-bold leading-5">Dê Hương Sơn</h3>
-                <p className="text-sm text-white/70">Hà Tĩnh</p>
-              </div>
-            </Link>
-
-            <p className="text-white/75 text-sm leading-relaxed mb-2 md:mb-5 max-w-xs">
-              Dê núi Hương Sơn – đậm đà bản sắc, tươi ngon, bổ dưỡng.
-            </p>
-          </div>
-
-          <div className="pl-2">
-            <h3 className="font-bold text-lg mb-3 md:mb-5">
-              Thông tin liên hệ
-            </h3>
-
-            <div className="space-y-2 text-white/75 text-sm">
-              <div className="flex items-start gap-3">
-                <MapPin className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
-                <p>
-                  Thị trấn Phố Châu, <br />
-                  Hương Sơn, Hà Tĩnh
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Phone className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
-                <p>
-                  038 713 6878
-                  <br />
-                  076 877 4619
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className="w-5 h-5 flex items-center justify-center text-white">
-                  ✉
-                </span>
-                <p>dehuongson.ht@gmail.com</p>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-lg mb-3 md:mb-5">Giờ mở cửa</h3>
-
-            <div className="flex items-center gap-3 text-white/75 text-sm leading-7">
-              <Clock className="w-5 h-5 text-white shrink-0" />
-              <div>
-                <p>08:00 - 22:00</p>
-                <p>Tất cả các ngày trong tuần</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <h3 className="font-bold text-lg mb-5">Kết nối với chúng tôi</h3>
-
-            <div className="flex gap-4 items-center justify-center">
-              <a
-                href="#"
-                className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
-              >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/2021_Facebook_icon.svg/1280px-2021_Facebook_icon.svg.png"
-                  alt="facebook"
-                  className="w-5 h-5"
-                />
-              </a>
-
-              <a
-                href="#"
-                className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
-              >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg"
-                  alt="zalo"
-                  className="w-6 h-6"
-                />
-              </a>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <h3 className="font-bold text-lg mb-5">Bản đồ</h3>
-            <div className="h-40 bg-white/15 rounded-2xl flex items-center justify-center text-white/80 text-sm">
-              Khu vực bản đồ
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-white/15 text-center py-3 text-xs md:text-sm text-white/60">
-          © 2026 Dê Hương Sơn Hà Tĩnh. All rights reserved.
-        </div>
-      </footer>
       {showLoginModal && (
         <LoginRequiredModal
           onClose={() => setShowLoginModal(false)}
           onLogin={() => navigate("/login")}
         />
       )}
-    </div>
-  );
-}
-function LoginRequiredModal({ onClose, onLogin }) {
-  return (
-    <div className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-sm flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl px-6 py-8 text-center relative">
-        <div className="w-28 h-28 rounded-full bg-[#fbf3df] mx-auto flex items-center justify-center relative">
-          <div className="w-16 h-16 rounded-2xl border-4 border-green-800 flex items-center justify-center">
-            <div className="w-5 h-5 rounded-full border-4 border-green-800"></div>
-          </div>
-
-          <div className="absolute right-4 bottom-5 w-12 h-12 rounded-xl bg-[#d6a84f] flex items-center justify-center text-white text-xl">
-            🔒
-          </div>
-        </div>
-
-        <h2 className="mt-6 text-2xl font-black text-green-950 leading-tight">
-          Vui lòng đăng nhập
-          <br />
-          để đặt món và đặt bàn
-        </h2>
-
-        <div className="flex items-center justify-center gap-3 mt-4">
-          <div className="w-20 h-px bg-[#d6a84f]"></div>
-          <span className="text-[#b88935]">🐐</span>
-          <div className="w-20 h-px bg-[#d6a84f]"></div>
-        </div>
-
-        <p className="text-sm text-gray-500 mt-5 leading-relaxed">
-          Đăng nhập để lưu thông tin, theo dõi đơn hàng
-          <br />
-          và nhận nhiều ưu đãi hấp dẫn từ Dê Hương Sơn.
-        </p>
-
-        <div className="grid grid-cols-2 gap-4 mt-8">
-          <button
-            onClick={onClose}
-            className="
-      h-14 rounded-2xl
-      border-2 border-[#e7d8bb]
-      text-gray-700
-      font-bold
-      hover:bg-[#faf7ef]
-      transition
-    "
-          >
-            Bỏ qua
-          </button>
-
-          <button
-            onClick={onLogin}
-            className="
-      h-14 rounded-2xl
-      bg-green-900
-      text-white
-      font-bold
-      hover:bg-green-950
-      transition
-      shadow-lg
-    "
-          >
-            Đăng nhập / Đăng ký
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mt-2 text-xs text-gray-500">
-          <p>Không đặt món, đặt bàn</p>
-          <p>Tiếp tục đặt món, đặt bàn</p>
-        </div>
-      </div>
     </div>
   );
 }

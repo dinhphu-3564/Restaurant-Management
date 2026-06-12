@@ -1,20 +1,9 @@
+import Header from "../components/Header";
+import Footer from "../components/Footer";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
-import {
-  Eye,
-  EyeOff,
-  Menu,
-  X,
-  AlertCircle,
-  Leaf,
-  LogIn,
-  Phone,
-  MapPin,
-  Clock,
-  User,
-  Mail,
-  Lock,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { Eye, EyeOff, AlertCircle, User, Lock } from "lucide-react";
+
 import backgroundImage from "../assets/images/Register_Login.png";
 import goatIcon from "../assets/images/Icon_De.png";
 
@@ -27,17 +16,7 @@ function Login() {
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [errors, setErrors] = useState({});
-
-  //về tang đầu home
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -70,24 +49,79 @@ function Login() {
       }));
     }
   };
+  // giả lập đăng nhập
+  const users = JSON.parse(localStorage.getItem("registeredUsers")) || [];
+  const systemUsers = [
+    {
+      id: 1,
+      name: "Admin",
+      email: "admin@gmail.com",
+      password: "123456",
+      role: "admin",
+    },
+    ...users,
+  ];
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
     const newErrors = validateForm();
 
-    if (Object.keys(newErrors).length === 0) {
-      localStorage.setItem("isLoggedIn", "true");
-
-      navigate("/home", {
-        state: {
-          loginSuccess: true,
-        },
-      });
-    } else {
+    if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      return;
     }
+
+    const user = systemUsers.find(
+      (u) =>
+        u.email.toLowerCase() === formData.account.trim().toLowerCase() &&
+        u.password === formData.password,
+    );
+
+    if (!user) {
+      setErrors({
+        account: "Tài khoản hoặc mật khẩu không đúng",
+      });
+      return;
+    }
+
+    if (formData.remember) {
+      localStorage.setItem("isLoggedIn", "true");
+    } else {
+      sessionStorage.setItem("isLoggedIn", "true");
+    }
+
+    const currentUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    };
+
+    if (formData.remember) {
+      localStorage.setItem("currentUser", JSON.stringify(currentUser));
+    } else {
+      sessionStorage.setItem("currentUser", JSON.stringify(currentUser));
+    }
+    window.dispatchEvent(new Event("loginStatusChanged"));
+
+    navigate("/home", {
+      state: {
+        loginSuccess: true,
+      },
+    });
   };
+
+  //Kiểm tra đăng nhập
+  useEffect(() => {
+    const isLoggedIn =
+      localStorage.getItem("isLoggedIn") === "true" ||
+      sessionStorage.getItem("isLoggedIn") === "true";
+
+    if (isLoggedIn) {
+      navigate("/home");
+    }
+  }, [navigate]);
 
   return (
     <div
@@ -98,75 +132,8 @@ function Login() {
     >
       <div className="min-h-screen flex flex-col">
         {/* HEADER */}
-        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur shadow-sm">
-          <div className="max-w-7xl mx-auto h-16 px-5 flex items-center justify-between">
-            <Link
-              to="/home"
-              onClick={scrollToTop}
-              className="flex items-center gap-2 mb-3"
-            >
-              <Leaf className="w-8 h-8 text-green-800" />
-              <div>
-                <h1 className="font-bold text-green-800 leading-4">
-                  Dê Hương Sơn
-                </h1>
-                <p className="text-xs text-green-700 font-medium">HÀ TĨNH</p>
-              </div>
-            </Link>
-
-            <nav className="hidden lg:flex items-center gap-10 text-[17px] font-semibold text-green-950">
-              <Link to="/home">Trang chủ</Link>
-              <Link to="/menu">Thực đơn</Link>
-              <a href="#">Đặt bàn</a>
-              <a href="#">Khuyến mãi</a>
-              <a href="#">Giới thiệu</a>
-              <a href="#">Liên hệ</a>
-            </nav>
-
-            <div className="hidden md:flex gap-3">
-              <Link
-                to="/register"
-                className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
-              >
-                Đăng ký
-              </Link>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden w-10 h-10 rounded-lg border border-green-800 text-green-800 flex items-center justify-center"
-            >
-              {mobileMenuOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
-              )}
-            </button>
-          </div>
-
-          {mobileMenuOpen && (
-            <div className="lg:hidden bg-white border-t border-gray-100 shadow-md">
-              <nav className="px-5 py-4 flex flex-col gap-4 text-sm font-semibold text-green-950">
-                <Link to="/home">Trang chủ</Link>
-                <Link to="/menu">Thực đơn</Link>
-                <a href="#">Đặt bàn</a>
-                <a href="#">Khuyến mãi</a>
-                <a href="#">Giới thiệu</a>
-                <a href="#">Liên hệ</a>
-
-                <div className="pt-3 border-t border-gray-100">
-                  <Link
-                    to="/register"
-                    className="block text-center bg-green-800 text-white px-4 py-2 rounded-lg font-semibold"
-                  >
-                    Đăng ký
-                  </Link>
-                </div>
-              </nav>
-            </div>
-          )}
-        </header>
+        <Header currentPage="" />
+        <div className="h-16"></div>
 
         {/* MAIN */}
         <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 md:py-8">
@@ -295,125 +262,7 @@ function Login() {
         </main>
 
         {/* FOOTER */}
-        <footer className="bg-green-950 text-white">
-          <div className="max-w-7xl mx-auto px-4 md:px-5 py-7 md:py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-8">
-            <div>
-              <Link
-                to="/home"
-                onClick={scrollToTop}
-                className="flex items-center gap-2 mb-3"
-              >
-                <Leaf className="w-8 h-8" />
-                <div>
-                  <h3 className="text-xl font-bold leading-5">Dê Hương Sơn</h3>
-                  <p className="text-sm text-white/70">Hà Tĩnh</p>
-                </div>
-              </Link>
-
-              <p className="text-white/75 text-sm leading-relaxed mb-2 md:mb-5 max-w-xs">
-                Dê núi Hương Sơn – đậm đà bản sắc, tươi ngon, bổ dưỡng.
-              </p>
-            </div>
-
-            <div className="pl-2">
-              <h3 className="font-bold text-lg mb-3 md:mb-5">
-                Thông tin liên hệ
-              </h3>
-
-              <div className="space-y-2 text-white/75 text-sm">
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-4 h-4 md:w-5 md:h-5 mt-1 text-white shrink-0" />
-                  <p>
-                    Thị trấn Phố Châu, <br />
-                    Hương Sơn, Hà Tĩnh
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Phone className="w-4 h-4 md:w-5 md:h-5 text-white shrink-0" />
-                  <p>
-                    038 713 6878
-                    <br />
-                    076 877 4619
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="w-5 h-5 flex items-center justify-center text-white">
-                    ✉
-                  </span>
-                  <p>dehuongson.ht@gmail.com</p>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-lg mb-3 md:mb-5">Giờ mở cửa</h3>
-
-              <div className="flex items-center gap-3 text-white/75 text-sm leading-7">
-                <Clock className="w-5 h-5 text-white shrink-0" />
-                <div>
-                  <p>08:00 - 22:00</p>
-                  <p>Tất cả các ngày trong tuần</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <h3 className="font-bold text-lg mb-5">Kết nối với chúng tôi</h3>
-
-              <div className="flex gap-4 items-center justify-center">
-                <a
-                  href="#"
-                  className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
-                >
-                  <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/2021_Facebook_icon.svg/1280px-2021_Facebook_icon.svg.png"
-                    alt="facebook"
-                    className="w-5 h-5"
-                  />
-                </a>
-
-                <a
-                  href="#"
-                  className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"
-                >
-                  <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg"
-                    alt="zalo"
-                    className="w-6 h-6"
-                  />
-                </a>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <h3 className="font-bold text-lg mb-5">Bản đồ</h3>
-              <div className="h-40 bg-white/15 rounded-2xl flex items-center justify-center text-white/80 text-sm">
-                Khu vực bản đồ
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-white/15 text-center py-3 text-xs md:text-sm text-white/60">
-            © 2026 Dê Hương Sơn Hà Tĩnh. All rights reserved.
-          </div>
-        </footer>
-      </div>
-    </div>
-  );
-}
-
-function FeatureItem({ icon, title, desc }) {
-  return (
-    <div className="flex items-start gap-4">
-      <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-        {icon}
-      </div>
-
-      <div>
-        <h3 className="font-bold text-green-800 mb-1">{title}</h3>
-        <p className="text-gray-600">{desc}</p>
+        <Footer />
       </div>
     </div>
   );
