@@ -141,6 +141,7 @@ function CartPage() {
   }, []);
   useEffect(() => {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
+    window.dispatchEvent(new Event("cartUpdated"));
   }, [cartItems]);
 
   const formatPrice = (price) => {

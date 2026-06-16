@@ -66,11 +66,6 @@ function MenuPage() {
     setIsLoggedIn(checkLogin());
   }, []);
 
-  // lưu giỏ hàng vào localStorage
-  useEffect(() => {
-    localStorage.setItem("cartItems", JSON.stringify(cartItems));
-  }, [cartItems]);
-
   // hàm chuyển giá từ string sang number để tính tổng tiền
   const parsePrice = (price) => {
     return Number(price.replace(/[^\d]/g, ""));
@@ -110,16 +105,21 @@ function MenuPage() {
     setCartItems((prev) => {
       const existed = prev.find((item) => item.id === cartDish.id);
 
+      let updatedCart;
+
       if (existed) {
-        return prev.map((item) =>
+        updatedCart = prev.map((item) =>
           item.id === cartDish.id ? { ...item, qty: item.qty + qty } : item,
         );
+      } else {
+        updatedCart = [...prev, cartDish];
       }
 
-      return [...prev, cartDish];
-    });
+      localStorage.setItem("cartItems", JSON.stringify(updatedCart));
+      window.dispatchEvent(new Event("cartUpdated"));
 
-    window.dispatchEvent(new Event("cartUpdated"));
+      return updatedCart;
+    });
 
     // hiển thị toast khi thêm món vào giỏ hàng
     showToast(dish.name);
@@ -909,6 +909,7 @@ after:pointer-events-none
                           </p>
 
                           <button
+                            // check logic
                             onClick={(e) => {
                               e.stopPropagation();
                               addToCart(item, 1, e);

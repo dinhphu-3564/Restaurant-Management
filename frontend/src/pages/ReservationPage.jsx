@@ -112,10 +112,21 @@ function ReservationPage() {
         now.getDate(),
       );
 
+      const [hour, minute] = form.time.split(":").map(Number);
+      const selectedMinutes = hour * 60 + minute;
+
+      const openMinutes = 8 * 60; // 08:00
+      const closeMinutes = 22 * 60; // 22:00
+
       if (selectedDateOnly < todayOnly) {
         newErrors.date = "Ngày đặt bàn không được nhỏ hơn hôm nay";
       } else if (selectedDateTime <= now) {
         newErrors.time = "Giờ đặt bàn phải lớn hơn thời gian hiện tại";
+      } else if (
+        selectedMinutes < openMinutes ||
+        selectedMinutes > closeMinutes
+      ) {
+        newErrors.time = "Nhà hàng chỉ nhận đặt bàn từ 08:00 đến 22:00";
       }
     }
 
@@ -285,6 +296,7 @@ function ReservationPage() {
                 onChange={handleChange}
                 icon={<Clock />}
                 error={errors.time}
+                helperText="Giờ mở cửa: 08:00 - 22:00"
               />
 
               <Input
@@ -502,6 +514,7 @@ function Input({
   icon,
   type = "text",
   error,
+  helperText,
 }) {
   return (
     <label className="block">
@@ -524,7 +537,11 @@ function Input({
         />
       </div>
 
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {error && <p className="text-red-500 text-xs mt-1 font-bold">{error}</p>}
+
+      {!error && helperText && (
+        <p className="text-xs text-gray-500 mt-1">{helperText}</p>
+      )}
     </label>
   );
 }

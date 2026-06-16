@@ -59,6 +59,20 @@ function Login() {
       password: "123456",
       role: "admin",
     },
+    {
+      id: 2,
+      name: "User",
+      email: "user@gmail.com",
+      password: "123456",
+      role: "user",
+    },
+    {
+      id: 2,
+      name: "User",
+      email: "phu",
+      password: "123456",
+      role: "user",
+    },
     ...users,
   ];
 

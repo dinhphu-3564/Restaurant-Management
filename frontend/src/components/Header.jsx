@@ -18,6 +18,14 @@ function Header({ currentPage = "home" }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => checkLogin());
+  const [avatar, setAvatar] = useState(localStorage.getItem("avatar") || null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    const user =
+      JSON.parse(localStorage.getItem("currentUser")) ||
+      JSON.parse(sessionStorage.getItem("currentUser"));
+
+    return user || null;
+  });
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("cartItems");
     return savedCart ? JSON.parse(savedCart) : [];
@@ -25,6 +33,7 @@ function Header({ currentPage = "home" }) {
 
   const desktopProfileRef = useRef(null);
   const mobileProfileRef = useRef(null);
+  const closeMenuTimeout = useRef(null);
   const navRef = useRef(null);
 
   const [indicatorStyle, setIndicatorStyle] = useState({
@@ -48,8 +57,21 @@ function Header({ currentPage = "home" }) {
   ];
 
   useEffect(() => {
+    const updateAvatar = () => {
+      setAvatar(localStorage.getItem("avatar") || null);
+    };
+
+    window.addEventListener("avatarUpdated", updateAvatar);
+    window.addEventListener("storage", updateAvatar);
+
     const updateLoginStatus = () => {
       setIsLoggedIn(checkLogin());
+
+      const user =
+        JSON.parse(localStorage.getItem("currentUser")) ||
+        JSON.parse(sessionStorage.getItem("currentUser"));
+
+      setCurrentUser(user || null);
     };
 
     updateLoginStatus();
@@ -69,6 +91,8 @@ function Header({ currentPage = "home" }) {
       window.removeEventListener("cartUpdated", updateCart);
       window.removeEventListener("storage", updateCart);
       window.removeEventListener("loginStatusChanged", updateLoginStatus);
+      window.removeEventListener("avatarUpdated", updateAvatar);
+      window.removeEventListener("storage", updateAvatar);
     };
   }, []);
 
@@ -179,9 +203,19 @@ function Header({ currentPage = "home" }) {
           {isLoggedIn ? (
             <div
               ref={desktopProfileRef}
-              className="relative flex items-center gap-3"
+              className="relative flex items-center gap-4"
+              onMouseEnter={() => {
+                if (closeMenuTimeout.current) {
+                  clearTimeout(closeMenuTimeout.current);
+                }
+              }}
+              onMouseLeave={() => {
+                closeMenuTimeout.current = setTimeout(() => {
+                  setIsProfileOpen(false);
+                }, 1000);
+              }}
             >
-              <Link to="/cart" className="relative text-green-900">
+              <Link to="/cart" className="relative text-green-900 mr-2">
                 <ShoppingCart className="w-5 h-5" />
 
                 {totalCartQty > 0 && (
@@ -191,14 +225,51 @@ function Header({ currentPage = "home" }) {
                 )}
               </Link>
 
+              {currentUser && (
+                <div className="hidden xl:flex flex-col leading-tight max-w-[150px]">
+                  <span className="text-[11px] text-gray-500 font-semibold">
+                    Xin chào
+                  </span>
+
+                  <span className="text-sm font-black text-green-900 truncate">
+                    {currentUser.fullName ||
+                      currentUser.name ||
+                      currentUser.username ||
+                      "Người dùng"}
+                  </span>
+                </div>
+              )}
+
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="w-11 h-11 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700 hover:bg-green-100 transition"
               >
-                <User className="w-6 h-6" />
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    alt="Avatar"
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <User className="w-6 h-6" />
+                )}
               </button>
 
-              {isProfileOpen && <ProfileMenu onLogout={handleLogout} />}
+              {isProfileOpen && (
+                <ProfileMenu
+                  onLogout={handleLogout}
+                  onMouseEnter={() => {
+                    if (closeMenuTimeout.current) {
+                      clearTimeout(closeMenuTimeout.current);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    closeMenuTimeout.current = setTimeout(() => {
+                      setIsProfileOpen(false);
+                    }, 2000);
+                  }}
+                />
+              )}
             </div>
           ) : (
             <>
@@ -251,7 +322,7 @@ function Header({ currentPage = "home" }) {
               {isLoggedIn ? (
                 <div ref={mobileProfileRef} className="w-full">
                   <div className="flex items-center gap-4">
-                    <Link to="/cart" className="relative text-green-900">
+                    <Link to="/cart" className="relative text-green-900 mr-2">
                       <ShoppingCart className="w-5 h-5" />
 
                       {totalCartQty > 0 && (
@@ -265,7 +336,15 @@ function Header({ currentPage = "home" }) {
                       onClick={() => setIsProfileOpen(!isProfileOpen)}
                       className="w-12 h-12 rounded-full bg-green-50 text-green-800 flex items-center justify-center border border-green-700"
                     >
-                      <User className="w-7 h-7" />
+                      {avatar ? (
+                        <img
+                          src={avatar}
+                          alt="Avatar"
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-7 h-7" />
+                      )}
                     </button>
                   </div>
 
@@ -300,42 +379,47 @@ function Header({ currentPage = "home" }) {
   );
 }
 
-function ProfileMenu({ onLogout, mobile = false }) {
+function ProfileMenu({ onLogout, mobile = false, onMouseEnter, onMouseLeave }) {
   return (
     <div
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       className={
         mobile
-          ? "w-full bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-md"
-          : "absolute right-0 top-14 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[999]"
+          ? "w-full bg-white rounded-2xl border border-[#eadfcd] overflow-hidden shadow-md"
+          : "absolute right-0 top-14 w-64 bg-white rounded-2xl shadow-2xl border border-[#eadfcd] overflow-hidden z-[999]"
       }
     >
       <Link
         to="/profile"
-        className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
+        state={{ activeTab: "profile" }}
+        className="flex items-center gap-4 px-5 py-4 text-green-950 font-bold hover:bg-[#fbf7ec] hover:text-green-800 transition"
       >
-        <UserRound className="w-5 h-5" />
+        <UserRound className="w-5 h-5 text-green-800" />
         Thông tin tài khoản
       </Link>
 
       <Link
-        to="/order-history"
-        className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
+        to="/profile"
+        state={{ activeTab: "bookings" }}
+        className="flex items-center gap-4 px-5 py-4 text-green-950 font-bold hover:bg-[#fbf7ec] hover:text-green-800 transition border-t border-[#eadfcd]"
       >
-        <ClipboardList className="w-5 h-5" />
-        Lịch sử đơn hàng
+        <CalendarCheck className="w-5 h-5 text-[#c99a45]" />
+        Đặt bàn của tôi
       </Link>
 
       <Link
-        to="/my-booking"
-        className="flex items-center gap-4 px-4 py-3 text-gray-800 font-medium hover:bg-green-50 hover:text-green-800 transition border-t"
+        to="/profile"
+        state={{ activeTab: "history" }}
+        className="flex items-center gap-4 px-5 py-4 text-green-950 font-bold hover:bg-[#fbf7ec] hover:text-green-800 transition border-t border-[#eadfcd]"
       >
-        <CalendarCheck className="w-5 h-5" />
-        Đặt bàn của tôi
+        <ClipboardList className="w-5 h-5 text-[#c99a45]" />
+        Lịch sử đơn hàng
       </Link>
 
       <button
         onClick={onLogout}
-        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-red-50 text-red-600 font-medium border-t"
+        className="w-full flex items-center gap-4 px-5 py-4 bg-red-50/40 hover:bg-red-50 text-red-600 font-bold border-t border-red-100 transition"
       >
         <LogOut className="w-5 h-5" />
         Đăng xuất

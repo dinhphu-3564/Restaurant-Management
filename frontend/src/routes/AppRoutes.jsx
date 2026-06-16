@@ -11,12 +11,15 @@ import ScrollToTop from "../components/ScrollToTop";
 import CheckoutPage from "../pages/CheckoutPage";
 import PaymentQRPage from "../pages/PaymentQRPage";
 import OrderSuccessPage from "../pages/OrderSuccessPage";
+import OrderDetailPage from "../pages/OrderDetailPage";
 import ReservationPage from "../pages/ReservationPage";
 import BookingSuccessPage from "../pages/BookingSuccessPage";
+import BookingDetailPage from "../pages/BookingDetailPage";
 import DealsPage from "../pages/DealsPage";
 import DealDetailPage from "../pages/DealDetailPage";
 import AboutPage from "../pages/AboutPage";
 import ContactPage from "../pages/ContactPage";
+import ProfilePage from "../pages/ProfilePage";
 
 function MainLayout({ children }) {
   const location = useLocation();
@@ -31,6 +34,7 @@ function MainLayout({ children }) {
     "/deals": "deals",
     "/about": "about",
     "/contact": "contact",
+    "/profile": "profile",
   };
 
   const currentPage = pathToPage[location.pathname] || "";
@@ -99,8 +103,23 @@ function AppRoutes() {
           }
         />
 
-        <Route path="/payment-qr" element={<PaymentQRPage />} />
+        <Route
+          path="/payment-qr"
+          element={
+            <MainLayout>
+              <PaymentQRPage />
+            </MainLayout>
+          }
+        />
         <Route path="/order-success" element={<OrderSuccessPage />} />
+        <Route
+          path="/profile/order-detail/:id"
+          element={
+            <MainLayout>
+              <OrderDetailPage />
+            </MainLayout>
+          }
+        />
 
         <Route
           path="/reservation"
@@ -111,7 +130,14 @@ function AppRoutes() {
           }
         />
 
-        <Route path="/booking-success" element={<BookingSuccessPage />} />
+        <Route
+          path="/booking-success"
+          element={
+            <MainLayout>
+              <BookingSuccessPage />
+            </MainLayout>
+          }
+        />
 
         <Route
           path="/deals"
@@ -145,6 +171,24 @@ function AppRoutes() {
           element={
             <MainLayout>
               <ContactPage />
+            </MainLayout>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <MainLayout>
+              <ProfilePage />
+            </MainLayout>
+          }
+        />
+
+        <Route
+          path="/profile/booking-detail/:id"
+          element={
+            <MainLayout>
+              <BookingDetailPage />
             </MainLayout>
           }
         />

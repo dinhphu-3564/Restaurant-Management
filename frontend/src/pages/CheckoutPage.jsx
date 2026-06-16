@@ -17,15 +17,38 @@ function CheckoutPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [errors, setErrors] = useState({});
   const [showEmptyCartModal, setShowEmptyCartModal] = useState(false);
+
   const [toast, setToast] = useState({
     show: false,
     message: "",
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const API_URL = "http://localhost:5001";
+
   const navigate = useNavigate();
-  const [serviceType, setServiceType] = useState("dinein");
-  const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [deliveryTimeType, setDeliveryTimeType] = useState("now");
+
+  const savedCheckoutForm =
+    JSON.parse(localStorage.getItem("checkoutForm")) || {};
+
+  const [checkoutForm, setCheckoutForm] = useState({
+    name: savedCheckoutForm.name || "",
+    phone: savedCheckoutForm.phone || "",
+    address: savedCheckoutForm.address || "",
+    date: savedCheckoutForm.date || "",
+    time: savedCheckoutForm.time || "",
+    guests: savedCheckoutForm.guests || "",
+    note: savedCheckoutForm.note || "",
+  });
+
+  const [serviceType, setServiceType] = useState(
+    savedCheckoutForm.serviceType || "dinein",
+  );
+
+  const [deliveryTimeType, setDeliveryTimeType] = useState(
+    savedCheckoutForm.deliveryTimeType || "now",
+  );
+
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("cartItems");
     return savedCart ? JSON.parse(savedCart) : [];
@@ -61,14 +84,12 @@ function CheckoutPage() {
   const phoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
   const validateOrder = () => {
     const newErrors = {};
-    const name = document.querySelector('input[name="name"]')?.value.trim();
-    const phone = document.querySelector('input[name="phone"]')?.value.trim();
-    const date = document.querySelector('input[name="date"]')?.value;
-    const time = document.querySelector('input[name="time"]')?.value;
-    const guests = document.querySelector('input[name="guests"]')?.value;
-    const address = document
-      .querySelector('input[name="address"]')
-      ?.value.trim();
+    const name = checkoutForm.name.trim();
+    const phone = checkoutForm.phone.trim();
+    const date = checkoutForm.date;
+    const time = checkoutForm.time;
+    const guests = checkoutForm.guests;
+    const address = checkoutForm.address.trim();
 
     const needDateTime =
       serviceType !== "delivery" || deliveryTimeType === "schedule";
@@ -93,6 +114,19 @@ function CheckoutPage() {
     if (serviceType === "delivery" && !address) {
       newErrors.address = "Vui lòng nhập địa chỉ giao hàng";
     }
+    // kiểm tra thời gian giao hàng
+    if (serviceType === "delivery" && deliveryTimeType === "now") {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      const openMinutes = 8 * 60; // 08:00
+      const closeMinutes = 22 * 60; // 22:00
+
+      if (currentMinutes < openMinutes || currentMinutes > closeMinutes) {
+        newErrors.deliveryTime =
+          "Hiện tại ngoài giờ hoạt động. Nhà hàng chỉ giao từ 08:00 đến 22:00";
+      }
+    }
 
     if (needDateTime && !date) {
       newErrors.date = "Vui lòng chọn ngày";
@@ -112,10 +146,21 @@ function CheckoutPage() {
         now.getDate(),
       );
 
+      const [hour, minute] = time.split(":").map(Number);
+      const selectedMinutes = hour * 60 + minute;
+
+      const openMinutes = 8 * 60; // 08:00
+      const closeMinutes = 22 * 60; // 22:00
+
       if (selectedDateOnly < todayOnly) {
         newErrors.date = "Ngày phải lớn hơn hoặc bằng hôm nay";
       } else if (selectedDateTime <= now) {
         newErrors.time = "Giờ phải lớn hơn thời gian hiện tại";
+      } else if (
+        selectedMinutes < openMinutes ||
+        selectedMinutes > closeMinutes
+      ) {
+        newErrors.time = "Nhà hàng chỉ nhận đặt lịch từ 08:00 đến 22:00";
       }
     }
 
@@ -138,6 +183,52 @@ function CheckoutPage() {
     window.dispatchEvent(new Event("cartUpdated"));
   }, [cartItems]);
 
+  //hàm lưu / xóa form
+  const saveCheckoutForm = (newForm) => {
+    setCheckoutForm(newForm);
+    localStorage.setItem("checkoutForm", JSON.stringify(newForm));
+  };
+
+  const clearCheckoutForm = () => {
+    localStorage.removeItem("checkoutForm");
+
+    setCheckoutForm({
+      name: "",
+      phone: "",
+      address: "",
+      date: "",
+      time: "",
+      guests: "",
+      note: "",
+    });
+  };
+
+  const handleChangeServiceType = (type) => {
+    if (type !== serviceType) {
+      clearCheckoutForm();
+      setErrors({});
+    }
+
+    setServiceType(type);
+
+    const newDeliveryTimeType = type === "delivery" ? deliveryTimeType : "now";
+    setDeliveryTimeType(newDeliveryTimeType);
+
+    localStorage.setItem(
+      "checkoutForm",
+      JSON.stringify({
+        name: "",
+        phone: "",
+        address: "",
+        date: "",
+        time: "",
+        guests: "",
+        note: "",
+        serviceType: type,
+        deliveryTimeType: newDeliveryTimeType,
+      }),
+    );
+  };
   // Hàm xóa món trong checkout và thông báo khi xóa
   const removeCheckoutItem = (id) => {
     const removedItem = cartItems.find((item) => item.id === id);
@@ -209,7 +300,7 @@ function CheckoutPage() {
                   title="Ăn tại quán"
                   subtitle="Dine In"
                   text="Đặt bàn trước, chúng tôi sẽ chuẩn bị món ngon cho bạn."
-                  onClick={() => setServiceType("dinein")}
+                  onClick={() => handleChangeServiceType("dinein")}
                 />
 
                 <ServiceCard
@@ -218,7 +309,7 @@ function CheckoutPage() {
                   title="Giao tận nơi"
                   subtitle="Delivery"
                   text="Giao món tận nơi nhanh chóng, nóng hổi."
-                  onClick={() => setServiceType("delivery")}
+                  onClick={() => handleChangeServiceType("delivery")}
                 />
 
                 <ServiceCard
@@ -227,51 +318,39 @@ function CheckoutPage() {
                   title="Đến lấy tại quán"
                   subtitle="Pickup / Take Away"
                   text="Đặt trước, đến lấy tại quán, không cần chờ lâu."
-                  onClick={() => setServiceType("pickup")}
+                  onClick={() => handleChangeServiceType("pickup")}
                 />
               </div>
             </div>
+
             {/* // Hiển thị form tương ứng với hình thức đã chọn */}
-            {serviceType === "dinein" && <DineInForm errors={errors} />}
+            {serviceType === "dinein" && (
+              <DineInForm
+                errors={errors}
+                checkoutForm={checkoutForm}
+                saveCheckoutForm={saveCheckoutForm}
+                serviceType={serviceType}
+                deliveryTimeType={deliveryTimeType}
+              />
+            )}
             {serviceType === "delivery" && (
               <DeliveryForm
                 errors={errors}
                 deliveryTimeType={deliveryTimeType}
                 setDeliveryTimeType={setDeliveryTimeType}
+                checkoutForm={checkoutForm}
+                saveCheckoutForm={saveCheckoutForm}
+                serviceType={serviceType}
               />
             )}
-            {serviceType === "pickup" && <PickupForm errors={errors} />}
-
-            {serviceType !== "dinein" && (
-              <div className="bg-white border border-[#eadfcd] rounded-2xl p-5 shadow-sm">
-                <h2 className="font-black text-green-950 mb-4">
-                  3. PHƯƠNG THỨC THANH TOÁN
-                </h2>
-
-                <div className="grid grid-cols-2 gap-2 md:gap-4">
-                  <button
-                    onClick={() => setPaymentMethod("cash")}
-                    className={`rounded-xl border p-4 text-left font-bold ${
-                      paymentMethod === "cash"
-                        ? "border-green-800 bg-green-50 text-green-900"
-                        : "border-[#eadfcd]"
-                    }`}
-                  >
-                    Thanh toán khi nhận món
-                  </button>
-
-                  <button
-                    onClick={() => setPaymentMethod("bank")}
-                    className={`rounded-xl border p-4 text-left font-bold ${
-                      paymentMethod === "bank"
-                        ? "border-green-800 bg-green-50 text-green-900"
-                        : "border-[#eadfcd]"
-                    }`}
-                  >
-                    Chuyển khoản ngân hàng / QR
-                  </button>
-                </div>
-              </div>
+            {serviceType === "pickup" && (
+              <PickupForm
+                errors={errors}
+                checkoutForm={checkoutForm}
+                saveCheckoutForm={saveCheckoutForm}
+                serviceType={serviceType}
+                deliveryTimeType={deliveryTimeType}
+              />
             )}
           </section>
 
@@ -401,7 +480,8 @@ function CheckoutPage() {
 
                   {savedCoupon && serviceType !== "dinein" && (
                     <p className="text-xs text-red-500 mt-2">
-                      Mã giảm giá chỉ áp dụng khi ăn tại quán.
+                      Mã giảm giá chương trình Đặc biệt chỉ áp dụng khi ăn tại
+                      quán.
                     </p>
                   )}
                 </div>
@@ -421,7 +501,10 @@ function CheckoutPage() {
             </p>
 
             <button
-              onClick={() => {
+              disabled={isSubmitting}
+              onClick={async () => {
+                if (isSubmitting) return;
+
                 if (cartItems.length === 0) {
                   setShowEmptyCartModal(true);
                   return;
@@ -434,71 +517,145 @@ function CheckoutPage() {
 
                 if (!validateOrder()) return;
 
-                if (!validateOrder()) return;
+                setIsSubmitting(true);
 
-                const orderData = {
-                  cartItems,
-                  serviceType,
-                  deliveryTimeType,
-                  paymentMethod:
-                    serviceType === "dinein" ? "pay_after_meal" : paymentMethod,
-                  subtotal,
-                  appliedCoupon,
-                  autoDiscountTotal,
-                  couponDiscountTotal,
-                  discountTotal,
-                  shippingFee,
-                  total,
-                  createdAt: new Date().toISOString(),
-                };
+                try {
+                  const orderId = "DH" + Date.now();
+                  const paymentContent = `DH${String(orderId).replace(/\D/g, "")}`;
 
-                localStorage.setItem("currentOrder", JSON.stringify(orderData));
+                  const customerName = checkoutForm.name || "";
+                  const phone = checkoutForm.phone || "";
+                  const address = checkoutForm.address || "";
+                  const date = checkoutForm.date || "";
+                  const time = checkoutForm.time || "";
+                  const guests = checkoutForm.guests || "";
+                  const note = checkoutForm.note || "";
 
-                if (serviceType === "dinein") {
-                  const bookingData = {
-                    id: Date.now(),
-                    source: "checkout_page",
-                    type: "table_with_order",
+                  if (serviceType === "dinein") {
+                    const bookingData = {
+                      id: Date.now(),
+                      date,
+                      time,
+                      guests,
+                      phone,
+                      name: customerName,
+                      area: "Nhà hàng sắp xếp",
+                      source: "checkout_page",
+                      type: "table_with_order",
+                      cartItems,
+                      subtotal,
+                      total,
+                      status: "pending",
+                      createdAt: new Date().toISOString(),
+                    };
+
+                    const oldBookings =
+                      JSON.parse(localStorage.getItem("bookings")) || [];
+
+                    localStorage.setItem(
+                      "bookings",
+                      JSON.stringify([bookingData, ...oldBookings]),
+                    );
+
+                    localStorage.setItem(
+                      "currentBooking",
+                      JSON.stringify(bookingData),
+                    );
+
+                    // Xóa giỏ hàng sau khi đặt bàn kèm món thành công
+                    localStorage.removeItem("cartItems");
+                    localStorage.removeItem("checkoutSummary");
+                    localStorage.removeItem("appliedCoupon");
+                    localStorage.removeItem("checkoutForm");
+
+                    window.dispatchEvent(new Event("cartUpdated"));
+                    setCartItems([]);
+
+                    navigate("/booking-success");
+                    return;
+                  }
+
+                  const finalOrderData = {
+                    id: orderId,
                     cartItems,
+
+                    serviceType,
+                    deliveryTimeType,
+
+                    paymentMethod: "",
+                    paymentContent,
+
+                    name: customerName,
+                    phone,
+                    address,
+                    date,
+                    time,
+                    note,
+
                     subtotal,
+                    appliedCoupon,
+                    autoDiscountTotal,
+                    couponDiscountTotal,
+                    discountTotal,
+                    shippingFee,
                     total,
-                    status: "pending",
-                    createdAt: new Date().toISOString(),
+
+                    qty: totalItems,
+                    images: cartItems.map((item) => item.image),
+                    extra: Math.max(cartItems.length - 4, 0),
+
+                    status: "Chờ chọn phương thức thanh toán",
+                    paymentStatus: "pending_payment",
                   };
 
-                  const oldBookings =
-                    JSON.parse(localStorage.getItem("bookings")) || [];
+                  const res = await fetch(`${API_URL}/api/orders`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(finalOrderData),
+                  });
+
+                  const data = await res.json();
+
+                  if (!data.success) {
+                    alert("Không thể tạo đơn hàng. Vui lòng thử lại.");
+                    return;
+                  }
+
+                  const savedOrder = {
+                    ...finalOrderData,
+                    ...data.order,
+                  };
 
                   localStorage.setItem(
-                    "bookings",
-                    JSON.stringify([bookingData, ...oldBookings]),
+                    "currentOrder",
+                    JSON.stringify(savedOrder),
                   );
 
-                  localStorage.setItem(
-                    "currentBooking",
-                    JSON.stringify(bookingData),
-                  );
-
-                  navigate("/booking-success");
-                  return;
-                }
-
-                if (paymentMethod === "bank") {
                   navigate("/payment-qr");
-                } else {
-                  navigate("/order-success");
+                  return;
+                } catch (error) {
+                  console.error(error);
+                  alert(
+                    "Không kết nối được backend. Kiểm tra server port 5001.",
+                  );
+                } finally {
+                  setIsSubmitting(false);
                 }
               }}
               className={`mt-6 w-full h-12 md:h-14 rounded-xl font-black transition-all ${
-                cartItems.length === 0
+                cartItems.length === 0 || isSubmitting
                   ? "bg-[#c8ccd4] text-[#6b7280] cursor-pointer"
                   : "bg-green-800 hover:bg-green-900 text-white shadow-md"
               }`}
             >
               <ShoppingCart className="w-5 h-5 inline mr-2" />
-              {serviceType === "dinein"
-                ? "XÁC NHẬN ĐẶT BÀN"
-                : "XÁC NHẬN & THANH TOÁN"}
+              {isSubmitting
+                ? "ĐANG XỬ LÝ..."
+                : serviceType === "dinein"
+                  ? "XÁC NHẬN ĐẶT BÀN"
+                  : "TẠO ĐƠN & THANH TOÁN"}
             </button>
 
             <button
@@ -611,7 +768,54 @@ function ServiceCard({ active, icon, title, subtitle, text, onClick }) {
     </button>
   );
 }
-function DineInForm({ errors }) {
+function PaymentCard({ active, icon, title, desc, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative rounded-2xl border p-4 text-left transition ${
+        active
+          ? "border-green-800 bg-green-50 shadow-sm"
+          : "border-[#eadfcd] bg-white hover:bg-[#fffaf0]"
+      }`}
+    >
+      <div
+        className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
+          active ? "bg-green-900 text-white" : "bg-[#fbf0dc] text-[#b88935]"
+        }`}
+      >
+        {icon}
+      </div>
+
+      <h3 className="font-black text-green-900">{title}</h3>
+
+      <p className="text-sm text-gray-500 mt-1">{desc}</p>
+
+      {active && (
+        <span className="absolute top-3 right-3 w-5 h-5 rounded-full bg-green-800 flex items-center justify-center">
+          <span className="w-2 h-2 rounded-full bg-white"></span>
+        </span>
+      )}
+    </button>
+  );
+}
+
+function DineInForm({
+  errors,
+  checkoutForm,
+  saveCheckoutForm,
+  serviceType,
+  deliveryTimeType,
+}) {
+  const handleChange = (name, value) => {
+    saveCheckoutForm({
+      ...checkoutForm,
+      [name]: value,
+      serviceType,
+      deliveryTimeType,
+    });
+  };
+
   return (
     <div className="bg-white border border-[#eadfcd] rounded-2xl p-4 md:p-5 shadow-sm">
       <h2 className="font-black text-green-950 text-xl md:text-2xl mb-4">
@@ -625,6 +829,8 @@ function DineInForm({ errors }) {
           type="date"
           icon={<CalendarDays />}
           error={errors.date}
+          value={checkoutForm.date}
+          onChange={handleChange}
         />
 
         <Input
@@ -633,6 +839,9 @@ function DineInForm({ errors }) {
           type="time"
           icon={<Clock />}
           error={errors.time}
+          helperText="Giờ mở cửa: 08:00 - 22:00"
+          value={checkoutForm.time}
+          onChange={handleChange}
         />
 
         <Input
@@ -641,6 +850,8 @@ function DineInForm({ errors }) {
           type="number"
           placeholder="Ví dụ: 6"
           error={errors.guests}
+          value={checkoutForm.guests}
+          onChange={handleChange}
         />
       </div>
 
@@ -650,6 +861,8 @@ function DineInForm({ errors }) {
           name="name"
           placeholder="Ví dụ: Nguyễn Văn A"
           error={errors.name}
+          value={checkoutForm.name}
+          onChange={handleChange}
         />
 
         <Input
@@ -657,16 +870,36 @@ function DineInForm({ errors }) {
           name="phone"
           placeholder="Ví dụ: 0901234567"
           error={errors.phone}
+          value={checkoutForm.phone}
+          onChange={handleChange}
         />
       </div>
 
       <div className="mt-4">
-        <Textarea label="Ghi chú / Yêu cầu đặc biệt" />
+        <Textarea
+          label="Ghi chú / Yêu cầu đặc biệt"
+          value={checkoutForm.note}
+          onChange={handleChange}
+        />
       </div>
     </div>
   );
 }
-function PickupForm({ errors }) {
+function PickupForm({
+  errors,
+  checkoutForm,
+  saveCheckoutForm,
+  serviceType,
+  deliveryTimeType,
+}) {
+  const handleChange = (name, value) => {
+    saveCheckoutForm({
+      ...checkoutForm,
+      [name]: value,
+      serviceType,
+      deliveryTimeType,
+    });
+  };
   return (
     <div className="bg-white border border-[#eadfcd] rounded-2xl p-5 shadow-sm">
       <h2 className="font-black text-green-950 text-xl md:text-2xl mb-4">
@@ -681,8 +914,18 @@ function PickupForm({ errors }) {
           type="date"
           icon={<CalendarDays />}
           error={errors.date}
+          value={checkoutForm.date}
+          onChange={handleChange}
         />
-        <Input name="time" type="time" icon={<Clock />} error={errors.time} />
+        <Input
+          name="time"
+          type="time"
+          icon={<Clock />}
+          error={errors.time}
+          helperText="Giờ nhận món: 08:00 - 22:00"
+          value={checkoutForm.time}
+          onChange={handleChange}
+        />
       </div>
 
       <div className="grid md:grid-cols-2 gap-3 mt-3">
@@ -691,17 +934,25 @@ function PickupForm({ errors }) {
           name="name"
           placeholder="Ví dụ: Nguyễn Văn A"
           error={errors.name}
+          value={checkoutForm.name}
+          onChange={handleChange}
         />
         <Input
           label="Số điện thoại"
           name="phone"
           placeholder="Ví dụ: 0901234567"
           error={errors.phone}
+          value={checkoutForm.phone}
+          onChange={handleChange}
         />
       </div>
 
       <div className="mt-4">
-        <Textarea label="Ghi chú (nếu có)" />
+        <Textarea
+          label="Ghi chú (nếu có)"
+          value={checkoutForm.note}
+          onChange={handleChange}
+        />
       </div>
 
       <div className="mt-3 bg-[#fbf0dc] rounded-xl p-3 text-xs md:text-sm">
@@ -712,7 +963,34 @@ function PickupForm({ errors }) {
   );
 }
 
-function DeliveryForm({ errors, deliveryTimeType, setDeliveryTimeType }) {
+function DeliveryForm({
+  errors,
+  deliveryTimeType,
+  setDeliveryTimeType,
+  checkoutForm,
+  saveCheckoutForm,
+  serviceType,
+}) {
+  const handleChange = (name, value) => {
+    saveCheckoutForm({
+      ...checkoutForm,
+      [name]: value,
+      serviceType,
+      deliveryTimeType,
+    });
+  };
+
+  const handleChangeDeliveryTimeType = (type) => {
+    setDeliveryTimeType(type);
+
+    saveCheckoutForm({
+      ...checkoutForm,
+      deliveryTimeType: type,
+      serviceType,
+      date: type === "now" ? "" : checkoutForm.date,
+      time: type === "now" ? "" : checkoutForm.time,
+    });
+  };
   return (
     <div className="bg-white border border-[#eadfcd] rounded-2xl p-4 md:p-5 shadow-sm">
       <h2 className="font-black text-green-950 text-xl md:text-2xl mb-4">
@@ -725,12 +1003,16 @@ function DeliveryForm({ errors, deliveryTimeType, setDeliveryTimeType }) {
           name="name"
           placeholder="Ví dụ: Nguyễn Văn A"
           error={errors.name}
+          value={checkoutForm.name}
+          onChange={handleChange}
         />
         <Input
           label="Số điện thoại"
           name="phone"
-          placeholder="Ví dụ: 0901234567"
+          placeholder="Ví dụ: 090 123 4567"
           error={errors.phone}
+          value={checkoutForm.phone}
+          onChange={handleChange}
         />
       </div>
 
@@ -740,6 +1022,8 @@ function DeliveryForm({ errors, deliveryTimeType, setDeliveryTimeType }) {
           name="address"
           placeholder="Ví dụ: 123 Đường Lê Lợi, TP. Hà Tĩnh"
           error={errors.address}
+          value={checkoutForm.address}
+          onChange={handleChange}
         />
       </div>
 
@@ -749,10 +1033,10 @@ function DeliveryForm({ errors, deliveryTimeType, setDeliveryTimeType }) {
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => setDeliveryTimeType("now")}
+            onClick={() => handleChangeDeliveryTimeType("now")}
             className={`rounded-xl p-3 border transition ${
               deliveryTimeType === "now"
-                ? "bg-green-50 text-green-900 border-green-800"
+                ? "bg-green-50 border-green-800 text-green-900 shadow-md"
                 : "bg-white border-[#eadfcd] text-green-900"
             }`}
           >
@@ -762,7 +1046,7 @@ function DeliveryForm({ errors, deliveryTimeType, setDeliveryTimeType }) {
 
             <p
               className={`text-[11px] mt-1 ${
-                deliveryTimeType === "now" ? "text-white/80" : "text-gray-500"
+                deliveryTimeType === "now" ? "text-green-700" : "text-gray-500"
               }`}
             >
               30 - 40 phút
@@ -771,10 +1055,10 @@ function DeliveryForm({ errors, deliveryTimeType, setDeliveryTimeType }) {
 
           <button
             type="button"
-            onClick={() => setDeliveryTimeType("schedule")}
+            onClick={() => handleChangeDeliveryTimeType("schedule")}
             className={`rounded-xl p-3 border transition ${
               deliveryTimeType === "schedule"
-                ? "bg-green-50 text-green-900 border-green-800"
+                ? "bg-green-50 border-green-800 text-green-900 shadow-md"
                 : "bg-white border-[#eadfcd] text-green-900"
             }`}
           >
@@ -785,14 +1069,22 @@ function DeliveryForm({ errors, deliveryTimeType, setDeliveryTimeType }) {
             <p
               className={`text-[11px] mt-1 ${
                 deliveryTimeType === "schedule"
-                  ? "text-white/80"
-                  : "text-gray-500"
+                  ? "bg-green-50 border-green-800 text-green-900"
+                  : "bg-white border-[#eadfcd] text-green-900"
               }`}
             >
               Chọn ngày giờ
             </p>
           </button>
         </div>
+
+        {errors.deliveryTime && (
+          <div className="mt-2">
+            <p className="text-red-500 text-xs font-bold">
+              {errors.deliveryTime}
+            </p>
+          </div>
+        )}
       </div>
 
       {deliveryTimeType === "schedule" && (
@@ -803,6 +1095,8 @@ function DeliveryForm({ errors, deliveryTimeType, setDeliveryTimeType }) {
             type="date"
             icon={<CalendarDays />}
             error={errors.date}
+            value={checkoutForm.date}
+            onChange={handleChange}
           />
 
           <Input
@@ -811,12 +1105,19 @@ function DeliveryForm({ errors, deliveryTimeType, setDeliveryTimeType }) {
             type="time"
             icon={<Clock />}
             error={errors.time}
+            helperText="Giờ giao hàng: 08:00 - 22:00"
+            value={checkoutForm.time}
+            onChange={handleChange}
           />
         </div>
       )}
 
       <div className="mt-4">
-        <Textarea label="Ghi chú giao hàng (nếu có)" />
+        <Textarea
+          label="Ghi chú giao hàng (nếu có)"
+          value={checkoutForm.note}
+          onChange={handleChange}
+        />
       </div>
 
       <div className="mt-4 bg-[#fbf0dc] rounded-xl p-3 flex items-center justify-between">
@@ -849,12 +1150,14 @@ function DeliveryForm({ errors, deliveryTimeType, setDeliveryTimeType }) {
 
 function Input({
   label,
-  defaultValue,
+  value,
   placeholder,
   icon,
   name,
   type = "text",
   error,
+  helperText,
+  onChange,
 }) {
   return (
     <label className="block">
@@ -874,23 +1177,31 @@ function Input({
         <input
           name={name}
           type={type}
-          defaultValue={defaultValue}
+          value={value || ""}
+          onChange={(e) => onChange?.(name, e.target.value)}
           placeholder={placeholder}
           className="w-full min-w-0 outline-none bg-transparent text-sm md:text-base text-green-950 placeholder:text-[#8b978f] placeholder:font-normal"
         />
       </div>
 
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {error && <p className="text-red-500 text-xs mt-1 font-bold">{error}</p>}
+
+      {!error && helperText && (
+        <p className="text-xs text-gray-500 mt-1">{helperText}</p>
+      )}
     </label>
   );
 }
 
-function Textarea({ label }) {
+function Textarea({ label, value, name = "note", onChange }) {
   return (
     <label className="block">
       <p className="font-bold text-xs md:text-sm mb-1">{label}</p>
 
       <textarea
+        name={name}
+        value={value || ""}
+        onChange={(e) => onChange?.(name, e.target.value)}
         maxLength={200}
         placeholder="Ví dụ: Gọi trước khi giao, không giao giờ nghỉ trưa..."
         className="w-full h-16 md:h-20 border border-[#eadfcd] rounded-lg p-4 outline-none text-sm resize-none"
