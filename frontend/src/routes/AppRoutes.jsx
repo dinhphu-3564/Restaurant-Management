@@ -20,6 +20,7 @@ import DealDetailPage from "../pages/DealDetailPage";
 import AboutPage from "../pages/AboutPage";
 import ContactPage from "../pages/ContactPage";
 import ProfilePage from "../pages/ProfilePage";
+import NotFoundPage from "../pages/NotFoundPage";
 
 function MainLayout({ children }) {
   const location = useLocation();
@@ -189,6 +190,14 @@ function AppRoutes() {
           element={
             <MainLayout>
               <BookingDetailPage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <MainLayout>
+              <NotFoundPage />
             </MainLayout>
           }
         />
