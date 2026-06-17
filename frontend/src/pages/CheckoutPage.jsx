@@ -67,11 +67,29 @@ function CheckoutPage() {
     JSON.parse(localStorage.getItem("checkoutSummary")) || null;
   const savedCoupon = checkoutSummary?.appliedCoupon || null;
 
-  // Chỉ cho áp mã khi ăn tại quán
-  const appliedCoupon = serviceType === "dinein" ? savedCoupon : null;
+  const autoDiscountRule = checkoutSummary?.autoDiscountRule || {
+    title: "Hóa đơn trên 2.000.000đ",
+    percent: 5,
+    minOrder: 2000000,
+    serviceTypes: ["dinein"],
+  };
 
-  const autoDiscountTotal =
-    !appliedCoupon && subtotal >= 2000000 ? subtotal * 0.05 : 0;
+  // Chỉ áp dụng mã nếu mã đó hỗ trợ hình thức phục vụ đang chọn
+  const appliedCoupon =
+    savedCoupon &&
+    savedCoupon.serviceTypes?.includes(serviceType) &&
+    subtotal >= savedCoupon.minOrder
+      ? savedCoupon
+      : null;
+  // Tự động giảm giá
+  const canUseAutoDiscount =
+    !appliedCoupon &&
+    subtotal >= autoDiscountRule.minOrder &&
+    autoDiscountRule.serviceTypes.includes(serviceType);
+
+  const autoDiscountTotal = canUseAutoDiscount
+    ? (subtotal * autoDiscountRule.percent) / 100
+    : 0;
 
   const couponDiscountTotal = appliedCoupon
     ? (subtotal * appliedCoupon.percent) / 100
@@ -467,9 +485,12 @@ function CheckoutPage() {
                       </span>
                     </div>
                   ) : (
-                    subtotal >= 2000000 && (
+                    canUseAutoDiscount && (
                       <div className="flex justify-between gap-3 text-xs text-green-800">
-                        <span>Hóa đơn trên 2.000.000đ giảm 5%</span>
+                        <span>
+                          {autoDiscountRule.title} giảm{" "}
+                          {autoDiscountRule.percent}%
+                        </span>
 
                         <span className="shrink-0">
                           - {formatPrice(autoDiscountTotal)}
@@ -477,13 +498,33 @@ function CheckoutPage() {
                       </div>
                     )
                   )}
+                  {!savedCoupon &&
+                    !appliedCoupon &&
+                    subtotal >= autoDiscountRule.minOrder &&
+                    !autoDiscountRule.serviceTypes.includes(serviceType) && (
+                      <p className="text-xs text-red-500 mt-2">
+                        Ưu đãi giảm {autoDiscountRule.percent}% chỉ áp dụng khi
+                        ăn tại quán.
+                      </p>
+                    )}
 
-                  {savedCoupon && serviceType !== "dinein" && (
-                    <p className="text-xs text-red-500 mt-2">
-                      Mã giảm giá chương trình Đặc biệt chỉ áp dụng khi ăn tại
-                      quán.
-                    </p>
-                  )}
+                  {savedCoupon &&
+                    !savedCoupon.serviceTypes?.includes(serviceType) && (
+                      <p className="text-xs text-red-500 mt-2">
+                        Mã {savedCoupon.code} không áp dụng cho hình thức phục
+                        vụ hiện tại.
+                      </p>
+                    )}
+
+                  {savedCoupon &&
+                    savedCoupon.serviceTypes?.includes(serviceType) &&
+                    subtotal < savedCoupon.minOrder && (
+                      <p className="text-xs text-red-500 mt-2">
+                        Đơn hàng cần tối thiểu{" "}
+                        {formatPrice(savedCoupon.minOrder)} để dùng mã{" "}
+                        {savedCoupon.code}.
+                      </p>
+                    )}
                 </div>
               </div>
             </div>
@@ -764,37 +805,6 @@ function ServiceCard({ active, icon, title, subtitle, text, onClick }) {
         <div className="absolute top-2 right-2 w-4 h-4 md:w-6 md:h-6 rounded-full bg-green-800 flex items-center justify-center">
           <span className="w-1.5 h-1.5 md:w-2.5 md:h-2.5 rounded-full bg-white"></span>
         </div>
-      )}
-    </button>
-  );
-}
-function PaymentCard({ active, icon, title, desc, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`relative rounded-2xl border p-4 text-left transition ${
-        active
-          ? "border-green-800 bg-green-50 shadow-sm"
-          : "border-[#eadfcd] bg-white hover:bg-[#fffaf0]"
-      }`}
-    >
-      <div
-        className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
-          active ? "bg-green-900 text-white" : "bg-[#fbf0dc] text-[#b88935]"
-        }`}
-      >
-        {icon}
-      </div>
-
-      <h3 className="font-black text-green-900">{title}</h3>
-
-      <p className="text-sm text-gray-500 mt-1">{desc}</p>
-
-      {active && (
-        <span className="absolute top-3 right-3 w-5 h-5 rounded-full bg-green-800 flex items-center justify-center">
-          <span className="w-2 h-2 rounded-full bg-white"></span>
-        </span>
       )}
     </button>
   );

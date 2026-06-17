@@ -67,7 +67,7 @@ function DealsPage() {
       percent: 20,
       name: "Combo gia đình",
       desc: "Ưu đãi đặc biệt dành cho khách đi theo nhóm gia đình.",
-      condition: "Áp dụng cho hóa đơn từ 1.000.000đ",
+      condition: "Áp dụng cho hóa đơn từ 2.000.000đ",
       route: "/menu",
       button: "Đặt món ngay",
     },
@@ -140,7 +140,7 @@ function DealsPage() {
       title: "Giảm",
       discount: "20%",
       desc: "Ưu đãi đặc biệt dành cho những bữa ăn sum vầy cùng gia đình và người thân.",
-      conditions: ["Áp dụng hóa đơn từ 1.000.000đ", "Sử dụng tại nhà hàng"],
+      conditions: ["Áp dụng hóa đơn từ 2.000.000đ", "Sử dụng tại nhà hàng"],
     },
     {
       id: "birthday",
@@ -372,7 +372,7 @@ function DealsPage() {
                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-700"
               />
               {/* Lớp phủ */}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/20 to-black/5"></div>
+              <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/10 to-transparent"></div>
 
               <div className="relative z-10 h-full p-5 sm:p-6 flex flex-col">
                 <div className="flex items-center gap-3">
@@ -386,7 +386,13 @@ function DealsPage() {
                 </div>
 
                 <div className="h-[70px] sm:h-[90px] flex items-center">
-                  <h2 className="text-3xl sm:text-4xl font-black uppercase leading-tight text-green-950">
+                  <h2
+                    className={`font-black uppercase leading-tight ${
+                      item.discount === "Ưu đãi đặc biệt"
+                        ? "text-2xl sm:text-3xl text-green-700"
+                        : "text-3xl sm:text-4xl text-green-700"
+                    }`}
+                  >
                     {item.discount === "Ưu đãi đặc biệt" ? (
                       item.discount
                     ) : (
@@ -428,7 +434,7 @@ function DealsPage() {
               icon: <Users />,
               title: "Combo gia đình",
               items: [
-                "Áp dụng cho hóa đơn từ 1.000.000đ",
+                "Áp dụng cho hóa đơn từ 2.000.000đ",
                 "Không áp dụng kèm ưu đãi khác",
                 "Không áp dụng ngày lễ, Tết",
               ],

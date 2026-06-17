@@ -42,42 +42,6 @@ function CartPage() {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMessage, setCouponMessage] = useState("");
 
-  const defaultCartItems = [
-    {
-      id: 1,
-      name: "Dê nướng tảng",
-      desc: "Thịt dê tươi tảng ướp 12 loại gia vị, nướng trên than hoa hồng.",
-      price: 399000,
-      qty: 1,
-      image: deNuongTang,
-      tag: "Đặc trưng",
-    },
-    {
-      id: 2,
-      name: "Lẩu dê Hương Sơn",
-      desc: "Nước lẩu đậm đà từ xương dê hầm cùng thảo mộc tự nhiên.",
-      price: 349000,
-      qty: 2,
-      image: lauDe,
-      tag: "Đặc trưng",
-    },
-    {
-      id: 3,
-      name: "Dê xào sả ớt",
-      desc: "Thịt dê xào cùng sả, ớt, tỏi và các loại gia vị cay nồng.",
-      price: 199000,
-      qty: 1,
-      image: deXaoLan,
-    },
-    {
-      id: 4,
-      name: "Sườn dê nướng",
-      desc: "Sườn dê tươi ướp gia vị đặc biệt, nướng than hoa thơm lừng.",
-      price: 269000,
-      qty: 1,
-      image: suonDeNuong,
-    },
-  ];
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("cartItems");
 
@@ -215,15 +179,17 @@ function CartPage() {
     }, 4000);
   };
   // Dữ liệu khuyến mãi cho trang Deals
-  const promotionCoupons = [
+  const systemCoupons = [
     {
       id: "family-combo",
       code: "FAMILY20",
       title: "Combo gia đình",
       percent: 20,
-      minOrder: 1000000,
+      minOrder: 2000000,
       status: "active",
+      serviceTypes: ["dinein"],
     },
+
     {
       id: "birthday",
       code: "BIRTHDAY15",
@@ -231,33 +197,41 @@ function CartPage() {
       percent: 15,
       minOrder: 0,
       status: "active",
+      serviceTypes: ["dinein"],
     },
+
     {
       id: "online-order",
       code: "ONLINE10",
       title: "Đặt món online",
       percent: 10,
-      minOrder: 300000,
+      minOrder: 1000000,
       status: "active",
+      serviceTypes: ["delivery", "pickup"],
     },
   ];
+
+  const adminCoupons = JSON.parse(localStorage.getItem("adminCoupons")) || [];
+  const promotionCoupons = [...systemCoupons, ...adminCoupons];
+
   // Tính toán subtotal, discount và total giảm giá
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.price * item.qty,
     0,
   );
+  //biến kiểm tra giảm 5%
+  const autoDiscountRule = {
+    title: "Hóa đơn trên 2.000.000đ",
+    percent: 5,
+    minOrder: 2000000,
+    serviceTypes: ["dinein"],
+  };
 
-  const discountRules = [
-    {
-      id: 1,
-      title: "Hóa đơn trên 2.000.000đ",
-      percent: 5,
-      condition: subtotal >= 2000000,
-    },
-  ];
   // Tính toán tổng giảm giá tự động và từ mã ưu đãi nếu có, sau đó tính tổng cuối cùng
   const autoDiscountTotal =
-    !appliedCoupon && subtotal >= 2000000 ? subtotal * 0.05 : 0;
+    !appliedCoupon && subtotal >= autoDiscountRule.minOrder
+      ? (subtotal * autoDiscountRule.percent) / 100
+      : 0;
 
   const couponDiscountTotal = appliedCoupon
     ? (subtotal * appliedCoupon.percent) / 100
@@ -579,7 +553,9 @@ function CartPage() {
                   ) : (
                     subtotal >= 2000000 && (
                       <div className="flex justify-between gap-3 text-xs text-green-800">
-                        <span>Hóa đơn trên 2.000.000đ giảm 5%</span>
+                        <span>
+                          Ăn tại quán, hóa đơn trên 2.000.000đ giảm 5%
+                        </span>
 
                         <span className="shrink-0">
                           - {formatPrice(autoDiscountTotal)}
@@ -619,6 +595,7 @@ function CartPage() {
                   "checkoutSummary",
                   JSON.stringify({
                     subtotal,
+                    autoDiscountRule,
                     autoDiscountTotal,
                     couponDiscountTotal,
                     discountTotal,
@@ -652,8 +629,8 @@ function CartPage() {
                     </h3>
 
                     <p className="text-sm text-gray-600 mt-3 leading-relaxed">
-                      Đơn hàng từ <b>2.000.000đ</b> sẽ được giảm 5% và tặng món
-                      tráng miệng.
+                      Ăn tại quán với hóa đơn từ <b>2.000.000đ</b> sẽ được giảm
+                      5% và tặng món tráng miệng.
                     </p>
 
                     <div className="h-2 bg-[#dfcfad] rounded-full mt-4 overflow-hidden">

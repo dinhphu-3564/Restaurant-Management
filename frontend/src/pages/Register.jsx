@@ -34,6 +34,18 @@ function Register() {
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
 
+  const getPasswordStrength = (password) => {
+    let score = 0;
+
+    if (password.length >= 8) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/\d/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+
+    return score;
+  };
+
   const validateForm = () => {
     const newErrors = {};
     const phoneOnlyNumber = formData.phone.replace(/\D/g, "");
@@ -56,8 +68,32 @@ function Register() {
 
     if (!formData.password) {
       newErrors.password = "Vui lòng nhập mật khẩu";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Mật khẩu tối thiểu 6 ký tự";
+    } else {
+      const passwordErrors = [];
+
+      if (formData.password.length < 8) {
+        passwordErrors.push("ít nhất 8 ký tự");
+      }
+
+      if (!/[a-z]/.test(formData.password)) {
+        passwordErrors.push("chữ thường");
+      }
+
+      if (!/[A-Z]/.test(formData.password)) {
+        passwordErrors.push("chữ hoa");
+      }
+
+      if (!/\d/.test(formData.password)) {
+        passwordErrors.push("số");
+      }
+
+      if (!/[^A-Za-z0-9]/.test(formData.password)) {
+        passwordErrors.push("ký tự đặc biệt");
+      }
+
+      if (passwordErrors.length > 0) {
+        newErrors.password = `Mật khẩu cần có ${passwordErrors.join(", ")}`;
+      }
     }
 
     if (!formData.confirmPassword) {
@@ -238,6 +274,10 @@ function Register() {
                     onToggle={() => setShowPassword(!showPassword)}
                   />
 
+                  {formData.password && (
+                    <PasswordStrength password={formData.password} />
+                  )}
+
                   <PasswordField
                     icon={<Lock className="w-4 h-4" />}
                     name="confirmPassword"
@@ -415,6 +455,90 @@ function ErrorText({ message }) {
       <AlertCircle className="w-4 h-4" />
       {message}
     </p>
+  );
+}
+
+function PasswordStrength({ password }) {
+  const missingRules = [];
+
+  if (password.length < 8) {
+    missingRules.push("8 ký tự");
+  }
+
+  if (!/[a-z]/.test(password)) {
+    missingRules.push("chữ thường");
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    missingRules.push("chữ hoa");
+  }
+
+  if (!/\d/.test(password)) {
+    missingRules.push("số");
+  }
+
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    missingRules.push("ký tự đặc biệt");
+  }
+
+  let score = 0;
+
+  if (password.length >= 8) score++;
+  if (/[a-z]/.test(password)) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/\d/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+
+  const getColor = (index) => {
+    if (score <= index) return "bg-gray-300";
+
+    if (score <= 2) return "bg-red-500";
+    if (score === 3) return "bg-yellow-500";
+    return "bg-green-500";
+  };
+
+  const getText = () => {
+    if (score <= 2) return "Yếu";
+    if (score === 3) return "Trung bình";
+    return "Mạnh";
+  };
+
+  const getTextColor = () => {
+    if (score <= 2) return "text-red-500";
+    if (score === 3) return "text-yellow-600";
+    return "text-green-600";
+  };
+
+  return (
+    <div className="mt-2">
+      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div
+          className="h-full transition-all duration-500 bg-gradient-to-r from-red-500 via-yellow-400 to-green-500"
+          style={{
+            width: `${(score / 5) * 100}%`,
+          }}
+        />
+      </div>
+
+      <div className="mt-2">
+        <p className="text-gray-500 font-semibold text-xs">
+          Độ mạnh mật khẩu:
+          <span className={`ml-1 font-bold ${getTextColor()}`}>
+            {getText()}
+          </span>
+        </p>
+
+        {missingRules.length > 0 ? (
+          <p className="text-red-500 text-xs mt-1">
+            Thiếu: {missingRules.join(", ")}
+          </p>
+        ) : (
+          <p className="text-green-600 text-xs mt-1 font-medium">
+            ✓ Mật khẩu đạt yêu cầu
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 

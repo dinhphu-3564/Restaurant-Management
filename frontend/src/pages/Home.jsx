@@ -302,7 +302,7 @@ function Home() {
       id: "family-combo",
       title: "Combo gia đình",
       discount: "-20%",
-      price: "1.199.000đ",
+      price: "Đặt ngay",
       image: comboCardImg,
       desc: "Ưu đãi đặc biệt dành cho khách đi theo nhóm gia đình.",
     },
