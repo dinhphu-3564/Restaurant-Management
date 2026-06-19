@@ -695,18 +695,26 @@ after:pointer-events-none
 
                       {activeTab === "ingredients" && (
                         <ul className="space-y-2">
-                          <li>• Thịt dê tươi Hương Sơn</li>
-                          <li>• Sả, ớt, hành tím</li>
-                          <li>• Rau thơm ăn kèm</li>
-                          <li>• Nước chấm đặc biệt</li>
+                          {(selectedDish.ingredients
+                            ? selectedDish.ingredients.split("\n")
+                            : [
+                                "Thịt dê tươi Hương Sơn",
+                                "Sả, ớt, hành tím",
+                                "Rau thơm ăn kèm",
+                                "Nước chấm đặc biệt",
+                              ]
+                          )
+                            .filter((item) => item.trim())
+                            .map((item, index) => (
+                              <li key={index}>• {item.trim()}</li>
+                            ))}
                         </ul>
                       )}
 
                       {activeTab === "taste" && (
                         <p>
-                          Hương vị đậm đà, thơm nhẹ, thịt mềm ngọt tự nhiên, phù
-                          hợp khẩu vị gia đình và thực khách yêu thích đặc sản
-                          dê núi.
+                          {selectedDish.flavor ||
+                            "Hương vị đậm đà, thơm nhẹ, thịt mềm ngọt tự nhiên, phù hợp khẩu vị gia đình và thực khách yêu thích đặc sản dê núi."}
                         </p>
                       )}
                     </div>
@@ -730,8 +738,8 @@ after:pointer-events-none
                   </p>
 
                   <p className="text-gray-600 mt-3 leading-relaxed text-sm">
-                    {selectedDish.description} Hương vị đậm đà, thơm ngon, phù
-                    hợp dùng trong bữa ăn gia đình và tiệc nhỏ.
+                    {selectedDish.shortDescription ||
+                      `${selectedDish.description} Hương vị đậm đà, thơm ngon, phù hợp dùng trong bữa ăn gia đình và tiệc nhỏ.`}
                   </p>
 
                   {/* INFO */}

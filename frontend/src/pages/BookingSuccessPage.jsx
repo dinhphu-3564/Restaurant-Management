@@ -97,7 +97,11 @@ function BookingSuccessPage() {
             <InfoRow
               icon={<Users />}
               label="Số khách"
-              value={booking.guests ? `${booking.guests} người` : "Chưa có"}
+              value={
+                booking.guests || booking.people
+                  ? `${booking.guests || booking.people} người`
+                  : "Chưa có"
+              }
             />
 
             <InfoRow
@@ -106,7 +110,9 @@ function BookingSuccessPage() {
               value={
                 booking.selectedAreaTitle && booking.selectedTable
                   ? `${booking.selectedAreaTitle} • Bàn ${booking.selectedTable}`
-                  : "Chưa chọn khu vực"
+                  : booking.area
+                    ? booking.area
+                    : "Nhà hàng sắp xếp"
               }
             />
           </div>

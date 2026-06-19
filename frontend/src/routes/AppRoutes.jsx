@@ -1,4 +1,10 @@
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useLocation,
+  Navigate,
+} from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
@@ -21,6 +27,19 @@ import AboutPage from "../pages/AboutPage";
 import ContactPage from "../pages/ContactPage";
 import ProfilePage from "../pages/ProfilePage";
 import NotFoundPage from "../pages/NotFoundPage";
+
+//Admin
+import AdminLoginPage from "../pages/admin/AdminLoginPage";
+import AdminLayout from "../layouts/AdminLayout";
+import AdminProtectedRoute from "../components/admin/AdminProtectedRoute";
+
+import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
+import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
+import AdminBookingsPage from "../pages/admin/AdminBookingsPage";
+import AdminMenuPage from "../pages/admin/AdminMenuPage";
+import AdminDealsPage from "../pages/admin/AdminDealsPage";
+import AdminUsersPage from "../pages/admin/AdminUsersPage";
+import AdminRevenuePage from "../pages/admin/AdminRevenuePage";
 
 function MainLayout({ children }) {
   const location = useLocation();
@@ -76,7 +95,7 @@ function AppRoutes() {
 
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
-
+        {/* Menu */}
         <Route
           path="/menu"
           element={
@@ -85,7 +104,7 @@ function AppRoutes() {
             </MainLayout>
           }
         />
-
+        {/* Giỏ hàng */}
         <Route
           path="/cart"
           element={
@@ -94,7 +113,7 @@ function AppRoutes() {
             </MainLayout>
           }
         />
-
+        {/* Hình thức phục vụ */}
         <Route
           path="/checkout"
           element={
@@ -103,7 +122,7 @@ function AppRoutes() {
             </MainLayout>
           }
         />
-
+        {/* Thanh toán */}
         <Route
           path="/payment-qr"
           element={
@@ -121,7 +140,7 @@ function AppRoutes() {
             </MainLayout>
           }
         />
-
+        {/* Đạt bàn */}
         <Route
           path="/reservation"
           element={
@@ -130,7 +149,7 @@ function AppRoutes() {
             </MainLayout>
           }
         />
-
+        {/* Đặt bàn */}
         <Route
           path="/booking-success"
           element={
@@ -139,7 +158,7 @@ function AppRoutes() {
             </MainLayout>
           }
         />
-
+        {/* Khuyến mãi */}
         <Route
           path="/deals"
           element={
@@ -148,7 +167,7 @@ function AppRoutes() {
             </MainLayout>
           }
         />
-
+        {/* Khuyến mãi chi tiết */}
         <Route
           path="/deals/:dealId"
           element={
@@ -157,7 +176,7 @@ function AppRoutes() {
             </MainLayout>
           }
         />
-
+        {/* Giới thiệu */}
         <Route
           path="/about"
           element={
@@ -166,7 +185,7 @@ function AppRoutes() {
             </MainLayout>
           }
         />
-
+        {/* Liên hệ */}
         <Route
           path="/contact"
           element={
@@ -175,7 +194,7 @@ function AppRoutes() {
             </MainLayout>
           }
         />
-
+        {/* Trang cá nhân */}
         <Route
           path="/profile"
           element={
@@ -184,7 +203,7 @@ function AppRoutes() {
             </MainLayout>
           }
         />
-
+        {/* CHi tiết đặt bàn */}
         <Route
           path="/profile/booking-detail/:id"
           element={
@@ -193,6 +212,7 @@ function AppRoutes() {
             </MainLayout>
           }
         />
+        {/* 404 */}
         <Route
           path="*"
           element={
@@ -201,6 +221,28 @@ function AppRoutes() {
             </MainLayout>
           }
         />
+
+        {/* Admin */}
+        <Route path="/admin/login" element={<AdminLoginPage />} />
+
+        <Route
+          path="/admin"
+          element={
+            <AdminProtectedRoute>
+              <AdminLayout />
+            </AdminProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="dashboard" replace />} />
+
+          <Route path="dashboard" element={<AdminDashboardPage />} />
+          <Route path="orders" element={<AdminOrdersPage />} />
+          <Route path="bookings" element={<AdminBookingsPage />} />
+          <Route path="menu" element={<AdminMenuPage />} />
+          <Route path="deals" element={<AdminDealsPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="revenue" element={<AdminRevenuePage />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );

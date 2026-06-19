@@ -58,16 +58,17 @@ function BookingDetailPage() {
   const getStatusStyle = (status) => {
     switch (status) {
       case "confirmed":
-        return "bg-green-100 text-green-700 border-green-200";
-
-      case "completed":
         return "bg-blue-100 text-blue-700 border-blue-200";
 
+      case "completed":
+        return "bg-green-100 text-green-700 border-green-200";
+
       case "cancelled":
+      case "canceled":
         return "bg-red-100 text-red-700 border-red-200";
 
       default:
-        return "bg-amber-100 text-amber-700 border-amber-200";
+        return "bg-orange-100 text-orange-700 border-orange-200";
     }
   };
 
@@ -186,7 +187,7 @@ function BookingDetailPage() {
               </p>
 
               <p className="text-xs text-white/60 mt-1">
-                Cập nhật: {getTimeAgo(booking.createdAt)}
+                Cập nhật: {getTimeAgo(booking.updatedAt || booking.createdAt)}
               </p>
             </div>
           </div>

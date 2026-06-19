@@ -730,10 +730,21 @@ function OrderCard({ order }) {
     paid: "Đã thanh toán",
   };
 
+  const statusLabel = {
+    pending: "Chờ xác nhận",
+    confirmed: "Đã xác nhận",
+    preparing: "Đang chuẩn bị",
+    delivering: "Đang giao",
+    completed: "Hoàn thành",
+    cancelled: "Đã hủy",
+    canceled: "Đã hủy",
+  };
+
   const orderStatus =
-    order.status === "Chờ chọn phương thức thanh toán"
+    statusLabel[order.status] ||
+    (order.status === "Chờ chọn phương thức thanh toán"
       ? "Chờ xác nhận"
-      : order.status || "Chờ xác nhận";
+      : order.status || "Chờ xác nhận");
 
   const paymentStatus =
     paymentStatusLabel[order.paymentStatus] ||
@@ -743,11 +754,15 @@ function OrderCard({ order }) {
   const statusClass =
     orderStatus === "Đã hủy"
       ? "bg-red-50 text-red-500"
-      : orderStatus === "Đã lấy hàng"
-        ? "bg-blue-50 text-blue-600"
-        : orderStatus === "Chờ xác nhận"
-          ? "bg-orange-50 text-orange-600"
-          : "bg-green-50 text-green-700";
+      : orderStatus === "Đang giao"
+        ? "bg-orange-50 text-orange-600"
+        : orderStatus === "Đang chuẩn bị"
+          ? "bg-purple-50 text-purple-600"
+          : orderStatus === "Đã xác nhận"
+            ? "bg-blue-50 text-blue-600"
+            : orderStatus === "Chờ xác nhận"
+              ? "bg-yellow-50 text-yellow-700"
+              : "bg-green-50 text-green-700";
 
   const paymentStatusClass =
     paymentStatus === "Đã thanh toán"
@@ -895,7 +910,39 @@ function OrderCard({ order }) {
     </div>
   );
 }
+const getBookingStatusText = (status) => {
+  switch (status) {
+    case "confirmed":
+      return "Đã xác nhận";
 
+    case "completed":
+      return "Hoàn thành";
+
+    case "cancelled":
+    case "canceled":
+      return "Đã hủy";
+
+    default:
+      return "Chờ xác nhận";
+  }
+};
+
+const getBookingStatusStyle = (status) => {
+  switch (status) {
+    case "confirmed":
+      return "bg-blue-50 text-blue-600";
+
+    case "completed":
+      return "bg-green-50 text-green-700";
+
+    case "cancelled":
+    case "canceled":
+      return "bg-red-50 text-red-600";
+
+    default:
+      return "bg-orange-50 text-orange-600";
+  }
+};
 function BookingHistoryContent() {
   const navigate = useNavigate();
   const bookings = JSON.parse(localStorage.getItem("bookings")) || [];
@@ -947,8 +994,12 @@ function BookingHistoryContent() {
                 </p>
               </div>
 
-              <span className="w-fit px-4 py-2 rounded-full bg-green-50 text-green-800 font-black text-sm">
-                Đang xử lý
+              <span
+                className={`w-fit px-4 py-2 rounded-full font-black text-sm ${getBookingStatusStyle(
+                  booking.status,
+                )}`}
+              >
+                {getBookingStatusText(booking.status)}
               </span>
 
               <button

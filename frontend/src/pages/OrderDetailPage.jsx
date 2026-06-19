@@ -164,23 +164,72 @@ function OrderDetailPage() {
       0,
     );
 
+  const getStatusText = (status) => {
+    switch (status) {
+      case "pending":
+        return "Chờ xác nhận";
+      case "confirmed":
+        return "Đã xác nhận";
+      case "preparing":
+        return "Đang chuẩn bị";
+      case "delivering":
+        return "Đang giao";
+      case "completed":
+        return "Hoàn thành";
+      case "cancelled":
+      case "canceled":
+        return "Đã hủy";
+      default:
+        return status || "Chờ xác nhận";
+    }
+  };
+
+  // đổi màu trạng thái
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case "pending":
+        return "bg-orange-100 text-orange-700";
+
+      case "confirmed":
+        return "bg-blue-100 text-blue-700";
+
+      case "preparing":
+        return "bg-purple-100 text-purple-700";
+
+      case "delivering":
+        return "bg-yellow-100 text-yellow-700";
+
+      case "completed":
+        return "bg-green-100 text-green-700";
+
+      case "cancelled":
+      case "canceled":
+        return "bg-red-100 text-red-700";
+
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#fbf7ec] px-4 py-6">
       <div className="max-w-[1600px] mx-auto">
         <div className="bg-white rounded-[30px] border border-[#eadfcd] shadow-xl overflow-hidden">
           {/* HEADER */}
           <div className="bg-green-700 px-6 md:px-8 py-4 text-white">
-            <button
-              onClick={() =>
-                navigate("/profile", { state: { activeTab: "history" } })
-              }
-              className="inline-flex items-center gap-2 text-white/85 font-black mb-6 hover:text-white"
-            >
-              <ArrowLeft size={20} />
-              Quay lại danh sách đơn hàng
-            </button>
+            <div className="flex items-center gap-3 text-white/85 font-black mb-3">
+              <button
+                onClick={() =>
+                  navigate("/profile", { state: { activeTab: "history" } })
+                }
+                className="inline-flex items-center gap-2 hover:text-white transition"
+              >
+                <ArrowLeft size={20} />
+                Quay lại danh sách đơn hàng
+              </button>
+            </div>
 
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-center gap-5">
                 <div className="w-16 h-16 rounded-2xl bg-white/10 text-[#d6a84f] flex items-center justify-center">
                   <ReceiptText className="w-8 h-8" />
@@ -194,16 +243,21 @@ function OrderDetailPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-5">
-                <span className="px-5 py-2.5 rounded-full bg-[#d6a84f] text-white font-black">
-                  {order.status || "Chờ xác nhận"}
+              <div className="flex flex-col items-end gap-3">
+                <span
+                  className={`px-5 py-2.5 rounded-full font-black ${getStatusStyle(
+                    order.status,
+                  )}`}
+                >
+                  {getStatusText(order.status)}
                 </span>
 
-                <div className="text-white/85 font-black text-sm leading-6">
-                  <p className="flex items-center gap-2">
+                <div className="text-white/85 font-black text-sm leading-6 text-right">
+                  <p className="flex items-center justify-end gap-2">
                     <Clock className="w-4 h-4" />
                     {formatDateTime(order.createdAt)}
                   </p>
+
                   <p className="text-white/60">
                     Cập nhật: {getTimeAgo(order.updatedAt || order.createdAt)}
                   </p>

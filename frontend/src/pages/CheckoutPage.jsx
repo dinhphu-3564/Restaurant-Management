@@ -575,17 +575,29 @@ function CheckoutPage() {
                   if (serviceType === "dinein") {
                     const bookingData = {
                       id: Date.now(),
+
+                      source: "checkout_page",
+                      type: "table_with_order",
+
+                      customerName,
+                      name: customerName,
+                      phone,
+                      email: "",
+
                       date,
                       time,
                       guests,
-                      phone,
-                      name: customerName,
+
                       area: "Nhà hàng sắp xếp",
-                      source: "checkout_page",
-                      type: "table_with_order",
+                      selectedAreaTitle: "Nhà hàng sắp xếp",
+                      selectedTable: "Đang sắp xếp",
+
+                      note,
+
                       cartItems,
                       subtotal,
                       total,
+
                       status: "pending",
                       createdAt: new Date().toISOString(),
                     };

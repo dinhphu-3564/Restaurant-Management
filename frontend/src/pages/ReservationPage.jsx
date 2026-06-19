@@ -178,6 +178,7 @@ function ReservationPage() {
 
       // Tổng tiền và tổng số lượng món
       subtotal,
+      total: subtotal,
       totalQty: totalBookingQty,
 
       status: "pending",
