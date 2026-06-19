@@ -560,7 +560,7 @@ after:pointer-events-none
                       return;
                     }
 
-                    navigate("/reservation");
+                    navigate("/booking");
                   }}
                   className="booking-btn bg-[#d6a84f] hover:bg-[#c99a45] text-green-950 font-bold px-7 py-3 rounded-xl"
                 >
@@ -817,7 +817,7 @@ after:pointer-events-none
                           const cartItems =
                             JSON.parse(localStorage.getItem("cartItems")) || [];
 
-                          navigate("/reservation", {
+                          navigate("/booking", {
                             state: {
                               selectedDish,
                               cartItems,

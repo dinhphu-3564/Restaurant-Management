@@ -18,7 +18,7 @@ import {
   Headset,
 } from "lucide-react";
 
-function ReservationPage() {
+function BookingPage() {
   const navigate = useNavigate();
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -145,7 +145,7 @@ function ReservationPage() {
     // yêu cầu đăng nhập trc khi đặt bàn
     const newBooking = {
       id: Date.now(),
-      source: "reservation_page",
+      source: "booking_page",
 
       // Nếu có món đi kèm thì là đặt bàn kèm món
       type: bookingCartItems.length > 0 ? "table_with_food" : "table_only",
@@ -597,4 +597,4 @@ function ServiceItem({ icon, title, text }) {
   );
 }
 
-export default ReservationPage;
+export default BookingPage;

@@ -80,7 +80,7 @@ function DealsPage() {
       name: "Ưu đãi hết ý",
       desc: "Giảm ngay 15% tổng hóa đơn cho bàn tiệc sinh nhật.",
       condition: "Áp dụng khi đặt bàn trước",
-      route: "/reservation",
+      route: "/booking",
       button: "Đặt bàn sinh nhật",
     },
     {
@@ -108,7 +108,7 @@ function DealsPage() {
       icon: <CalendarDays />,
       title: "Ưu đãi đặt bàn",
       desc: "Đặt bàn trước nhận ưu đãi hấp dẫn",
-      route: "/reservation",
+      route: "/booking",
     },
     {
       icon: <Gift />,
@@ -585,7 +585,7 @@ function DealsPage() {
             </p>
 
             <button
-              onClick={() => navigate("/reservation")}
+              onClick={() => navigate("/booking")}
               className="mt-7 w-fit bg-[#f6c441] hover:bg-[#ffd35a] hover:scale-105 transition-all duration-300 px-7 py-3 rounded-xl font-bold text-green-950 shadow-lg"
             >
               Đặt bàn ngay →

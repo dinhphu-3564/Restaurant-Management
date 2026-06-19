@@ -50,7 +50,7 @@ function Header({ currentPage = "home" }) {
   const menus = [
     { name: "Trang chủ", path: "/home", key: "home" },
     { name: "Thực đơn", path: "/menu", key: "menu" },
-    { name: "Đặt bàn", path: "/reservation", key: "reservation" },
+    { name: "Đặt bàn", path: "/booking", key: "booking" },
     { name: "Khuyến mãi", path: "/deals", key: "deals" },
     { name: "Giới thiệu", path: "/about", key: "about" },
     { name: "Liên hệ", path: "/contact", key: "contact" },

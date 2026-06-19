@@ -434,7 +434,7 @@ function ContactPage() {
 
             <div className="flex flex-col sm:flex-row lg:flex-col gap-4">
               <button
-                onClick={() => navigate("/reservation")}
+                onClick={() => navigate("/booking")}
                 className="h-14 px-8 rounded-2xl bg-[#d6a84f] text-green-950 font-black flex items-center justify-center gap-3 hover:bg-[#c99a45] transition shadow-lg"
               >
                 <CalendarDays className="w-5 h-5" />

@@ -250,7 +250,7 @@ function AboutPage() {
             <div className="mt-9 flex flex-col sm:flex-row gap-4">
               <div className="booking-wrapper">
                 <button
-                  onClick={() => navigate("/reservation")}
+                  onClick={() => navigate("/booking")}
                   className="bg-[#c99a45] hover:bg-[#b88935] text-white px-9 md:px-11 py-4 rounded-full font-black text-base border-[3px] border-white shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl flex items-center justify-center gap-3"
                 >
                   <CalendarDays className="w-5 h-5" />
@@ -538,7 +538,7 @@ function AboutPage() {
               title="Tiệc sinh nhật"
               text="Trang trí theo yêu cầu."
               small
-              onClick={() => navigate("/reservation")}
+              onClick={() => navigate("/booking")}
             />
           </div>
         </div>
@@ -632,7 +632,7 @@ function AboutPage() {
 
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <button
-                onClick={() => navigate("/reservation")}
+                onClick={() => navigate("/booking")}
                 className="bg-[#d6a84f] text-green-950 px-7 py-3.5 rounded-2xl font-black hover:bg-[#c99a45] hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 shadow-lg"
               >
                 <CalendarDays className="w-5 h-5" />

@@ -460,7 +460,7 @@ function Home() {
 
                 <div className="booking-wrapper">
                   <button
-                    onClick={() => navigate("/reservation")}
+                    onClick={() => navigate("/booking")}
                     className=" bg-[#c99a45] hover:bg-[#b88935] text-white px-5 md:px-7 py-2.5 md:py-3 rounded-full font-bold text-sm md:text-base border-2 border-white shadow-lg transition-all duration-300"
                   >
                     <CalendarDays className="w-4 h-4 inline mr-2" />

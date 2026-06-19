@@ -448,7 +448,7 @@ function ProfilePage() {
 
                     <div className="flex flex-col sm:flex-row gap-3 mt-5">
                       <button
-                        onClick={() => navigate("/reservation")}
+                        onClick={() => navigate("/booking")}
                         className="h-11 px-7 rounded-xl bg-[#d6a84f] text-green-950 font-black"
                       >
                         <CalendarDays className="w-5 h-5 inline mr-2" />

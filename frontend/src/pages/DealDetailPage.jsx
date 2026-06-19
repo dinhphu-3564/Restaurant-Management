@@ -59,7 +59,7 @@ function DealDetailPage() {
         "Áp dụng cho bàn tiệc từ 4 người trở lên",
         "Không áp dụng kèm các ưu đãi khác",
       ],
-      route: "/reservation",
+      route: "/booking",
       button: "Đặt bàn sinh nhật",
     },
 
@@ -96,7 +96,7 @@ function DealDetailPage() {
         "Ưu tiên giữ bàn vào giờ cao điểm",
         "Không áp dụng kèm các ưu đãi khác",
       ],
-      route: "/reservation",
+      route: "/booking",
       button: "Đặt bàn ngay",
     },
   };
@@ -254,7 +254,7 @@ function DealDetailPage() {
           </button>
 
           <button
-            onClick={() => navigate("/reservation")}
+            onClick={() => navigate("/booking")}
             className="bg-white border border-[#eadfcd] rounded-3xl p-6 text-left hover:shadow-md transition"
           >
             <CalendarDays className="w-8 h-8 text-[#c99a45]" />

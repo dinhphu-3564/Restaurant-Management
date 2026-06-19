@@ -18,7 +18,7 @@ import CheckoutPage from "../pages/CheckoutPage";
 import PaymentQRPage from "../pages/PaymentQRPage";
 import OrderSuccessPage from "../pages/OrderSuccessPage";
 import OrderDetailPage from "../pages/OrderDetailPage";
-import ReservationPage from "../pages/ReservationPage";
+import BookingPage from "../pages/BookingPage";
 import BookingSuccessPage from "../pages/BookingSuccessPage";
 import BookingDetailPage from "../pages/BookingDetailPage";
 import DealsPage from "../pages/DealsPage";
@@ -40,6 +40,7 @@ import AdminMenuPage from "../pages/admin/AdminMenuPage";
 import AdminDealsPage from "../pages/admin/AdminDealsPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 import AdminRevenuePage from "../pages/admin/AdminRevenuePage";
+import AdminTablesPage from "../pages/admin/AdminTablesPage";
 
 function MainLayout({ children }) {
   const location = useLocation();
@@ -50,7 +51,7 @@ function MainLayout({ children }) {
     "/menu": "menu",
     "/cart": "cart",
     "/checkout": "cart",
-    "/reservation": "reservation",
+    "/booking": "booking",
     "/deals": "deals",
     "/about": "about",
     "/contact": "contact",
@@ -142,10 +143,10 @@ function AppRoutes() {
         />
         {/* Đạt bàn */}
         <Route
-          path="/reservation"
+          path="/booking"
           element={
             <MainLayout>
-              <ReservationPage />
+              <BookingPage />
             </MainLayout>
           }
         />
@@ -238,6 +239,7 @@ function AppRoutes() {
           <Route path="dashboard" element={<AdminDashboardPage />} />
           <Route path="orders" element={<AdminOrdersPage />} />
           <Route path="bookings" element={<AdminBookingsPage />} />
+          <Route path="tables" element={<AdminTablesPage />} />
           <Route path="menu" element={<AdminMenuPage />} />
           <Route path="deals" element={<AdminDealsPage />} />
           <Route path="users" element={<AdminUsersPage />} />
