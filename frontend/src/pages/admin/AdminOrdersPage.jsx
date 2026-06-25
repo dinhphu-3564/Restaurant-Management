@@ -1121,7 +1121,7 @@ function AdminOrdersPage() {
 
           <div className="overflow-x-auto">
             <table className="min-w-[1180px] w-full text-left text-sm">
-              <thead className="bg-[#fbfcfb] text-gray-600 font-black text-xs uppercase">
+              <thead className="bg-[#fbfcfb] text-gray-500 font-bold text-sm whitespace-nowrap">
                 <tr>
                   <th className="w-[50px] px-4 py-3">
                     <input
@@ -1136,15 +1136,15 @@ function AdminOrdersPage() {
                       className="w-4 h-4 accent-green-700"
                     />
                   </th>
-                  <th className="w-[180px] px-4 py-3">Mã đơn</th>
-                  <th className="w-[180px] px-4 py-3">Khách hàng</th>
-                  <th className="w-[130px] px-4 py-3">SĐT</th>
-                  <th className="w-[180px] px-4 py-3">Loại phục vụ</th>
-                  <th className="w-[170px] px-4 py-3">Thanh toán</th>
-                  <th className="w-[130px] px-4 py-3">Tổng tiền</th>
-                  <th className="w-[140px] px-4 py-3">Trạng thái</th>
-                  <th className="w-[150px] px-4 py-3">Thời gian</th>
-                  <th className="w-[120px] px-4 py-3 text-center sticky right-0 bg-[#fbfcfb] z-10">
+                  <th className="px-4 py-3">Mã đơn</th>
+                  <th className="px-4 py-3">Khách hàng</th>
+                  <th className="px-4 py-3">SĐT</th>
+                  <th className="px-4 py-3">Loại phục vụ</th>
+                  <th className="px-4 py-3">Thanh toán</th>
+                  <th className="px-4 py-3 text-center">Tổng tiền</th>
+                  <th className="px-4 py-3 text-center">Trạng thái</th>
+                  <th className="px-4 py-3">Thời gian</th>
+                  <th className="w-[120px] px-4 py-3 text-center sticky right-0 bg-[#fbfcfb] z-10 whitespace-nowrap">
                     Thao tác
                   </th>
                 </tr>
@@ -1184,7 +1184,7 @@ function AdminOrdersPage() {
                               .toUpperCase()}
                           </div>
 
-                          <span className="font-bold text-gray-700">
+                          <span className="font-bold text-gray-700 whitespace-nowrap">
                             {order.customerName ||
                               order.fullName ||
                               order.name ||
@@ -1211,7 +1211,7 @@ function AdminOrdersPage() {
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 font-black text-green-950 whitespace-nowrap">
+                      <td className="px-4 py-3 font-black text-green-950 whitespace-nowrap text-center">
                         {formatPrice(order.total || order.totalPrice)}
                       </td>
 

@@ -902,11 +902,13 @@ function AdminMenuPage() {
                   <th className="w-[120px] px-4 py-3">Danh mục</th>
                   <th className="w-[130px] px-4 py-3">Giá bán</th>
                   <th className="w-[110px] px-4 py-3">Loại món</th>
-                  <th className="w-[130px] px-4 py-3">Trạng thái</th>
-                  <th className="w-[150px] px-4 py-3">Badge</th>
+                  <th className="w-[130px] px-4 py-3 text-center">
+                    Trạng thái
+                  </th>
+                  <th className="w-[150px] px-4 py-3 text-center">Badge</th>
                   <th className="w-[90px] px-4 py-3">Đã bán</th>
                   <th className="w-[110px] px-4 py-3">Đánh giá</th>
-                  <th className="w-[130px] px-4 py-3">Cập nhật</th>
+                  <th className="w-[130px] px-4 py-3 text-center">Cập nhật</th>
 
                   <th className="w-[130px] px-4 py-3 text-center sticky right-0 bg-[#fbfcfb] z-20">
                     Thao tác
@@ -965,20 +967,24 @@ function AdminMenuPage() {
                       </span>
                     </td>
 
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-center">
                       {food.badge ? (
                         <span className="inline-flex items-center justify-center max-w-[120px] px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-black whitespace-nowrap overflow-hidden text-ellipsis">
                           {food.badge}
                         </span>
                       ) : (
-                        <span className="text-gray-400 font-bold">—</span>
+                        <span className="text-gray-400 font-bold text-center">
+                          —
+                        </span>
                       )}
                     </td>
 
-                    <td className="px-4 py-3 font-bold">{food.sold}</td>
+                    <td className="px-4 py-3 font-bold text-center">
+                      {food.sold}
+                    </td>
 
                     <td className={`px-4 py-3`}>
-                      <div className="font-black text-gray-700 flex items-center gap-1">
+                      <div className="font-black text-gray-700 flex items-center gap-1 ">
                         <Star
                           size={15}
                           className="text-yellow-500 fill-yellow-500"

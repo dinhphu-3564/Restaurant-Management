@@ -71,34 +71,63 @@ function AdminLayout() {
     subtitle: "Quản lý hệ thống",
   };
 
-  const pageAction =
-    location.pathname === "/admin/orders" ? (
-      <button
-        onClick={() => exportExcelHandler && exportExcelHandler()}
-        disabled={!exportExcelHandler}
-        className="
-        h-11 px-4 rounded-2xl bg-green-800 text-white text-sm font-black
-        inline-flex items-center justify-center gap-2 hover:bg-green-900
-        transition disabled:opacity-50 disabled:cursor-not-allowed
-        whitespace-nowrap shrink-0
-      "
-      >
-        <Download size={18} />
-        Xuất Excel
-      </button>
-    ) : location.pathname === "/admin/menu" && headerAction ? (
-      <button
-        onClick={headerAction.onClick}
-        className="
-        h-11 px-4 rounded-2xl bg-green-800 text-white text-sm font-black
-        inline-flex items-center justify-center gap-2 hover:bg-green-900
-        transition whitespace-nowrap shrink-0
-      "
-      >
-        <Plus size={18} />
-        {headerAction.label}
-      </button>
-    ) : null;
+  const isOrdersPage = location.pathname === "/admin/orders";
+  const isMenuPage = location.pathname === "/admin/menu";
+  const isBookingsPage = location.pathname === "/admin/bookings";
+  const isTablesPage = location.pathname === "/admin/tables";
+  const isDealsPage = location.pathname === "/admin/deals";
+
+  const pageAction = isOrdersPage ? (
+    <button
+      onClick={() => exportExcelHandler && exportExcelHandler()}
+      disabled={!exportExcelHandler}
+      className="
+      h-11 px-4 rounded-2xl bg-green-800 text-white text-sm font-black
+      inline-flex items-center justify-center gap-2 hover:bg-green-900
+      transition disabled:opacity-50 disabled:cursor-not-allowed
+      whitespace-nowrap shrink-0
+    "
+    >
+      <Download size={18} />
+      Xuất Excel
+    </button>
+  ) : isMenuPage && headerAction ? (
+    <button
+      onClick={headerAction.onClick}
+      className="
+      h-11 px-4 rounded-2xl bg-green-800 text-white text-sm font-black
+      inline-flex items-center justify-center gap-2 hover:bg-green-900
+      transition whitespace-nowrap shrink-0
+    "
+    >
+      <Plus size={18} />
+      {headerAction.label}
+    </button>
+  ) : isBookingsPage || isTablesPage ? (
+    <button
+      onClick={() => window.dispatchEvent(new Event("openAddBookingModal"))}
+      className="
+      h-11 px-4 rounded-2xl bg-green-800 text-white text-sm font-black
+      inline-flex items-center justify-center gap-2 hover:bg-green-900
+      transition whitespace-nowrap shrink-0
+    "
+    >
+      <Plus size={18} />
+      Thêm đặt bàn
+    </button>
+  ) : isDealsPage ? (
+    <button
+      onClick={() => window.dispatchEvent(new Event("openAddDealModal"))}
+      className="
+      h-11 px-4 rounded-2xl bg-green-800 text-white text-sm font-black
+      inline-flex items-center justify-center gap-2 hover:bg-green-900
+      transition whitespace-nowrap shrink-0
+    "
+    >
+      <Plus size={18} />
+      Thêm khuyến mãi
+    </button>
+  ) : null;
 
   return (
     <div className="min-h-screen bg-[#f8faf8] flex">

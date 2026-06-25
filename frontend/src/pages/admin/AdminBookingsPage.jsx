@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
+import { tableService } from "../../services/tableService";
 import {
   CalendarCheck,
   Clock3,
@@ -21,9 +22,32 @@ import {
 } from "lucide-react";
 
 function AdminBookingsPage() {
+  const TABLE_STATUS_STYLE = {
+    available: "border-green-200 bg-green-50 text-green-700",
+    holding: "border-orange-200 bg-orange-50 text-orange-600",
+    booked: "border-red-200 bg-red-50 text-red-600",
+    serving: "border-blue-200 bg-blue-50 text-blue-600",
+    maintenance: "border-gray-200 bg-gray-100 text-gray-500",
+    disabled: "border-gray-200 bg-gray-50 text-gray-400",
+    selected:
+      "border-green-700 bg-green-100 text-green-900 ring-2 ring-green-700",
+  };
+
+  const TABLE_DOT_STYLE = {
+    available: "bg-green-600",
+    holding: "bg-orange-500",
+
+    booked: "bg-red-500",
+    serving: "bg-blue-500",
+    maintenance: "bg-gray-500",
+    disabled: "bg-gray-300",
+    selected: "bg-blue-500",
+  };
   const { globalSearch, dateRange } = useOutletContext();
 
   const [bookings, setBookings] = useState([]);
+  const [areas, setAreas] = useState([]);
+  const [tables, setTables] = useState([]);
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [areaFilter, setAreaFilter] = useState("all");
@@ -34,19 +58,63 @@ function AdminBookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [editingBooking, setEditingBooking] = useState(null);
   const [selectedBookingIds, setSelectedBookingIds] = useState([]);
+  const [isAddingBooking, setIsAddingBooking] = useState(false);
+
+  const [addForm, setAddForm] = useState({
+    customerName: "",
+    phone: "",
+    email: "",
+    date: "",
+    time: "",
+    guests: 1,
+    selectedArea: "",
+    selectedAreaTitle: "",
+    selectedTable: "",
+    note: "",
+    status: "pending",
+  });
 
   const [editForm, setEditForm] = useState({
     status: "pending",
+    date: "",
+    selectedArea: "",
     selectedAreaTitle: "",
     selectedTable: "",
     note: "",
   });
 
   const pageSize = 10;
+  //Tự cập nhật khi trang khác thay đổi bookings
+  useEffect(() => {
+    const loadData = () => {
+      setBookings(JSON.parse(localStorage.getItem("bookings")) || []);
+      setAreas(tableService.getAreas());
+      setTables(tableService.getTables());
+    };
+
+    loadData();
+
+    window.addEventListener("bookingsUpdated", loadData);
+    window.addEventListener("tablesUpdated", loadData);
+    window.addEventListener("storage", loadData);
+
+    return () => {
+      window.removeEventListener("bookingsUpdated", loadData);
+      window.removeEventListener("tablesUpdated", loadData);
+      window.removeEventListener("storage", loadData);
+    };
+  }, []);
 
   useEffect(() => {
-    const savedBookings = JSON.parse(localStorage.getItem("bookings")) || [];
-    setBookings(savedBookings);
+    const openAddBookingModal = () => {
+      setIsAddingBooking(true);
+    };
+
+    window.addEventListener("openAddBookingModal", openAddBookingModal);
+
+    return () => {
+      window.removeEventListener("openAddBookingModal", openAddBookingModal);
+    };
   }, []);
 
   const formatPrice = (price) =>
@@ -127,8 +195,7 @@ function AdminBookingsPage() {
       String(item.id) === String(id) ? { ...item, status, updatedAt } : item,
     );
 
-    setBookings(newBookings);
-    localStorage.setItem("bookings", JSON.stringify(newBookings));
+    saveBookingsToStorage(newBookings);
 
     setSelectedBooking((prev) =>
       prev && String(prev.id) === String(id)
@@ -140,12 +207,80 @@ function AdminBookingsPage() {
   const openEditBookingModal = (booking) => {
     setEditingBooking(booking);
 
+    const areaTitle = booking.selectedAreaTitle || booking.area || "";
+
+    const matchedArea = tableService
+      .getAreas()
+      .find((area) => area.name === areaTitle);
+
     setEditForm({
       status: booking.status || "pending",
-      selectedAreaTitle: booking.selectedAreaTitle || booking.area || "",
+      date: booking.date || "",
+
+      selectedArea: booking.selectedArea || matchedArea?.id || "",
+      selectedAreaTitle: areaTitle,
       selectedTable: booking.selectedTable || "",
       note: booking.note || "",
     });
+  };
+  //hàm kiểm tra bàn theo ngày
+  const isActiveBooking = (booking) => {
+    return (
+      booking.status === "pending" ||
+      booking.status === "confirmed" ||
+      booking.status === "Chờ xác nhận" ||
+      booking.status === "Đã xác nhận"
+    );
+  };
+
+  const getTableBookingAtDate = (tableCode, date) => {
+    if (!date) return null;
+
+    return bookings.find(
+      (booking) =>
+        String(booking.id) !== String(editingBooking?.id) &&
+        isActiveBooking(booking) &&
+        String(booking.selectedTable) === String(tableCode) &&
+        booking.date === date,
+    );
+  };
+  //hàm lấy booking của bàn theo ngày
+  const getCurrentBookingTableAtDate = (tableCode, date) => {
+    if (!date) return null;
+
+    return bookings.find(
+      (booking) =>
+        String(booking.id) === String(editingBooking?.id) &&
+        isActiveBooking(booking) &&
+        String(booking.selectedTable) === String(tableCode) &&
+        booking.date === date,
+    );
+  };
+
+  const getTableStatusForEdit = (table) => {
+    const bookingAtDate = getTableBookingAtDate(table.code, editForm.date);
+
+    if (
+      bookingAtDate?.status === "pending" ||
+      bookingAtDate?.status === "Chờ xác nhận"
+    ) {
+      return "holding";
+    }
+
+    if (
+      bookingAtDate?.status === "confirmed" ||
+      bookingAtDate?.status === "Đã xác nhận"
+    ) {
+      return "booked";
+    }
+
+    return table.status;
+  };
+
+  const canSelectTableForEdit = (table) => {
+    const status = getTableStatusForEdit(table);
+
+    return status === "available";
   };
   //hàm lưu chỉnh sửa
   const saveEditBooking = () => {
@@ -156,25 +291,36 @@ function AdminBookingsPage() {
         ? {
             ...booking,
             status: editForm.status,
+            date: editForm.date,
+            selectedArea: editForm.selectedArea,
             selectedAreaTitle: editForm.selectedAreaTitle,
             selectedTable: editForm.selectedTable,
             note: editForm.note,
+            assignedAt: editForm.selectedTable
+              ? new Date().toISOString()
+              : booking.assignedAt,
+            assignedBy: editForm.selectedTable ? "admin" : booking.assignedBy,
             updatedAt: new Date().toISOString(),
           }
         : booking,
     );
 
-    setBookings(newBookings);
-    localStorage.setItem("bookings", JSON.stringify(newBookings));
+    saveBookingsToStorage(newBookings);
 
     setSelectedBooking((prev) =>
       prev && String(prev.id) === String(editingBooking.id)
         ? {
             ...prev,
             status: editForm.status,
+            date: editForm.date,
+            selectedArea: editForm.selectedArea,
             selectedAreaTitle: editForm.selectedAreaTitle,
             selectedTable: editForm.selectedTable,
             note: editForm.note,
+            assignedAt: editForm.selectedTable
+              ? new Date().toISOString()
+              : prev.assignedAt,
+            assignedBy: editForm.selectedTable ? "admin" : prev.assignedBy,
             updatedAt: new Date().toISOString(),
           }
         : prev,
@@ -198,8 +344,7 @@ function AdminBookingsPage() {
       (item) => String(item.id) !== String(id),
     );
 
-    setBookings(newBookings);
-    localStorage.setItem("bookings", JSON.stringify(newBookings));
+    saveBookingsToStorage(newBookings);
 
     if (String(selectedBooking?.id) === String(id)) {
       setSelectedBooking(newBookings[0] || null);
@@ -249,9 +394,7 @@ function AdminBookingsPage() {
         ? { ...booking, status, updatedAt }
         : booking,
     );
-
-    setBookings(newBookings);
-    localStorage.setItem("bookings", JSON.stringify(newBookings));
+    saveBookingsToStorage(newBookings);
 
     setSelectedBooking((prev) =>
       prev && selectedBookingIds.includes(String(prev.id))
@@ -261,6 +404,18 @@ function AdminBookingsPage() {
 
     setSelectedBookingIds([]);
   };
+  //hàm lưu bookings có đồng bộ
+  const saveBookingsToStorage = (newBookings) => {
+    setBookings(newBookings);
+    localStorage.setItem("bookings", JSON.stringify(newBookings));
+
+    window.dispatchEvent(
+      new CustomEvent("bookingsUpdated", {
+        detail: newBookings,
+      }),
+    );
+  };
+
   //hàm xóa nhiều
   const deleteSelectedBookings = () => {
     if (selectedBookingIds.length === 0) return;
@@ -275,8 +430,7 @@ function AdminBookingsPage() {
       (booking) => !selectedBookingIds.includes(String(booking.id)),
     );
 
-    setBookings(newBookings);
-    localStorage.setItem("bookings", JSON.stringify(newBookings));
+    saveBookingsToStorage(newBookings);
 
     if (
       selectedBooking &&
@@ -435,6 +589,113 @@ function AdminBookingsPage() {
     guestFilter,
     activeTab,
   ]);
+
+  //hàm kiểm tra bàn khi thêm mới
+  const isActiveAddBooking = (booking) => {
+    return (
+      booking.status === "pending" ||
+      booking.status === "confirmed" ||
+      booking.status === "Chờ xác nhận" ||
+      booking.status === "Đã xác nhận"
+    );
+  };
+
+  const getTableStatusForAdd = (table) => {
+    if (!addForm.date) return table.status;
+
+    const existedBooking = bookings.find(
+      (booking) =>
+        isActiveAddBooking(booking) &&
+        String(booking.selectedTable) === String(table.code) &&
+        booking.date === addForm.date,
+    );
+
+    if (
+      existedBooking?.status === "pending" ||
+      existedBooking?.status === "Chờ xác nhận"
+    ) {
+      return "holding";
+    }
+
+    if (
+      existedBooking?.status === "confirmed" ||
+      existedBooking?.status === "Đã xác nhận"
+    ) {
+      return "booked";
+    }
+
+    return table.status;
+  };
+
+  //hàm lưu đặt bàn mới
+  const saveAddBooking = () => {
+    if (!addForm.customerName.trim()) {
+      alert("Vui lòng nhập tên khách hàng.");
+      return;
+    }
+
+    if (!addForm.phone.trim()) {
+      alert("Vui lòng nhập số điện thoại.");
+      return;
+    }
+
+    if (!addForm.date) {
+      alert("Vui lòng chọn ngày đặt bàn.");
+      return;
+    }
+
+    if (!addForm.time) {
+      alert("Vui lòng chọn giờ đặt bàn.");
+      return;
+    }
+
+    if (!addForm.selectedTable) {
+      alert("Vui lòng chọn bàn.");
+      return;
+    }
+
+    const newBooking = {
+      id: Date.now(),
+      customerName: addForm.customerName.trim(),
+      name: addForm.customerName.trim(),
+      phone: addForm.phone.trim(),
+      email: addForm.email.trim(),
+      date: addForm.date,
+      time: addForm.time,
+      guests: Number(addForm.guests || 1),
+      selectedArea: addForm.selectedArea,
+      selectedAreaTitle: addForm.selectedAreaTitle,
+      selectedTable: addForm.selectedTable,
+      note: addForm.note.trim(),
+      status: addForm.status,
+      type: "table_only",
+      total: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: "admin",
+    };
+
+    const newBookings = [newBooking, ...bookings];
+
+    saveBookingsToStorage(newBookings);
+
+    setSelectedBooking(newBooking);
+    setIsAddingBooking(false);
+
+    setAddForm({
+      customerName: "",
+      phone: "",
+      email: "",
+      date: "",
+      time: "",
+      guests: 1,
+      selectedArea: "",
+      selectedAreaTitle: "",
+      selectedTable: "",
+      note: "",
+      status: "pending",
+    });
+  };
 
   return (
     <div className="space-y-5">
@@ -642,7 +903,7 @@ function AdminBookingsPage() {
 
           <div className="overflow-x-auto">
             <table className="min-w-[1180px] w-full text-left text-sm">
-              <thead className="bg-[#fbfcfb] text-gray-600 font-black text-xs uppercase">
+              <thead className="bg-[#fbfcfb] text-gray-500 font-bold text-sm whitespace-nowrap">
                 <tr>
                   <th className="w-[50px] px-4 py-3">
                     <input
@@ -660,14 +921,14 @@ function AdminBookingsPage() {
                   <th className="px-4 py-3">Mã đặt bàn</th>
                   <th className="px-4 py-3">Khách hàng</th>
                   <th className="px-4 py-3">SĐT</th>
-                  <th className="px-4 py-3">Ngày</th>
-                  <th className="px-4 py-3">Giờ</th>
+                  <th className="px-4 py-3 text-center">Ngày</th>
+                  <th className="px-4 py-3 text-center">Giờ</th>
                   <th className="px-4 py-3">Số khách</th>
                   <th className="px-4 py-3">Khu vực</th>
                   <th className="px-4 py-3">Bàn</th>
-                  <th className="px-4 py-3">Loại</th>
+                  <th className="px-4 py-3 text-center">Loại</th>
                   <th className="px-4 py-3">Tổng tiền</th>
-                  <th className="px-4 py-3">Trạng thái</th>
+                  <th className="px-4 py-3 text-center">Trạng thái</th>
                   <th className="px-4 py-3 text-center sticky right-0 bg-[#fbfcfb] z-10">
                     Thao tác
                   </th>
@@ -718,7 +979,7 @@ function AdminBookingsPage() {
                         {booking.time || "Chưa có"}
                       </td>
 
-                      <td className="px-4 py-3 font-black">
+                      <td className="px-4 py-3 font-black text-center">
                         {booking.guests || 0}
                       </td>
 
@@ -742,7 +1003,7 @@ function AdminBookingsPage() {
                         </span>
                       </td>
 
-                      <td className="px-4 py-3 font-black text-green-950 whitespace-nowrap">
+                      <td className="px-4 py-3 font-black text-green-950 whitespace-nowrap text-center">
                         {formatPrice(booking.total)}
                       </td>
 
@@ -879,7 +1140,7 @@ function AdminBookingsPage() {
       </div>
       {editingBooking && (
         <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
-          <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden">
+          <div className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-black text-green-950">
@@ -898,74 +1159,203 @@ function AdminBookingsPage() {
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
-              <label className="block">
-                <span className="text-sm font-black text-gray-500">
-                  Trạng thái
-                </span>
-                <select
-                  value={editForm.status}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({ ...prev, status: e.target.value }))
-                  }
-                  className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
-                >
-                  <option value="pending">Chờ xác nhận</option>
-                  <option value="confirmed">Đã xác nhận</option>
-                  <option value="completed">Hoàn thành</option>
-                  <option value="cancelled">Đã hủy</option>
-                </select>
-              </label>
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 max-h-[70vh] overflow-y-auto">
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="text-sm font-black text-gray-500">
+                    Ngày đặt
+                  </span>
 
-              <label className="block">
-                <span className="text-sm font-black text-gray-500">
-                  Khu vực
-                </span>
-                <select
-                  value={editForm.selectedAreaTitle}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      selectedAreaTitle: e.target.value,
-                    }))
-                  }
-                  className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
-                >
-                  <option value="">Nhà hàng sắp xếp</option>
-                  <option value="Tầng trệt">Tầng trệt</option>
-                  <option value="Khu vực tầng 2">Khu vực tầng 2</option>
-                  <option value="Phòng VIP">Phòng VIP</option>
-                </select>
-              </label>
+                  <input
+                    type="date"
+                    value={editForm.date}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        date: e.target.value,
+                        selectedTable:
+                          editingBooking?.date === e.target.value
+                            ? editingBooking?.selectedTable || ""
+                            : "",
+                      }))
+                    }
+                    className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-black text-gray-500">
+                    Trạng thái
+                  </span>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        status: e.target.value,
+                      }))
+                    }
+                    className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
+                  >
+                    <option value="pending">Chờ xác nhận</option>
+                    <option value="confirmed">Đã xác nhận</option>
+                    <option value="completed">Hoàn thành</option>
+                    <option value="cancelled">Đã hủy</option>
+                  </select>
+                </label>
 
-              <label className="block">
-                <span className="text-sm font-black text-gray-500">Bàn</span>
-                <input
-                  value={editForm.selectedTable}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      selectedTable: e.target.value,
-                    }))
-                  }
-                  placeholder="Ví dụ: 302"
-                  className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
-                />
-              </label>
+                <label className="block">
+                  <span className="text-sm font-black text-gray-500">
+                    Khu vực
+                  </span>
 
-              <label className="block">
-                <span className="text-sm font-black text-gray-500">
-                  Ghi chú
-                </span>
-                <textarea
-                  value={editForm.note}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({ ...prev, note: e.target.value }))
-                  }
-                  placeholder="Nhập ghi chú đặt bàn..."
-                  className="mt-2 w-full h-24 rounded-xl border border-gray-100 px-4 py-3 text-sm font-semibold outline-none resize-none shadow-sm"
-                />
-              </label>
+                  <select
+                    value={editForm.selectedArea}
+                    onChange={(e) => {
+                      const areaId = e.target.value;
+                      const area = areas.find((item) => item.id === areaId);
+
+                      setEditForm((prev) => ({
+                        ...prev,
+                        selectedArea: areaId,
+                        selectedAreaTitle: area?.name || "",
+                        selectedTable: "",
+                      }));
+                    }}
+                    className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
+                  >
+                    <option value="">Nhà hàng sắp xếp</option>
+
+                    {areas.map((area) => (
+                      <option key={area.id} value={area.id}>
+                        {area.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-black text-gray-500">
+                    Ghi chú
+                  </span>
+
+                  <textarea
+                    value={editForm.note}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        note: e.target.value,
+                      }))
+                    }
+                    placeholder="Nhập ghi chú đặt bàn..."
+                    className="mt-2 w-full h-24 rounded-xl border border-gray-100 px-4 py-3 text-sm font-semibold outline-none resize-none shadow-sm"
+                  />
+                </label>
+              </div>
+              {/* phần chọn khu vực + bàn trong popup */}
+              <div className="min-w-0">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-black text-gray-500">
+                    Chọn bàn
+                  </span>
+
+                  <div className="flex items-center gap-3 text-xs font-bold">
+                    <span className="flex items-center gap-1">
+                      <i className="w-2.5 h-2.5 rounded-full bg-green-600" />
+                      Trống
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <i className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+                      Đang giữ
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <i className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                      Đã đặt
+                    </span>
+                  </div>
+                </div>
+
+                <div className="max-h-[420px] overflow-y-auto rounded-2xl border border-gray-100 p-4">
+                  {editForm.selectedArea ? (
+                    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3">
+                      {tables
+                        .filter(
+                          (table) => table.areaId === editForm.selectedArea,
+                        )
+                        .map((table) => {
+                          const currentTable =
+                            String(editingBooking?.selectedTable) ===
+                              String(table.code) &&
+                            editingBooking?.date === editForm.date;
+
+                          const newSelectedTable =
+                            String(editForm.selectedTable) ===
+                              String(table.code) && !currentTable;
+
+                          const rawStatus = getTableStatusForEdit(table);
+                          const status = currentTable ? "selected" : rawStatus;
+
+                          const disabled =
+                            currentTable || rawStatus !== "available";
+
+                          return (
+                            <button
+                              key={table.id}
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => {
+                                if (disabled) return;
+
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  selectedTable: table.code,
+                                }));
+                              }}
+                              className={`relative h-14 rounded-xl border font-black transition ${
+                                currentTable
+                                  ? TABLE_STATUS_STYLE.selected
+                                  : newSelectedTable
+                                    ? "border-green-700 bg-green-600 text-white ring-2 ring-green-300"
+                                    : TABLE_STATUS_STYLE[status]
+                              } ${
+                                disabled
+                                  ? "cursor-not-allowed opacity-90"
+                                  : "hover:scale-[1.02]"
+                              }`}
+                            >
+                              <span
+                                className={`absolute top-2 left-2 w-2.5 h-2.5 rounded-full ${
+                                  currentTable || newSelectedTable
+                                    ? "bg-green-700"
+                                    : TABLE_DOT_STYLE[status]
+                                }`}
+                              />
+
+                              <div className="flex flex-col items-center leading-tight">
+                                <span>{table.code}</span>
+
+                                {currentTable && (
+                                  <span className="mt-1 text-[10px] font-black text-green-800">
+                                    Bàn đang chọn
+                                  </span>
+                                )}
+
+                                {newSelectedTable && (
+                                  <span className="mt-1 text-[10px] font-black text-white">
+                                    Bàn mới
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-gray-400 font-bold">
+                      Vui lòng chọn khu vực để hiển thị bàn
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="px-6 py-5 border-t border-gray-100 flex justify-end gap-3">
@@ -981,6 +1371,288 @@ function AdminBookingsPage() {
                 className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
               >
                 Lưu thay đổi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Thêm popup form */}
+      {isAddingBooking && (
+        <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-green-950">
+                  Thêm đặt bàn
+                </h3>
+                <p className="text-sm text-gray-500 font-semibold mt-1">
+                  Admin tạo lịch đặt bàn mới cho khách hàng
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsAddingBooking(false)}
+                className="text-gray-400 hover:text-red-500 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6 max-h-[72vh] overflow-y-auto">
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="text-sm font-black text-gray-500">
+                    Tên khách hàng
+                  </span>
+                  <input
+                    value={addForm.customerName}
+                    onChange={(e) =>
+                      setAddForm((prev) => ({
+                        ...prev,
+                        customerName: e.target.value,
+                      }))
+                    }
+                    placeholder="Nhập tên khách hàng"
+                    className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-black text-gray-500">SĐT</span>
+                  <input
+                    value={addForm.phone}
+                    onChange={(e) =>
+                      setAddForm((prev) => ({
+                        ...prev,
+                        phone: e.target.value,
+                      }))
+                    }
+                    placeholder="Nhập số điện thoại"
+                    className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-black text-gray-500">
+                    Email
+                  </span>
+                  <input
+                    value={addForm.email}
+                    onChange={(e) =>
+                      setAddForm((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
+                    placeholder="Nhập email nếu có"
+                    className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
+                  />
+                </label>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="text-sm font-black text-gray-500">
+                      Ngày đặt
+                    </span>
+                    <input
+                      type="date"
+                      value={addForm.date}
+                      onChange={(e) =>
+                        setAddForm((prev) => ({
+                          ...prev,
+                          date: e.target.value,
+                          selectedTable: "",
+                        }))
+                      }
+                      className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-black text-gray-500">
+                      Giờ
+                    </span>
+                    <input
+                      type="time"
+                      value={addForm.time}
+                      onChange={(e) =>
+                        setAddForm((prev) => ({
+                          ...prev,
+                          time: e.target.value,
+                        }))
+                      }
+                      className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
+                    />
+                  </label>
+                </div>
+
+                <label className="block">
+                  <span className="text-sm font-black text-gray-500">
+                    Số khách
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={addForm.guests}
+                    onChange={(e) =>
+                      setAddForm((prev) => ({
+                        ...prev,
+                        guests: e.target.value,
+                      }))
+                    }
+                    className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-black text-gray-500">
+                    Khu vực
+                  </span>
+                  <select
+                    value={addForm.selectedArea}
+                    onChange={(e) => {
+                      const areaId = e.target.value;
+                      const area = areas.find((item) => item.id === areaId);
+
+                      setAddForm((prev) => ({
+                        ...prev,
+                        selectedArea: areaId,
+                        selectedAreaTitle: area?.name || "",
+                        selectedTable: "",
+                      }));
+                    }}
+                    className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
+                  >
+                    <option value="">Chọn khu vực</option>
+                    {areas.map((area) => (
+                      <option key={area.id} value={area.id}>
+                        {area.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-black text-gray-500">
+                    Ghi chú
+                  </span>
+                  <textarea
+                    value={addForm.note}
+                    onChange={(e) =>
+                      setAddForm((prev) => ({
+                        ...prev,
+                        note: e.target.value,
+                      }))
+                    }
+                    placeholder="Nhập ghi chú đặt bàn..."
+                    className="mt-2 w-full h-24 rounded-xl border border-gray-100 px-4 py-3 text-sm font-semibold outline-none resize-none shadow-sm"
+                  />
+                </label>
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-black text-gray-500">
+                    Chọn bàn
+                  </span>
+
+                  <div className="flex items-center gap-3 text-xs font-bold">
+                    <span className="flex items-center gap-1">
+                      <i className="w-2.5 h-2.5 rounded-full bg-green-600" />
+                      Trống
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <i className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+                      Đang giữ
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <i className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                      Đã đặt
+                    </span>
+                  </div>
+                </div>
+
+                <div className="max-h-[500px] overflow-y-auto rounded-2xl border border-gray-100 p-4">
+                  {addForm.selectedArea ? (
+                    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3">
+                      {tables
+                        .filter(
+                          (table) => table.areaId === addForm.selectedArea,
+                        )
+                        .map((table) => {
+                          const status = getTableStatusForAdd(table);
+                          const isSelected =
+                            String(addForm.selectedTable) ===
+                            String(table.code);
+
+                          const disabled = status !== "available";
+
+                          return (
+                            <button
+                              key={table.id}
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => {
+                                if (disabled) return;
+
+                                setAddForm((prev) => ({
+                                  ...prev,
+                                  selectedTable: table.code,
+                                }));
+                              }}
+                              className={`relative h-16 rounded-xl border font-black transition ${
+                                isSelected
+                                  ? "border-green-700 bg-green-600 text-white ring-2 ring-green-300"
+                                  : TABLE_STATUS_STYLE[status]
+                              } ${
+                                disabled
+                                  ? "cursor-not-allowed opacity-80"
+                                  : "hover:scale-[1.02]"
+                              }`}
+                            >
+                              <span
+                                className={`absolute top-2 left-2 w-2.5 h-2.5 rounded-full ${
+                                  isSelected
+                                    ? "bg-white"
+                                    : TABLE_DOT_STYLE[status]
+                                }`}
+                              />
+
+                              <div className="flex flex-col items-center leading-tight">
+                                <span>{table.code}</span>
+
+                                {isSelected && (
+                                  <span className="mt-1 text-[10px] font-black text-white">
+                                    Đang chọn
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <div className="py-10 text-center text-gray-400 font-bold">
+                      Vui lòng chọn khu vực để hiển thị bàn
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-5 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                onClick={() => setIsAddingBooking(false)}
+                className="h-11 px-5 rounded-xl bg-gray-100 text-gray-600 font-black hover:bg-gray-200"
+              >
+                Đóng
+              </button>
+
+              <button
+                onClick={saveAddBooking}
+                className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+              >
+                Tạo đặt bàn
               </button>
             </div>
           </div>
