@@ -1,8 +1,12 @@
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import { registerUser, socialLogin } from "../services/authService";
+import { saveAuthSession } from "../utils/auth";
 
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { signInWithPopup } from "firebase/auth";
+import { firebaseAuth, googleProvider } from "../services/firebase";
 import {
   Eye,
   EyeOff,
@@ -33,6 +37,8 @@ function Register() {
 
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
+  const [socialLoading, setSocialLoading] = useState("");
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
 
   const getPasswordStrength = (password) => {
     let score = 0;
@@ -125,7 +131,7 @@ function Register() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const newErrors = validateForm();
@@ -136,52 +142,118 @@ function Register() {
       return;
     }
 
-    const users = JSON.parse(localStorage.getItem("registeredUsers")) || [];
-
-    const existed = users.find(
-      (u) => u.email.toLowerCase() === formData.email.toLowerCase(),
-    );
-
-    if (existed) {
-      setErrors({
-        email: "Email này đã được đăng ký",
+    try {
+      const data = await registerUser({
+        name: formData.fullName.trim(),
+        fullName: formData.fullName.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
       });
+
+      if (!data.success) {
+        setErrors({
+          email: data.message || "Không thể đăng ký tài khoản.",
+        });
+        setSuccessMessage("");
+        return;
+      }
+
+      saveAuthSession({
+        token: data.token,
+        user: data.user,
+        remember: true,
+      });
+
+      setSuccessMessage(
+        "Đăng ký tài khoản thành công! Chào mừng bạn đến với Dê Hương Sơn",
+      );
+
+      setFormData({
+        fullName: "",
+        phone: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        agreeTerms: false,
+      });
+
+      setErrors({});
+
+      setTimeout(() => {
+        navigate("/home");
+      }, 1000);
+    } catch (error) {
+      console.error(error);
+
+      setErrors({
+        email: "Không kết nối được backend.",
+      });
+
       setSuccessMessage("");
+    }
+  };
+
+  //hàm đăng ký bằng Google
+  const handleGoogleRegister = async () => {
+    if (!formData.agreeTerms) {
+      setErrors({
+        agreeTerms: "Vui lòng đồng ý với điều khoản trước khi đăng ký.",
+      });
       return;
     }
 
-    const newUser = {
-      id: Date.now(),
-      name: formData.fullName.trim(),
-      phone: formData.phone.trim(),
-      email: formData.email.trim().toLowerCase(),
-      password: formData.password,
-      role: "customer",
-    };
-
-    localStorage.setItem(
-      "registeredUsers",
-      JSON.stringify([...users, newUser]),
-    );
-
-    setSuccessMessage(
-      "Đăng ký tài khoản thành công! Chào mừng bạn đến với Dê Hương Sơn",
-    );
-
-    setFormData({
-      fullName: "",
-      phone: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      agreeTerms: false,
-    });
-
     setErrors({});
+    setSuccessMessage("");
+    setSocialLoading("google");
 
-    setTimeout(() => {
-      navigate("/login");
-    }, 1500);
+    try {
+      const result = await signInWithPopup(firebaseAuth, googleProvider);
+      const idToken = await result.user.getIdToken();
+
+      const data = await socialLogin({
+        idToken,
+        provider: "google",
+      });
+
+      if (!data.success) {
+        setErrors({
+          email: data.message || "Không thể đăng ký bằng Google.",
+        });
+        return;
+      }
+
+      if (!data.isNewUser) {
+        setErrors({
+          email:
+            "Tài khoản Google này đã được đăng ký. Vui lòng chuyển sang trang đăng nhập.",
+        });
+        return;
+      }
+
+      saveAuthSession({
+        token: data.token,
+        user: data.user,
+        remember: true,
+      });
+
+      setSuccessMessage("Đăng ký tài khoản bằng Google thành công!");
+
+      setTimeout(() => {
+        navigate(data.user.role === "admin" ? "/admin/dashboard" : "/home");
+      }, 700);
+    } catch (error) {
+      console.error(error);
+
+      setErrors({
+        email:
+          error?.code === "auth/popup-closed-by-user"
+            ? "Bạn đã đóng cửa sổ đăng nhập Google."
+            : "Không thể đăng ký bằng Google.",
+      });
+    } finally {
+      setSocialLoading("");
+    }
   };
 
   return (
@@ -292,8 +364,9 @@ function Register() {
                   />
 
                   <div>
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <div className="flex items-center gap-2">
                       <input
+                        id="agreeTerms"
                         type="checkbox"
                         name="agreeTerms"
                         checked={formData.agreeTerms}
@@ -301,16 +374,21 @@ function Register() {
                         className="w-5 h-5 accent-green-600 rounded"
                       />
 
-                      <span className="text-gray-700 text-sm sm:text-base">
-                        Tôi đồng ý với{" "}
-                        <a
-                          href="#"
-                          className="text-green-700 font-semibold hover:underline"
-                        >
-                          điều khoản sử dụng
-                        </a>
-                      </span>
-                    </label>
+                      <label
+                        htmlFor="agreeTerms"
+                        className="text-gray-700 text-sm sm:text-base cursor-pointer"
+                      >
+                        Tôi đồng ý với
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsTermsOpen(true)}
+                        className="text-green-700 text-sm sm:text-base font-semibold hover:underline"
+                      >
+                        điều khoản sử dụng
+                      </button>
+                    </div>
 
                     {errors.agreeTerms && (
                       <ErrorText message={errors.agreeTerms} />
@@ -334,18 +412,28 @@ function Register() {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    className="w-full h-11 border border-gray-300 hover:border-green-600 hover:bg-green-50 text-gray-700 text-sm font-semibold rounded-xl transition flex items-center justify-center gap-2"
+                    onClick={handleGoogleRegister}
+                    disabled={Boolean(socialLoading)}
+                    className="w-full h-11 border border-gray-300 hover:border-green-600 hover:bg-green-50 text-gray-700 text-sm font-semibold rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <img
                       src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Google_Chrome_icon_%28February_2022%29.svg/3840px-Google_Chrome_icon_%28February_2022%29.svg.png"
                       alt="Google"
                       className="w-5 h-5"
                     />
-                    <span className="hidden sm:inline">Google</span>
+
+                    <span className="hidden sm:inline">
+                      {socialLoading === "google" ? "Đang xử lý..." : "Google"}
+                    </span>
                   </button>
 
                   <button
                     type="button"
+                    onClick={() => {
+                      setErrors({
+                        email: "Chức năng đăng ký Facebook sẽ cấu hình sau.",
+                      });
+                    }}
                     className="w-full h-11 border border-gray-300 hover:border-green-600 hover:bg-green-50 text-gray-700 text-sm font-semibold rounded-xl transition flex items-center justify-center gap-2"
                   >
                     <img
@@ -374,6 +462,210 @@ function Register() {
         {/* FOOTER */}
         <Footer />
       </div>
+      {isTermsOpen && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center px-4">
+          <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-6 relative">
+            <h3 className="text-2xl font-black text-green-800 mb-4">
+              Điều khoản sử dụng
+            </h3>
+
+            <div className="max-h-[55vh] overflow-y-auto pr-2 space-y-4 text-sm text-gray-600 leading-relaxed">
+              <p className="text-xs text-gray-400 font-semibold">
+                Cập nhật lần cuối: 27/06/2026
+              </p>
+
+              <section>
+                <h4 className="font-black text-green-800 mb-1">
+                  1. Phạm vi áp dụng
+                </h4>
+                <p>
+                  Điều khoản này áp dụng cho toàn bộ người dùng khi sử dụng
+                  website của Dê Hương Sơn, bao gồm các chức năng xem thực đơn,
+                  đặt món, đặt bàn, sử dụng mã khuyến mãi, quản lý thông tin tài
+                  khoản và theo dõi lịch sử đơn hàng.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-black text-green-800 mb-1">
+                  2. Tài khoản người dùng
+                </h4>
+                <p>
+                  Người dùng cần cung cấp thông tin chính xác khi đăng ký tài
+                  khoản, bao gồm họ tên, email, số điện thoại và các thông tin
+                  cần thiết khác. Người dùng chịu trách nhiệm bảo mật thông tin
+                  đăng nhập của mình.
+                </p>
+                <p>
+                  Dê Hương Sơn có quyền tạm khóa hoặc hạn chế tài khoản nếu phát
+                  hiện hành vi gian lận, đặt đơn giả, sử dụng thông tin sai lệch
+                  hoặc gây ảnh hưởng đến hoạt động của nhà hàng.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-black text-green-800 mb-1">
+                  3. Đặt món và đặt bàn
+                </h4>
+                <p>
+                  Khi thực hiện đặt món hoặc đặt bàn, người dùng cần kiểm tra kỹ
+                  thông tin trước khi xác nhận, bao gồm món ăn, số lượng, thời
+                  gian nhận món, thời gian đặt bàn, số lượng khách, địa chỉ giao
+                  hàng và phương thức thanh toán.
+                </p>
+                <p>
+                  Trong một số trường hợp như hết món, quá tải phục vụ, sai
+                  thông tin liên hệ hoặc sự cố ngoài ý muốn, Dê Hương Sơn có
+                  quyền liên hệ để điều chỉnh, xác nhận lại hoặc từ chối phục vụ
+                  đơn hàng/đặt bàn.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-black text-green-800 mb-1">
+                  4. Giá bán, thanh toán và khuyến mãi
+                </h4>
+                <p>
+                  Giá món ăn, phí giao hàng, ưu đãi và tổng thanh toán được hiển
+                  thị trên hệ thống tại thời điểm người dùng đặt hàng. Các
+                  chương trình khuyến mãi hoặc mã giảm giá có thể đi kèm điều
+                  kiện sử dụng riêng.
+                </p>
+                <p>
+                  Dê Hương Sơn có quyền từ chối áp dụng ưu đãi nếu phát hiện mã
+                  khuyến mãi bị sử dụng sai điều kiện, gian lận hoặc không còn
+                  hiệu lực.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-black text-green-800 mb-1">
+                  5. Hủy đơn, thay đổi đơn và hoàn tiền
+                </h4>
+                <p>
+                  Người dùng có thể yêu cầu hủy hoặc thay đổi đơn hàng/đặt bàn
+                  trước khi nhà hàng bắt đầu xử lý. Sau khi đơn hàng đã được xác
+                  nhận, đang chế biến hoặc đang giao, yêu cầu hủy hoặc thay đổi
+                  có thể không được chấp nhận.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-black text-green-800 mb-1">
+                  6. Thông tin cá nhân
+                </h4>
+                <p>
+                  Người dùng đồng ý cho Dê Hương Sơn thu thập và sử dụng các
+                  thông tin cần thiết như họ tên, số điện thoại, email, địa chỉ
+                  giao hàng, lịch sử đơn hàng và thông tin đặt bàn nhằm phục vụ
+                  việc xác nhận, giao hàng, chăm sóc khách hàng và quản lý tài
+                  khoản.
+                </p>
+                <p>
+                  Dê Hương Sơn cam kết không bán thông tin cá nhân của người
+                  dùng cho bên thứ ba. Thông tin chỉ được chia sẻ khi cần thiết
+                  để thực hiện dịch vụ, xử lý thanh toán, giao hàng hoặc theo
+                  yêu cầu hợp lệ của cơ quan có thẩm quyền.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-black text-green-800 mb-1">
+                  7. Hành vi không được phép
+                </h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>
+                    Cung cấp thông tin giả mạo hoặc sử dụng tài khoản của người
+                    khác.
+                  </li>
+                  <li>
+                    Đặt đơn giả, đặt bàn ảo hoặc gây gián đoạn hoạt động của nhà
+                    hàng.
+                  </li>
+                  <li>
+                    Lạm dụng mã khuyến mãi, gian lận thanh toán hoặc khai thác
+                    lỗi hệ thống.
+                  </li>
+                  <li>
+                    Sao chép, chỉnh sửa hoặc phát tán nội dung website khi chưa
+                    được cho phép.
+                  </li>
+                  <li>
+                    Can thiệp trái phép vào hệ thống, máy chủ, cơ sở dữ liệu
+                    hoặc mã nguồn website.
+                  </li>
+                </ul>
+              </section>
+
+              <section>
+                <h4 className="font-black text-green-800 mb-1">
+                  8. Quyền và trách nhiệm của Dê Hương Sơn
+                </h4>
+                <p>
+                  Dê Hương Sơn có trách nhiệm vận hành hệ thống ổn định trong
+                  phạm vi có thể, tiếp nhận thông tin đặt món/đặt bàn và hỗ trợ
+                  khách hàng khi phát sinh vấn đề.
+                </p>
+                <p>
+                  Dê Hương Sơn có quyền cập nhật thực đơn, giá bán, thời gian
+                  phục vụ, chính sách khuyến mãi và các nội dung khác trên
+                  website khi cần thiết.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-black text-green-800 mb-1">
+                  9. Thay đổi điều khoản
+                </h4>
+                <p>
+                  Dê Hương Sơn có thể cập nhật điều khoản sử dụng để phù hợp với
+                  hoạt động kinh doanh và chức năng của hệ thống. Người dùng
+                  tiếp tục sử dụng hệ thống sau khi điều khoản được cập nhật
+                  được xem là đã đồng ý với nội dung thay đổi.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-black text-green-800 mb-1">10. Liên hệ</h4>
+                <p>
+                  Mọi thắc mắc, khiếu nại hoặc yêu cầu hỗ trợ liên quan đến tài
+                  khoản, đơn hàng, đặt bàn hoặc điều khoản sử dụng có thể liên
+                  hệ với Dê Hương Sơn qua các kênh liên hệ được công bố trên
+                  website.
+                </p>
+              </section>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setIsTermsOpen(false)}
+                className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold hover:bg-gray-200 transition"
+              >
+                Đóng
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    agreeTerms: true,
+                  }));
+                  setErrors((prev) => ({
+                    ...prev,
+                    agreeTerms: "",
+                  }));
+                  setIsTermsOpen(false);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-green-700 text-white font-bold hover:bg-green-800 transition"
+              >
+                Tôi đồng ý
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

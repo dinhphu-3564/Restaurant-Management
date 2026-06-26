@@ -868,7 +868,7 @@ function AdminMenuPage() {
                     </td>
                     <td className={` px-4 py-3`}>{food.type}</td>
 
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-center">
                       <span
                         className={`inline-flex items-center justify-center min-w-[92px] px-3 py-1.5 rounded-lg text-xs font-black whitespace-nowrap ${getStatusStyle(
                           food.status,
@@ -894,7 +894,7 @@ function AdminMenuPage() {
                       {food.sold}
                     </td>
 
-                    <td className={`px-4 py-3`}>
+                    <td className={`px-4 py-3 `}>
                       <div className="font-black text-gray-700 flex items-center gap-1 ">
                         <Star
                           size={15}
@@ -905,7 +905,9 @@ function AdminMenuPage() {
                       <p className="text-xs text-gray-400">({food.reviews})</p>
                     </td>
 
-                    <td className={`px-4 py-3 font-semibold text-gray-600`}>
+                    <td
+                      className={`px-4 py-3 font-semibold text-center text-gray-600`}
+                    >
                       {food.updatedAt}
                     </td>
 

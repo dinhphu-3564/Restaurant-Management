@@ -1155,7 +1155,7 @@ function AdminOrdersPage() {
                   </th>
                   <th className="px-4 py-3">Mã đơn</th>
                   <th className="px-4 py-3">Khách hàng</th>
-                  <th className="px-4 py-3">SĐT</th>
+                  <th className="px-4 py-3 ">SĐT</th>
                   <th className="px-4 py-3">Loại phục vụ</th>
                   <th className="px-4 py-3">Thanh toán</th>
                   <th className="px-4 py-3 text-center">Tổng tiền</th>
@@ -1232,7 +1232,7 @@ function AdminOrdersPage() {
                         {formatPrice(order.total || order.totalPrice)}
                       </td>
 
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 text-center">
                         <span
                           className={`inline-flex items-center justify-center min-w-[96px] px-3 py-1.5 rounded-lg text-xs font-black whitespace-nowrap ${getStatusStyle(
                             order.status,

@@ -1,7 +1,11 @@
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import { loginUser, socialLogin } from "../services/authService";
+import { saveAuthSession } from "../utils/auth";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { signInWithPopup } from "firebase/auth";
+import { firebaseAuth, googleProvider } from "../services/firebase";
 import { Eye, EyeOff, AlertCircle, User, Lock } from "lucide-react";
 
 import backgroundImage from "../assets/images/Register_Login.png";
@@ -17,6 +21,7 @@ function Login() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [socialLoading, setSocialLoading] = useState("");
 
   const validateForm = () => {
     const newErrors = {};
@@ -49,34 +54,8 @@ function Login() {
       }));
     }
   };
-  // giả lập đăng nhập
-  const users = JSON.parse(localStorage.getItem("registeredUsers")) || [];
-  const systemUsers = [
-    {
-      id: 1,
-      name: "Admin",
-      email: "admin@gmail.com",
-      password: "123456",
-      role: "admin",
-    },
-    {
-      id: 2,
-      name: "User",
-      email: "user@gmail.com",
-      password: "123456",
-      role: "user",
-    },
-    {
-      id: 2,
-      name: "User",
-      email: "phu",
-      password: "123456",
-      role: "user",
-    },
-    ...users,
-  ];
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const newErrors = validateForm();
@@ -86,54 +65,97 @@ function Login() {
       return;
     }
 
-    const user = systemUsers.find(
-      (u) =>
-        u.email.toLowerCase() === formData.account.trim().toLowerCase() &&
-        u.password === formData.password,
-    );
-
-    if (!user) {
-      setErrors({
-        account: "Tài khoản hoặc mật khẩu không đúng",
+    try {
+      const data = await loginUser({
+        account: formData.account.trim(),
+        password: formData.password,
       });
-      return;
+
+      if (!data.success) {
+        setErrors({
+          account: data.message || "Tài khoản hoặc mật khẩu không đúng",
+        });
+        return;
+      }
+
+      saveAuthSession({
+        token: data.token,
+        user: data.user,
+        remember: formData.remember,
+      });
+
+      navigate(data.user.role === "admin" ? "/admin/dashboard" : "/home", {
+        state: {
+          loginSuccess: true,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+
+      setErrors({
+        account: "Không kết nối được backend.",
+      });
     }
-
-    if (formData.remember) {
-      localStorage.setItem("isLoggedIn", "true");
-    } else {
-      sessionStorage.setItem("isLoggedIn", "true");
-    }
-
-    const currentUser = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    };
-
-    if (formData.remember) {
-      localStorage.setItem("currentUser", JSON.stringify(currentUser));
-    } else {
-      sessionStorage.setItem("currentUser", JSON.stringify(currentUser));
-    }
-    window.dispatchEvent(new Event("loginStatusChanged"));
-
-    navigate("/home", {
-      state: {
-        loginSuccess: true,
-      },
-    });
   };
 
-  //Kiểm tra đăng nhập
+  //hàm đăng nhập Google
+  const handleGoogleLogin = async () => {
+    setErrors({});
+    setSocialLoading("google");
+
+    try {
+      const result = await signInWithPopup(firebaseAuth, googleProvider);
+      const idToken = await result.user.getIdToken();
+
+      const data = await socialLogin({
+        idToken,
+        provider: "google",
+      });
+
+      if (!data.success) {
+        setErrors({
+          account: data.message || "Không thể đăng nhập bằng Google.",
+        });
+        return;
+      }
+
+      saveAuthSession({
+        token: data.token,
+        user: data.user,
+        remember: true,
+      });
+
+      navigate(data.user.role === "admin" ? "/admin/dashboard" : "/home", {
+        state: {
+          loginSuccess: true,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+
+      setErrors({
+        account:
+          error?.code === "auth/popup-closed-by-user"
+            ? "Bạn đã đóng cửa sổ đăng nhập Google."
+            : "Không thể đăng nhập bằng Google.",
+      });
+    } finally {
+      setSocialLoading("");
+    }
+  };
+
+  // Kiểm tra đăng nhập
   useEffect(() => {
+    const currentUser =
+      JSON.parse(localStorage.getItem("currentUser")) ||
+      JSON.parse(sessionStorage.getItem("currentUser"));
+
     const isLoggedIn =
       localStorage.getItem("isLoggedIn") === "true" ||
       sessionStorage.getItem("isLoggedIn") === "true";
 
-    if (isLoggedIn) {
-      navigate("/home");
+    if (isLoggedIn && currentUser) {
+      navigate(currentUser.role === "admin" ? "/admin/dashboard" : "/home");
     }
   }, [navigate]);
 
@@ -238,18 +260,28 @@ function Login() {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    className="w-full h-11 border border-gray-300 hover:border-green-600 hover:bg-green-50 text-gray-700 text-xs sm:text-sm font-semibold rounded-xl transition flex items-center justify-center gap-1 sm:gap-2"
+                    onClick={handleGoogleLogin}
+                    disabled={Boolean(socialLoading)}
+                    className="w-full h-11 border border-gray-300 hover:border-green-600 hover:bg-green-50 text-gray-700 text-xs sm:text-sm font-semibold rounded-xl transition flex items-center justify-center gap-1 sm:gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <img
                       src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Google_Chrome_icon_%28February_2022%29.svg/3840px-Google_Chrome_icon_%28February_2022%29.svg.png"
                       alt="Google"
                       className="w-4 h-4 sm:w-5 sm:h-5"
                     />
-                    <span>Google</span>
+                    <span>
+                      {socialLoading === "google" ? "Đang xử lý..." : "Google"}
+                    </span>
                   </button>
 
                   <button
                     type="button"
+                    onClick={() => {
+                      setErrors({
+                        account:
+                          "Chức năng đăng nhập Facebook sẽ cấu hình sau.",
+                      });
+                    }}
                     className="w-full h-11 border border-gray-300 hover:border-green-600 hover:bg-green-50 text-gray-700 text-xs sm:text-sm font-semibold rounded-xl transition flex items-center justify-center gap-1 sm:gap-2"
                   >
                     <img

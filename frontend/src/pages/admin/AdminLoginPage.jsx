@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ShieldCheck, User, Lock } from "lucide-react";
 
+import { loginUser } from "../../services/authService";
+import { saveAuthSession } from "../../utils/auth";
+
 function AdminLoginPage() {
   const navigate = useNavigate();
 
@@ -11,6 +14,7 @@ function AdminLoginPage() {
   });
 
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
     setForm({
@@ -21,11 +25,11 @@ function AdminLoginPage() {
     setError("");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!form.username.trim()) {
-      setError("Vui lòng nhập tài khoản Admin");
+      setError("Vui lòng nhập email hoặc số điện thoại Admin");
       return;
     }
 
@@ -34,11 +38,36 @@ function AdminLoginPage() {
       return;
     }
 
-    if (form.username === "admin" && form.password === "123456") {
-      localStorage.setItem("adminToken", "admin-login-success");
+    setIsSubmitting(true);
+
+    try {
+      const data = await loginUser({
+        account: form.username.trim(),
+        password: form.password,
+      });
+
+      if (!data.success) {
+        setError(data.message || "Tài khoản hoặc mật khẩu không đúng");
+        return;
+      }
+
+      if (data.user?.role !== "admin") {
+        setError("Tài khoản này không có quyền truy cập Admin");
+        return;
+      }
+
+      saveAuthSession({
+        token: data.token,
+        user: data.user,
+        remember: true,
+      });
+
       navigate("/admin/dashboard");
-    } else {
-      setError("Tài khoản hoặc mật khẩu không đúng");
+    } catch (error) {
+      console.error(error);
+      setError("Không kết nối được backend.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -67,15 +96,18 @@ function AdminLoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="font-bold text-sm text-gray-700">Tài khoản</label>
+            <label className="font-bold text-sm text-gray-700">
+              Email hoặc số điện thoại
+            </label>
 
             <div className="mt-2 flex items-center gap-3 border rounded-2xl px-4 py-3 focus-within:border-green-700">
               <User size={20} className="text-green-800" />
+
               <input
                 name="username"
                 value={form.username}
                 onChange={handleChange}
-                placeholder="Nhập tài khoản"
+                placeholder="Ví dụ: admin@gmail.com"
                 className="w-full outline-none"
               />
             </div>
@@ -86,6 +118,7 @@ function AdminLoginPage() {
 
             <div className="mt-2 flex items-center gap-3 border rounded-2xl px-4 py-3 focus-within:border-green-700">
               <Lock size={20} className="text-green-800" />
+
               <input
                 name="password"
                 type="password"
@@ -99,14 +132,19 @@ function AdminLoginPage() {
 
           <button
             type="submit"
-            className="w-full bg-green-800 text-white py-3 rounded-2xl font-black hover:bg-green-900 transition"
+            disabled={isSubmitting}
+            className={`w-full py-3 rounded-2xl font-black transition ${
+              isSubmitting
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-green-800 text-white hover:bg-green-900"
+            }`}
           >
-            Đăng nhập
+            {isSubmitting ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
         </form>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          Tài khoản test: admin / 123456
+          Tài khoản admin: admin@gmail.com / Admin@123
         </p>
       </div>
     </div>

@@ -1,5 +1,5 @@
-import { checkLogin } from "../utils/auth";
-import { Link, useNavigate } from "react-router-dom";
+import { checkLogin, clearAuthSession } from "../utils/auth";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import goatIcon from "../assets/images/Icon_De.png";
 import {
@@ -15,6 +15,7 @@ import {
 
 function Header({ currentPage = "home" }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => checkLogin());
@@ -55,6 +56,9 @@ function Header({ currentPage = "home" }) {
     { name: "Giới thiệu", path: "/about", key: "about" },
     { name: "Liên hệ", path: "/contact", key: "contact" },
   ];
+
+  const isLoginPage = location.pathname === "/login";
+  const isRegisterPage = location.pathname === "/register";
 
   useEffect(() => {
     const updateAvatar = () => {
@@ -138,17 +142,12 @@ function Header({ currentPage = "home" }) {
   }, [currentPage]);
 
   const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("currentUser");
-
-    sessionStorage.removeItem("isLoggedIn");
-    sessionStorage.removeItem("currentUser");
+    clearAuthSession();
 
     setIsLoggedIn(false);
+    setCurrentUser(null);
     setIsProfileOpen(false);
     setIsMenuOpen(false);
-
-    window.dispatchEvent(new Event("loginStatusChanged"));
 
     navigate("/home");
   };
@@ -273,19 +272,23 @@ function Header({ currentPage = "home" }) {
             </div>
           ) : (
             <>
-              <Link
-                to="/login"
-                className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
-              >
-                Đăng nhập
-              </Link>
+              {!isLoginPage && (
+                <Link
+                  to="/login"
+                  className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
+                >
+                  Đăng nhập
+                </Link>
+              )}
 
-              <Link
-                to="/register"
-                className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
-              >
-                Đăng ký
-              </Link>
+              {!isRegisterPage && (
+                <Link
+                  to="/register"
+                  className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
+                >
+                  Đăng ký
+                </Link>
+              )}
             </>
           )}
         </div>
@@ -356,19 +359,25 @@ function Header({ currentPage = "home" }) {
                 </div>
               ) : (
                 <>
-                  <Link
-                    to="/login"
-                    className="flex-1 text-center border border-green-800 text-green-800 px-4 py-2 rounded-lg font-semibold"
-                  >
-                    Đăng nhập
-                  </Link>
+                  {!isLoginPage && (
+                    <Link
+                      to="/login"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex-1 text-center border border-green-800 text-green-800 px-4 py-2 rounded-lg font-semibold"
+                    >
+                      Đăng nhập
+                    </Link>
+                  )}
 
-                  <Link
-                    to="/register"
-                    className="flex-1 text-center bg-green-800 text-white px-4 py-2 rounded-lg font-semibold"
-                  >
-                    Đăng ký
-                  </Link>
+                  {!isRegisterPage && (
+                    <Link
+                      to="/register"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex-1 text-center bg-green-800 text-white px-4 py-2 rounded-lg font-semibold"
+                    >
+                      Đăng ký
+                    </Link>
+                  )}
                 </>
               )}
             </div>

@@ -1,10 +1,13 @@
+import { clearAuthSession, getCurrentUser } from "../../utils/auth";
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Bell,
   CalendarDays,
   Search,
   ShieldCheck,
   ChevronDown,
+  LogOut,
 } from "lucide-react";
 
 function AdminHeader({
@@ -29,6 +32,14 @@ function AdminHeader({
 
   const formatDateInput = (date) => {
     return date.toISOString().split("T")[0];
+  };
+
+  const navigate = useNavigate();
+  const currentUser = getCurrentUser();
+
+  const handleLogout = () => {
+    clearAuthSession();
+    navigate("/admin/login");
   };
 
   const setWeekByDate = (value) => {
@@ -330,8 +341,17 @@ function AdminHeader({
 
         <div className="hidden lg:flex items-center gap-2 bg-green-50 text-green-800 px-4 h-11 rounded-full font-bold">
           <ShieldCheck size={18} />
-          Admin
+          {currentUser?.name || "Admin"}
         </div>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="h-11 px-4 rounded-full bg-red-50 text-red-600 font-black hover:bg-red-100 transition flex items-center gap-2"
+        >
+          <LogOut size={18} />
+          Đăng xuất
+        </button>
       </div>
     </header>
   );

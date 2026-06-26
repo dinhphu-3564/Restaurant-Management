@@ -21,6 +21,8 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
+/* animatin khuyến mãi - removed, using Swiper instead */
+
 @keyframes fly-to-cart {
   0% {
     transform: translate(-50%, -50%) scale(1);
@@ -190,7 +192,25 @@ input[type="number"]::-webkit-inner-spin-button {
     transform: translateX(0);
   }
 }
-/* Swiper lướt khuyến mãi */
+/* Swiper khuyến mãi */
+.deal-swiper {
+  width: 100%;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.deal-swiper .swiper-wrapper {
+  transition-timing-function: linear !important;
+  will-change: transform;
+}
+
+.deal-swiper .swiper-slide {
+  height: auto;
+}
+
+.deal-swiper button {
+  pointer-events: auto;
+}
 .deal-swiper .swiper-button-prev,
 .deal-swiper .swiper-button-next {
   width: 38px;
