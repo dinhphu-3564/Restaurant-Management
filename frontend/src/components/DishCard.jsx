@@ -1,10 +1,13 @@
 import { Plus } from "lucide-react";
+import RatingStars from "./RatingStars";
 
 function DishCard({ dish, onOpenDetail, onAddToCart }) {
+  const hasReviews = Number(dish.reviews || 0) > 0;
+
   return (
     <div
       onClick={() => onOpenDetail(dish)}
-      className={`dish-card relative w-full min-w-0 bg-white rounded-2xl md:rounded-3xl shadow-sm md:shadow-md overflow-hidden transition grid grid-cols-[110px_minmax(0,1fr)] md:flex md:flex-col md:min-h-[370px] cursor-pointer ${
+      className={`dish-card relative w-full min-w-0 bg-white rounded-2xl md:rounded-3xl shadow-sm md:shadow-md overflow-hidden transition grid grid-cols-[110px_minmax(0,1fr)] md:flex md:flex-col md:min-h-[390px] cursor-pointer ${
         dish.status === "soldout" ? "" : "hover:-translate-y-1"
       }`}
     >
@@ -30,13 +33,30 @@ function DishCard({ dish, onOpenDetail, onAddToCart }) {
       </div>
 
       <div className="p-3 md:p-5 min-w-0 flex flex-col md:flex-1">
-        <h3 className="font-black text-green-900 text-sm md:text-base">
+        <h3 className="font-black text-green-900 text-sm md:text-base line-clamp-1">
           {dish.name}
         </h3>
 
         <p className="text-xs md:text-sm text-gray-500 mt-1 md:mt-2 leading-relaxed line-clamp-2 overflow-hidden break-words">
-          {dish.description}
+          {dish.shortDescription ||
+            dish.description ||
+            "Món ăn đặc trưng của nhà hàng"}
         </p>
+
+        {/* Đánh giá */}
+        <div className="mt-2 md:mt-3 flex items-center gap-1.5 flex-wrap">
+          <RatingStars rating={dish.rating} size={13} />
+
+          {hasReviews ? (
+            <span className="text-[11px] md:text-xs font-bold text-gray-500">
+              {Number(dish.rating || 0).toFixed(1)} • {dish.reviews} lượt
+            </span>
+          ) : (
+            <span className="text-[11px] md:text-xs font-bold text-gray-400">
+              Chưa có đánh giá
+            </span>
+          )}
+        </div>
 
         <div className="flex items-center justify-between mt-auto pt-4">
           <p className="font-black text-[#c99a45] text-xs md:text-base">

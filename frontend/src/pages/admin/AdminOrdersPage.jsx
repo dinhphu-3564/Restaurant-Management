@@ -21,6 +21,8 @@ import {
   Landmark,
 } from "lucide-react";
 
+const API_URL = "http://localhost:5001/api/orders";
+
 function AdminOrdersPage() {
   const {
     setExportExcelHandler,
@@ -48,7 +50,7 @@ function AdminOrdersPage() {
   });
 
   useEffect(() => {
-    fetch("http://localhost:5001/api/orders")
+    fetch(API_URL)
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
@@ -149,6 +151,8 @@ function AdminOrdersPage() {
         return <Truck size={18} className="text-green-600" />;
       case "pickup":
         return <Store size={18} className="text-green-600" />;
+      case "dinein":
+        return <Utensils size={18} className="text-green-600" />;
       default:
         return <Utensils size={18} className="text-gray-500" />;
     }
@@ -279,6 +283,7 @@ function AdminOrdersPage() {
 
       const matchTab =
         activeTab === "all" ||
+        (activeTab === "dinein" && order.serviceType === "dinein") ||
         (activeTab === "food" && order.serviceType === "delivery") ||
         (activeTab === "pickup" && order.serviceType === "pickup") ||
         (activeTab === "cancelled" && getStatusText(order.status) === "Đã hủy");
@@ -367,6 +372,8 @@ function AdminOrdersPage() {
   };
 
   const formatMoneyColumn = (worksheet, columnIndex) => {
+    if (!worksheet["!ref"]) return;
+
     const range = XLSX.utils.decode_range(worksheet["!ref"]);
 
     for (let row = 1; row <= range.e.r; row++) {
@@ -666,8 +673,8 @@ function AdminOrdersPage() {
     filteredOrders,
     dateMode,
     dateLabel,
-    dateRange.startDate,
-    dateRange.endDate,
+    dateRange?.startDate,
+    dateRange?.endDate,
   ]);
 
   useEffect(() => {
@@ -691,10 +698,10 @@ function AdminOrdersPage() {
     setActiveTab("all");
   };
 
-  //hàm cập nhật trạng thái
+  // hàm cập nhật trạng thái
   const updateOrderStatus = async (id, status) => {
     try {
-      const res = await fetch(`http://localhost:5001/api/orders/${id}`, {
+      const res = await fetch(`${API_URL}/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -728,6 +735,7 @@ function AdminOrdersPage() {
       alert("Không kết nối được backend.");
     }
   };
+
   //hàm mở popup sửa
   const openEditOrderModal = (order) => {
     setEditingOrder(order);
@@ -743,21 +751,18 @@ function AdminOrdersPage() {
     if (!editingOrder) return;
 
     try {
-      const res = await fetch(
-        `http://localhost:5001/api/orders/${editingOrder.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            status: editForm.status,
-            paymentMethod: editForm.paymentMethod,
-            note: editForm.note,
-            updatedAt: new Date().toISOString(),
-          }),
+      const res = await fetch(`${API_URL}/${editingOrder.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({
+          status: editForm.status,
+          paymentMethod: editForm.paymentMethod,
+          note: editForm.note,
+          updatedAt: new Date().toISOString(),
+        }),
+      });
 
       const data = await res.json();
 
@@ -833,9 +838,9 @@ function AdminOrdersPage() {
     try {
       const updatedAt = new Date().toISOString();
 
-      await Promise.all(
-        selectedOrderIds.map((id) =>
-          fetch(`http://localhost:5001/api/orders/${id}`, {
+      const results = await Promise.all(
+        selectedOrderIds.map(async (id) => {
+          const res = await fetch(`${API_URL}/${id}`, {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
@@ -844,30 +849,33 @@ function AdminOrdersPage() {
               status,
               updatedAt,
             }),
-          }),
-        ),
+          });
+
+          return res.json();
+        }),
       );
 
+      const hasError = results.some((item) => !item.success);
+
+      if (hasError) {
+        alert("Có đơn hàng cập nhật thất bại. Vui lòng tải lại danh sách.");
+        return;
+      }
+
+      const updatedOrderMap = results.reduce((map, item) => {
+        if (item.success && item.order) {
+          map[String(item.order.id)] = item.order;
+        }
+
+        return map;
+      }, {});
+
       setOrders((prev) =>
-        prev.map((order) =>
-          selectedOrderIds.includes(String(order.id))
-            ? {
-                ...order,
-                status,
-                updatedAt,
-              }
-            : order,
-        ),
+        prev.map((order) => updatedOrderMap[String(order.id)] || order),
       );
 
       setSelectedOrder((prev) =>
-        prev && selectedOrderIds.includes(String(prev.id))
-          ? {
-              ...prev,
-              status,
-              updatedAt,
-            }
-          : prev,
+        prev ? updatedOrderMap[String(prev.id)] || prev : prev,
       );
 
       setSelectedOrderIds([]);
@@ -953,6 +961,13 @@ function AdminOrdersPage() {
                 </TabButton>
 
                 <TabButton
+                  active={activeTab === "dinein"}
+                  onClick={() => setActiveTab("dinein")}
+                >
+                  Ăn tại quán
+                </TabButton>
+
+                <TabButton
                   active={activeTab === "food"}
                   onClick={() => setActiveTab("food")}
                 >
@@ -1016,6 +1031,7 @@ function AdminOrdersPage() {
                 compact={selectedOrder}
               >
                 <option value="all">Tất cả</option>
+                <option value="dinein">Ăn tại quán</option>
                 <option value="delivery">Giao tận nơi</option>
                 <option value="pickup">Đến lấy tại quán</option>
               </SelectBox>
@@ -1031,6 +1047,7 @@ function AdminOrdersPage() {
                 <option value="bank">Chuyển khoản</option>
                 <option value="momo">Ví MoMo</option>
                 <option value="vnpay">VNPay</option>
+                <option value="pay_after_meal">Sau bữa ăn</option>
               </SelectBox>
 
               <SelectBox

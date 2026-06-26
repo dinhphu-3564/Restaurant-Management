@@ -1,9 +1,9 @@
 import { checkLogin } from "../utils/auth";
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import RatingStars from "../components/RatingStars";
 
-import { dishes } from "../data/menuData";
-import { categories } from "../data/menuCategories";
+import { categories, categoryIconMap } from "../data/menuCategories";
 import DishCard from "../components/DishCard";
 import LoginRequiredModal from "../components/LoginRequiredModal";
 
@@ -14,7 +14,6 @@ import {
   ChevronUp,
   Leaf,
   X,
-  Clock,
   ShieldCheck,
   Truck,
   ShoppingCart,
@@ -22,12 +21,16 @@ import {
 
 import goatIcon from "../assets/images/Icon_De.png";
 import bannermenu from "../assets/images/menu/banner-menu.jpg";
+const API_URL = "http://localhost:5001/api/menu-items";
 
 function MenuPage() {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState("Tất cả món");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortType, setSortType] = useState("newest");
+  const [dishes, setDishes] = useState([]);
+  const [isLoadingMenu, setIsLoadingMenu] = useState(false);
+  const [menuError, setMenuError] = useState("");
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [openCategory, setOpenCategory] = useState("");
@@ -38,6 +41,8 @@ function MenuPage() {
   const modalScrollRef = useRef(null);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [dishReviews, setDishReviews] = useState([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
 
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("cartItems");
@@ -50,6 +55,35 @@ function MenuPage() {
       ? selectedDish.images
       : [selectedDish?.image];
   const [showLoginModal, setShowLoginModal] = useState(false);
+  //hàm lấy món từ backend
+  const fetchMenuItems = async () => {
+    try {
+      setIsLoadingMenu(true);
+      setMenuError("");
+
+      const res = await fetch(API_URL);
+      const result = await res.json();
+
+      if (!result.success) {
+        setMenuError(result.message || "Không thể tải danh sách món ăn.");
+        setDishes([]);
+        return;
+      }
+
+      setDishes(result.data || []);
+    } catch (error) {
+      console.error("Lỗi tải menu:", error);
+      setMenuError("Không thể kết nối backend.");
+      setDishes([]);
+    } finally {
+      setIsLoadingMenu(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMenuItems();
+  }, []);
+
   useEffect(() => {
     if (selectedDish) {
       document.body.style.overflow = "hidden";
@@ -68,7 +102,9 @@ function MenuPage() {
 
   // hàm chuyển giá từ string sang number để tính tổng tiền
   const parsePrice = (price) => {
-    return Number(price.replace(/[^\d]/g, ""));
+    if (typeof price === "number") return price;
+
+    return Number(String(price || "").replace(/[^\d]/g, ""));
   };
   // hàm hiển thị toast thông báo với tự động ẩn sau 3 giây
   const showToast = (dishName) => {
@@ -125,24 +161,47 @@ function MenuPage() {
     showToast(dish.name);
   };
   // lọc món ăn theo danh mục
+  const otherChildren =
+    categories.find((item) => item.name === "Món khác")?.children || [];
+
   const filteredDishes = dishes.filter((dish) => {
     const matchCategory =
-      selectedCategory === "Tất cả món" || dish.category === selectedCategory;
+      selectedCategory === "Tất cả món" ||
+      dish.category === selectedCategory ||
+      dish.parentCategory === selectedCategory ||
+      dish.subCategory === selectedCategory ||
+      (selectedCategory === "Món khác" &&
+        (dish.parentCategory === "Món khác" ||
+          otherChildren.includes(dish.category) ||
+          otherChildren.includes(dish.subCategory)));
+
+    const keyword = searchTerm.toLowerCase().trim();
 
     const matchSearch =
-      dish.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      dish.description.toLowerCase().includes(searchTerm.toLowerCase());
+      !keyword ||
+      String(dish.name || "")
+        .toLowerCase()
+        .includes(keyword) ||
+      String(dish.description || "")
+        .toLowerCase()
+        .includes(keyword) ||
+      String(dish.shortDescription || "")
+        .toLowerCase()
+        .includes(keyword);
 
     return matchCategory && matchSearch;
   });
 
   //Danh sách khi lọc
   const displayedDishes = [...filteredDishes].sort((a, b) => {
-    const priceA = parsePrice(a.price);
-    const priceB = parsePrice(b.price);
+    const priceA = a.priceNumber || parsePrice(a.price);
+    const priceB = b.priceNumber || parsePrice(b.price);
+
+    const idA = Number(String(a.id || "").replace(/\D/g, "")) || 0;
+    const idB = Number(String(b.id || "").replace(/\D/g, "")) || 0;
 
     if (sortType === "newest") {
-      return b.id - a.id;
+      return idB - idA;
     }
 
     if (sortType === "price-asc") {
@@ -154,15 +213,35 @@ function MenuPage() {
     }
 
     if (sortType === "name-asc") {
-      return a.name.localeCompare(b.name, "vi");
+      return String(a.name || "").localeCompare(String(b.name || ""), "vi");
     }
 
     if (sortType === "name-desc") {
-      return b.name.localeCompare(a.name, "vi");
+      return String(b.name || "").localeCompare(String(a.name || ""), "vi");
     }
 
     return 0;
   });
+  // hàm lấy review
+  const fetchDishReviews = async (dishCode) => {
+    try {
+      setIsLoadingReviews(true);
+
+      const res = await fetch(`${API_URL}/${dishCode}/reviews`);
+      const result = await res.json();
+
+      if (result.success) {
+        setDishReviews(result.data || []);
+      } else {
+        setDishReviews([]);
+      }
+    } catch (error) {
+      console.error("Lỗi lấy đánh giá món:", error);
+      setDishReviews([]);
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  };
 
   //Mở chi tiết món ăn
   const handleOpenDishDetail = (dish) => {
@@ -171,6 +250,7 @@ function MenuPage() {
     setQuantity(1);
     setSelectedImageIndex(0);
     setActiveTab("description");
+    fetchDishReviews(dish.id);
   };
   return (
     <div className="min-h-screen bg-[#fbf7ec] text-green-950">
@@ -353,19 +433,24 @@ after:pointer-events-none
                   {/* SUB MENU */}
                   {category.children && openCategory === category.name && (
                     <div className="ml-7 mt-3 space-y-3 border-l border-[#e7dcc6] pl-5">
-                      {category.children.map((child) => (
-                        <button
-                          key={child}
-                          onClick={() => setSelectedCategory(child)}
-                          className={`block text-left text-sm transition ${
-                            selectedCategory === child
-                              ? "text-[#c99a45] font-bold"
-                              : "text-gray-600 hover:text-green-800"
-                          }`}
-                        >
-                          • {child}
-                        </button>
-                      ))}
+                      {category.children.map((child) => {
+                        const ChildIcon = categoryIconMap[child] || Utensils;
+
+                        return (
+                          <button
+                            key={child}
+                            onClick={() => setSelectedCategory(child)}
+                            className={`w-full flex items-center gap-2 text-left text-sm transition ${
+                              selectedCategory === child
+                                ? "text-[#c99a45] font-bold"
+                                : "text-gray-600 hover:text-green-800"
+                            }`}
+                          >
+                            <ChildIcon className="w-4 h-4 shrink-0" />
+                            <span>{child}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -464,24 +549,48 @@ after:pointer-events-none
                 <div className="flex gap-2 overflow-x-auto pb-2 mt-2">
                   {categories
                     .find((item) => item.name === "Món khác")
-                    ?.children.map((child) => (
-                      <button
-                        key={child}
-                        onClick={() => setSelectedCategory(child)}
-                        className={`shrink-0 px-4 py-2 rounded-full text-xs font-semibold ${
-                          selectedCategory === child
-                            ? "bg-[#c99a45] text-white"
-                            : "bg-white text-green-900 border border-gray-100"
-                        }`}
-                      >
-                        {child}
-                      </button>
-                    ))}
+                    ?.children.map((child) => {
+                      const ChildIcon = categoryIconMap[child] || Utensils;
+
+                      return (
+                        <button
+                          key={child}
+                          onClick={() => setSelectedCategory(child)}
+                          className={`shrink-0 px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 ${
+                            selectedCategory === child
+                              ? "bg-[#c99a45] text-white"
+                              : "bg-white text-green-900 border border-gray-100"
+                          }`}
+                        >
+                          <ChildIcon className="w-3.5 h-3.5" />
+                          {child}
+                        </button>
+                      );
+                    })}
                 </div>
               )}
             </div>
             {/* DISH GRID */}
-            {displayedDishes.length === 0 ? (
+            {isLoadingMenu ? (
+              <div className="min-h-[430px] bg-white/70 border border-[#eadfcd] rounded-3xl shadow-sm flex flex-col items-center justify-center text-center px-5">
+                <p className="text-green-900 font-black text-xl">
+                  Đang tải danh sách món ăn...
+                </p>
+              </div>
+            ) : menuError ? (
+              <div className="min-h-[430px] bg-white/70 border border-[#eadfcd] rounded-3xl shadow-sm flex flex-col items-center justify-center text-center px-5">
+                <h3 className="text-xl md:text-2xl font-black text-red-600">
+                  Không thể tải menu
+                </h3>
+                <p className="text-gray-500 mt-2">{menuError}</p>
+                <button
+                  onClick={fetchMenuItems}
+                  className="mt-6 px-6 py-3 rounded-xl bg-green-900 text-white font-bold hover:bg-green-950 transition"
+                >
+                  Tải lại
+                </button>
+              </div>
+            ) : displayedDishes.length === 0 ? (
               <div className="min-h-[430px] bg-white/70 border border-[#eadfcd] rounded-3xl shadow-sm flex flex-col items-center justify-center text-center px-5">
                 <div className="w-24 h-24 rounded-full bg-[#fbf0dc] flex items-center justify-center mb-5 opacity-80">
                   <img
@@ -643,7 +752,7 @@ after:pointer-events-none
                   </div>
                   {/* TABS */}
                   <div className="mt-5 bg-white border rounded-2xl overflow-hidden">
-                    <div className="grid grid-cols-3 text-center text-xs font-bold border-b">
+                    <div className="grid grid-cols-4 text-center text-xs font-bold border-b">
                       <button
                         onClick={() => setActiveTab("description")}
                         className={`py-3 ${
@@ -675,6 +784,17 @@ after:pointer-events-none
                         }`}
                       >
                         HƯƠNG VỊ
+                      </button>
+
+                      <button
+                        onClick={() => setActiveTab("reviews")}
+                        className={`py-3 ${
+                          activeTab === "reviews"
+                            ? "text-green-800 border-b-2 border-green-800"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        ĐÁNH GIÁ
                       </button>
                     </div>
 
@@ -717,6 +837,53 @@ after:pointer-events-none
                             "Hương vị đậm đà, thơm nhẹ, thịt mềm ngọt tự nhiên, phù hợp khẩu vị gia đình và thực khách yêu thích đặc sản dê núi."}
                         </p>
                       )}
+
+                      {activeTab === "reviews" && (
+                        <div className="space-y-3">
+                          {isLoadingReviews ? (
+                            <p className="text-gray-500 font-bold">
+                              Đang tải đánh giá...
+                            </p>
+                          ) : dishReviews.length === 0 ? (
+                            <p className="text-gray-500 font-bold">
+                              Chưa có đánh giá cho món ăn này.
+                            </p>
+                          ) : (
+                            dishReviews.map((review) => (
+                              <div
+                                key={review.id}
+                                className="rounded-xl border border-[#eadfcd] bg-[#fbf7ec] p-3"
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="font-black text-green-900">
+                                    {review.user_name || "Khách hàng"}
+                                  </p>
+
+                                  <div className="flex items-center gap-2">
+                                    <RatingStars
+                                      rating={review.rating}
+                                      size={14}
+                                    />
+                                    <span className="text-sm font-black text-green-900">
+                                      {review.rating}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {review.comment && (
+                                  <p className="text-gray-600 mt-2 leading-relaxed">
+                                    {review.comment}
+                                  </p>
+                                )}
+                              </div>
+                            ))
+                          )}
+
+                          <p className="text-xs text-gray-400 font-semibold">
+                            Bạn có thể đánh giá món sau khi đơn hàng hoàn thành.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -726,11 +893,25 @@ after:pointer-events-none
                   <h2 className="text-xl md:text-3xl font-black text-green-900">
                     {selectedDish.name}
                   </h2>
-
+                  {/* Đánh giá + Sao */}
                   <div className="flex items-center gap-2 mt-2 text-sm">
-                    <span className="text-[#d6a84f]">★★★★★</span>
-                    <span className="font-bold text-green-900">4.9</span>
-                    <span className="text-gray-500">(128 đánh giá)</span>
+                    <RatingStars rating={selectedDish.rating} size={16} />
+
+                    {Number(selectedDish.reviews || 0) > 0 ? (
+                      <>
+                        <span className="font-bold text-green-900">
+                          {Number(selectedDish.rating || 0).toFixed(1)}
+                        </span>
+
+                        <span className="text-gray-500">
+                          ({selectedDish.reviews} đánh giá)
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-gray-500 font-bold">
+                        Chưa có đánh giá
+                      </span>
+                    )}
                   </div>
 
                   <p className="text-[#c99a45] text-xl md:text-3xl font-black mt-2">
@@ -747,21 +928,21 @@ after:pointer-events-none
                     <div className="bg-[#fbf7ec] rounded-xl p-2 md:p-3 text-center">
                       <p className="text-xs text-gray-500">Khẩu phần</p>
                       <p className="text-sm font-bold text-green-900">
-                        2 - 3 người
+                        {selectedDish.portion || "2 - 3 người"}
                       </p>
                     </div>
 
                     <div className="bg-[#fbf7ec] rounded-xl p-2 md:p-3 text-center">
                       <p className="text-xs text-gray-500">Chế biến</p>
                       <p className="text-sm font-bold text-green-900">
-                        Nóng hổi
+                        {selectedDish.cooking || "Nóng hổi"}
                       </p>
                     </div>
 
                     <div className="bg-[#fbf7ec] rounded-xl p-2 md:p-3 text-center">
                       <p className="text-xs text-gray-500">Thời gian</p>
                       <p className="text-sm font-bold text-green-900">
-                        15 - 20 phút
+                        {selectedDish.time || "15 - 20 phút"}
                       </p>
                     </div>
                   </div>
@@ -882,59 +1063,64 @@ after:pointer-events-none
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {dishes.slice(0, 4).map((item) => (
-                    <div
-                      key={item.name}
-                      onClick={() => {
-                        setSelectedDish(item);
-                        setSelectedImage(item.image);
-                        setQuantity(1);
-                        setActiveTab("description");
+                  {dishes
+                    .filter((item) => item.id !== selectedDish.id)
+                    .slice(0, 4)
+                    .map((item) => (
+                      <div
+                        key={item.name}
+                        onClick={() => {
+                          setSelectedDish(item);
+                          setSelectedImage(item.image);
+                          setQuantity(1);
+                          setSelectedImageIndex(0);
+                          setActiveTab("description");
+                          fetchDishReviews(item.id);
 
-                        setTimeout(() => {
-                          modalScrollRef.current?.scrollTo({
-                            top: 0,
-                            behavior: "smooth",
-                          });
-                        }, 0);
-                      }}
-                      className="dish-card relative bg-white rounded-2xl overflow-hidden border border-gray-200 cursor-pointer hover:-translate-y-1 hover:shadow-md transition grid grid-cols-[90px_minmax(0,1fr)] h-[110px]"
-                    >
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
+                          setTimeout(() => {
+                            modalScrollRef.current?.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 0);
+                        }}
+                        className="dish-card relative bg-white rounded-2xl overflow-hidden border border-gray-200 cursor-pointer hover:-translate-y-1 hover:shadow-md transition grid grid-cols-[90px_minmax(0,1fr)] h-[110px]"
+                      >
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
 
-                      <div className="p-3 min-w-0 flex flex-col h-full">
-                        <p className="text-sm font-black text-green-900 line-clamp-2 min-h-[40px]">
-                          {item.name}
-                        </p>
-
-                        <div className="flex items-center justify-between gap-2 mt-auto pt-2">
-                          <p className="text-sm font-black text-[#c99a45]">
-                            {item.price}
+                        <div className="p-3 min-w-0 flex flex-col h-full">
+                          <p className="text-sm font-black text-green-900 line-clamp-2 min-h-[40px]">
+                            {item.name}
                           </p>
 
-                          <button
-                            // check logic
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              addToCart(item, 1, e);
-                            }}
-                            disabled={item.status === "soldout"}
-                            className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center transition shrink-0 ${
-                              item.status === "soldout"
-                                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                                : "border border-green-800 text-green-800 hover:bg-green-800 hover:text-white"
-                            }`}
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center justify-between gap-2 mt-auto pt-2">
+                            <p className="text-sm font-black text-[#c99a45]">
+                              {item.price}
+                            </p>
+
+                            <button
+                              // check logic
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(item, 1, e);
+                              }}
+                              disabled={item.status === "soldout"}
+                              className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center transition shrink-0 ${
+                                item.status === "soldout"
+                                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                  : "border border-green-800 text-green-800 hover:bg-green-800 hover:text-white"
+                              }`}
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
 

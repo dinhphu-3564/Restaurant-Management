@@ -5,7 +5,6 @@ import {
   CheckCircle,
   PauseCircle,
   XCircle,
-  Tag,
   Search,
   Eye,
   Pencil,
@@ -33,6 +32,8 @@ function AdminMenuPage() {
   const [badgeFilter, setBadgeFilter] = useState("all");
   const ITEMS_PER_PAGE = 10;
   const [currentPage, setCurrentPage] = useState(1);
+  const API_URL = "http://localhost:5001/api/admin/menu-items";
+  const [isLoading, setIsLoading] = useState(false);
 
   //hàm thêm món ăn
   const [isAddFoodOpen, setIsAddFoodOpen] = useState(false);
@@ -57,226 +58,32 @@ function AdminMenuPage() {
   };
   const [editForm, setEditForm] = useState(emptyFoodForm);
 
-  const [foods, setFoods] = useState(() => {
-    const savedFoods = localStorage.getItem("adminFoods");
-    return savedFoods
-      ? JSON.parse(savedFoods)
-      : [
-          {
-            id: "DE001",
-            name: "Dê hấp tía tô",
-            image: "/src/assets/images/Menu/de-hap-tia-to.png",
-            category: "Dê hấp",
-            price: 399000,
-            type: "Món chính",
-            status: "selling",
-            badge: "Món ăn tâm huyết",
-            sold: 312,
-            rating: 4.9,
-            reviews: 128,
-            updatedAt: "18/06/2026",
-            description:
-              "Thịt dê hấp cùng lá tía tô, giữ trọn vị ngọt tự nhiên.",
-          },
+  const [foods, setFoods] = useState([]);
 
-          {
-            id: "DE002",
-            name: "Dê tái chanh",
-            image: "/src/assets/images/Menu/de-tai-chanh.png",
-            category: "Món khác",
-            price: 129000,
-            type: "Món chính",
-            status: "selling",
-            badge: "",
-            sold: 176,
-            rating: 4.6,
-            reviews: 86,
-            updatedAt: "16/06/2026",
-            description: "Dê tái chanh ăn kèm rau thơm và nước chấm đặc biệt.",
-          },
+  const fetchFoods = async () => {
+    try {
+      setIsLoading(true);
 
-          {
-            id: "DE003",
-            name: "Dê nướng tảng",
-            image: "/src/assets/images/Menu/de-nuong-tang.png",
-            category: "Dê nướng",
-            price: 399000,
-            type: "Món chính",
-            status: "selling",
-            badge: "Bán chạy",
-            sold: 254,
-            rating: 4.8,
-            reviews: 104,
-            updatedAt: "15/06/2026",
-            description: "Thịt dê nướng nguyên tảng thơm mềm, đậm vị.",
-          },
+      const res = await fetch(API_URL);
+      const result = await res.json();
 
-          {
-            id: "DE004",
-            name: "Sườn dê nướng",
-            image: "/src/assets/images/Menu/suon-de-nuong.png",
-            category: "Dê nướng",
-            price: 189000,
-            type: "Món chính",
-            status: "selling",
-            badge: "",
-            sold: 193,
-            rating: 4.7,
-            reviews: 77,
-            updatedAt: "14/06/2026",
-            description: "Sườn dê tẩm ướp gia vị truyền thống nướng than hoa.",
-          },
+      if (!result.success) {
+        alert(result.message || "Không thể lấy danh sách món ăn");
+        return;
+      }
 
-          {
-            id: "DE005",
-            name: "Dê xào lăn",
-            image: "/src/assets/images/Menu/de-xao-lan.png",
-            category: "Dê xào",
-            price: 169000,
-            type: "Món chính",
-            status: "selling",
-            badge: "",
-            sold: 142,
-            rating: 4.5,
-            reviews: 59,
-            updatedAt: "13/06/2026",
-            description: "Món dê xào lăn thơm béo với nước cốt dừa.",
-          },
-
-          {
-            id: "DE006",
-            name: "Dê né",
-            image: "/src/assets/images/Menu/de-ne.png",
-            category: "Dê áp chảo",
-            price: 159000,
-            type: "Món chính",
-            status: "paused",
-            badge: "",
-            sold: 110,
-            rating: 4.4,
-            reviews: 48,
-            updatedAt: "12/06/2026",
-            description: "Thịt dê áp chảo nóng hổi trên đĩa gang.",
-          },
-
-          {
-            id: "DE007",
-            name: "Lẩu dê Hương Sơn",
-            image: "/src/assets/images/Menu/lau-de.png",
-            category: "Dê lẩu",
-            price: 399000,
-            type: "Món chính",
-            status: "selling",
-            badge: "Đặc sản",
-            sold: 287,
-            rating: 4.9,
-            reviews: 131,
-            updatedAt: "18/06/2026",
-            description: "Lẩu dê đậm đà hương vị đặc trưng của nhà hàng.",
-          },
-
-          {
-            id: "DE008",
-            name: "Tiết canh dê",
-            image: "/src/assets/images/Menu/tiet-canh-de.png",
-            category: "Món khác",
-            price: 99000,
-            type: "Món khai vị",
-            status: "selling",
-            badge: "",
-            sold: 84,
-            rating: 4.3,
-            reviews: 31,
-            updatedAt: "10/06/2026",
-            description: "Tiết canh dê tươi ăn kèm lạc rang và rau thơm.",
-          },
-
-          {
-            id: "DE009",
-            name: "Dê nhúng mẻ",
-            image: "/src/assets/images/Menu/de-nhung-me.png",
-            category: "Dê lẩu",
-            price: 289000,
-            type: "Món chính",
-            status: "selling",
-            badge: "",
-            sold: 153,
-            rating: 4.6,
-            reviews: 63,
-            updatedAt: "11/06/2026",
-            description: "Dê nhúng mẻ chua thanh, ăn cùng rau tươi.",
-          },
-
-          {
-            id: "DE010",
-            name: "Dồi dê nướng",
-            image: "/src/assets/images/Menu/doi-de-nuong.png",
-            category: "Dê nướng",
-            price: 139000,
-            type: "Món khai vị",
-            status: "selling",
-            badge: "",
-            sold: 166,
-            rating: 4.5,
-            reviews: 57,
-            updatedAt: "09/06/2026",
-            description:
-              "Dồi dê nướng thơm giòn, đặc sản được nhiều khách chọn.",
-          },
-
-          {
-            id: "DE011",
-            name: "Rau rừng xào tỏi",
-            image: "/src/assets/images/Menu/rau-rung-xao-toi.png",
-            category: "Món khác",
-            price: 79000,
-            type: "Món phụ",
-            status: "selling",
-            badge: "",
-            sold: 211,
-            rating: 4.4,
-            reviews: 65,
-            updatedAt: "08/06/2026",
-            description: "Rau rừng tươi xào tỏi giữ nguyên độ giòn ngọt.",
-          },
-
-          {
-            id: "DE012",
-            name: "Cơm cháy",
-            image: "/src/assets/images/Menu/com-chay.png",
-            category: "Món khác",
-            price: 69000,
-            type: "Món phụ",
-            status: "stopped",
-            badge: "",
-            sold: 42,
-            rating: 4.0,
-            reviews: 15,
-            updatedAt: "06/06/2026",
-            description: "Cơm cháy giòn rụm dùng kèm nước sốt đặc biệt.",
-          },
-
-          {
-            id: "DE013",
-            name: "Cháo dê",
-            image: "/src/assets/images/Menu/chao-de.png",
-            category: "Món khác",
-            price: 89000,
-            type: "Món phụ",
-            status: "selling",
-            badge: "",
-            sold: 95,
-            rating: 4.2,
-            reviews: 28,
-            updatedAt: "07/06/2026",
-            description: "Cháo dê nóng hổi thích hợp dùng cuối bữa ăn.",
-          },
-        ];
-  });
+      setFoods(result.data || []);
+    } catch (error) {
+      console.error("Lỗi lấy danh sách món ăn:", error);
+      alert("Không thể kết nối backend");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    localStorage.setItem("adminFoods", JSON.stringify(foods));
-  }, [foods]);
+    fetchFoods();
+  }, []);
 
   const formatPrice = (price) =>
     Number(price || 0).toLocaleString("vi-VN") + "đ";
@@ -403,16 +210,6 @@ function AdminMenuPage() {
     setBadgeFilter("all");
   };
 
-  // mã món
-  const createNextFoodId = () => {
-    const maxId =
-      foods.length > 0
-        ? Math.max(...foods.map((f) => Number(String(f.id).replace("DE", ""))))
-        : 0;
-
-    return `DE${String(maxId + 1).padStart(3, "0")}`;
-  };
-
   //hàm mở form sửa
   const otherSubCategories = [
     "Hải sản",
@@ -458,21 +255,53 @@ function AdminMenuPage() {
   };
 
   //hàm xử lý ảnh
-  const handleFoodImagesChange = (e) => {
+  const handleFoodImagesChange = async (e) => {
     const files = Array.from(e.target.files || []);
+
     if (files.length === 0) return;
 
-    const newImages = files.map((file) => URL.createObjectURL(file));
+    const invalidFile = files.find((file) => file.size > 5 * 1024 * 1024);
 
-    setEditForm((prev) => {
-      const updatedImages = [...(prev.images || []), ...newImages];
+    if (invalidFile) {
+      alert("Mỗi ảnh không được vượt quá 5MB.");
+      return;
+    }
 
-      return {
-        ...prev,
-        image: prev.image || updatedImages[0],
-        images: updatedImages,
-      };
-    });
+    try {
+      const formData = new FormData();
+
+      files.forEach((file) => {
+        formData.append("images", file);
+      });
+
+      const res = await fetch(`${API_URL}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json();
+
+      if (!result.success) {
+        alert(result.message || "Upload ảnh thất bại");
+        return;
+      }
+
+      setEditForm((prev) => {
+        const uploadedImages = result.images || [];
+        const updatedImages = [...(prev.images || []), ...uploadedImages];
+
+        return {
+          ...prev,
+          image: prev.image || uploadedImages[0] || updatedImages[0] || "",
+          images: updatedImages,
+        };
+      });
+    } catch (error) {
+      console.error("Lỗi upload ảnh món ăn:", error);
+      alert("Không thể upload ảnh lên backend");
+    } finally {
+      e.target.value = "";
+    }
   };
 
   const moveImage = (index, direction) => {
@@ -495,7 +324,7 @@ function AdminMenuPage() {
     });
   };
   // Hàm lưu thêm/sửa món ăn
-  const saveAddFood = () => {
+  const saveAddFood = async () => {
     if (!editForm.name.trim()) {
       alert("Vui lòng nhập tên món");
       return;
@@ -510,13 +339,10 @@ function AdminMenuPage() {
       alert("Vui lòng chọn mục con");
       return;
     }
-    if (editingFood) {
-      const updatedAt = new Date().toLocaleDateString("vi-VN");
 
-      const updatedFood = {
-        ...editingFood,
-        ...editForm,
-        price: Number(editForm.price),
+    try {
+      const payload = {
+        name: editForm.name.trim(),
         image:
           editForm.image ||
           editForm.images?.[0] ||
@@ -525,111 +351,138 @@ function AdminMenuPage() {
           editForm.images?.length > 0
             ? editForm.images
             : [editForm.image || "/src/assets/images/Menu/default-food.png"],
-        category:
-          editForm.category === "Món khác" && editForm.subCategory
-            ? editForm.subCategory
-            : editForm.category,
-
-        parentCategory: editForm.category,
+        category: editForm.category,
         subCategory: editForm.subCategory,
-
-        updatedAt,
+        price: Number(editForm.price),
+        type: editForm.type,
+        status: editForm.status,
+        badge: editForm.badge,
+        portion: editForm.portion,
+        cooking: editForm.cooking,
+        time: editForm.time,
+        shortDescription: editForm.shortDescription,
+        description: editForm.description,
+        ingredients: editForm.ingredients,
+        flavor: editForm.flavor,
       };
 
-      setFoods((prev) =>
-        prev.map((food) => (food.id === editingFood.id ? updatedFood : food)),
+      const res = await fetch(
+        editingFood ? `${API_URL}/${editingFood.id}` : API_URL,
+        {
+          method: editingFood ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        },
       );
 
-      setSelectedFood(updatedFood);
+      const result = await res.json();
+
+      if (!result.success) {
+        alert(result.message || "Lưu món ăn thất bại");
+        return;
+      }
+
+      if (editingFood) {
+        setFoods((prev) =>
+          prev.map((food) => (food.id === editingFood.id ? result.data : food)),
+        );
+        setSelectedFood(result.data);
+      } else {
+        setFoods((prev) => [result.data, ...prev]);
+        setSelectedFood(result.data);
+      }
+
       setEditingFood(null);
       setIsAddFoodOpen(false);
       setEditForm(emptyFoodForm);
-      return;
+    } catch (error) {
+      console.error("Lỗi lưu món ăn:", error);
+      alert("Không thể kết nối backend");
     }
-
-    const newFood = {
-      id: createNextFoodId(),
-      name: editForm.name.trim(),
-
-      image: editForm.image || "/src/assets/images/Menu/default-food.png",
-      images: editForm.images?.length ? editForm.images : [editForm.image],
-
-      category:
-        editForm.category === "Món khác" && editForm.subCategory
-          ? editForm.subCategory
-          : editForm.category,
-
-      parentCategory: editForm.category,
-      subCategory: editForm.subCategory,
-
-      price: Number(editForm.price),
-
-      type: editForm.type,
-      status: editForm.status,
-      badge: editForm.badge,
-
-      portion: editForm.portion,
-      cooking: editForm.cooking,
-      time: editForm.time,
-
-      shortDescription: editForm.shortDescription,
-      description: editForm.description,
-      ingredients: editForm.ingredients,
-      flavor: editForm.flavor,
-
-      sold: 0,
-      rating: 0,
-      reviews: 0,
-      updatedAt: new Date().toLocaleDateString("vi-VN"),
-    };
-
-    setFoods((prev) => [newFood, ...prev]);
-    setSelectedFood(newFood);
-    setIsAddFoodOpen(false);
   };
 
   //hàm bán lại
-  const toggleFoodStatus = (food) => {
+  const toggleFoodStatus = async (food) => {
     const updatedAt = new Date().toLocaleDateString("vi-VN");
-
     const nextStatus = food.status === "stopped" ? "selling" : "stopped";
 
-    setFoods((prev) =>
-      prev.map((item) =>
-        item.id === food.id
+    try {
+      const res = await fetch(`${API_URL}/${food.id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: nextStatus,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!result.success) {
+        alert(result.message || "Cập nhật trạng thái thất bại");
+        return;
+      }
+
+      setFoods((prev) =>
+        prev.map((item) =>
+          item.id === food.id
+            ? {
+                ...item,
+                status: nextStatus,
+                updatedAt,
+              }
+            : item,
+        ),
+      );
+
+      setSelectedFood((prev) =>
+        prev?.id === food.id
           ? {
-              ...item,
+              ...prev,
               status: nextStatus,
               updatedAt,
             }
-          : item,
-      ),
-    );
-
-    setSelectedFood((prev) =>
-      prev?.id === food.id
-        ? {
-            ...prev,
-            status: nextStatus,
-            updatedAt,
-          }
-        : prev,
-    );
+          : prev,
+      );
+    } catch (error) {
+      console.error("Lỗi cập nhật trạng thái:", error);
+      alert("Không thể kết nối backend");
+    }
   };
   //hàm xóa món
-  const deleteFood = (food) => {
+  const deleteFood = async (food) => {
     const confirmDelete = window.confirm(
       `Bạn có chắc muốn xóa món "${food.name}"?`,
     );
 
     if (!confirmDelete) return;
 
-    setFoods((prev) => prev.filter((item) => item.id !== food.id));
+    try {
+      const res = await fetch(`${API_URL}/${food.id}`, {
+        method: "DELETE",
+      });
 
-    if (selectedFood?.id === food.id) {
-      setSelectedFood(null);
+      const result = await res.json();
+
+      if (!result.success) {
+        alert(result.message || "Xóa món thất bại");
+        return;
+      }
+
+      setFoods((prev) => prev.filter((item) => item.id !== food.id));
+
+      if (selectedFood?.id === food.id) {
+        setSelectedFood(null);
+      }
+    } catch (error) {
+      console.error("Lỗi xóa món:", error);
+      alert("Không thể kết nối backend");
     }
   };
+
   //hàm chọn nhiều món
   const toggleSelectFood = (foodId) => {
     setSelectedFoodIds((prev) =>
@@ -654,8 +507,8 @@ function AdminMenuPage() {
       setSelectedFoodIds((prev) => [...new Set([...prev, ...currentIds])]);
     }
   };
-
-  const deleteSelectedFoods = () => {
+  // hàm xóa món
+  const deleteSelectedFoods = async () => {
     if (selectedFoodIds.length === 0) return;
 
     const confirmDelete = window.confirm(
@@ -664,45 +517,90 @@ function AdminMenuPage() {
 
     if (!confirmDelete) return;
 
-    setFoods((prev) =>
-      prev.filter((food) => !selectedFoodIds.includes(food.id)),
-    );
+    try {
+      const res = await fetch(`${API_URL}/bulk/delete`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ids: selectedFoodIds,
+        }),
+      });
 
-    if (selectedFoodIds.includes(selectedFood?.id)) {
-      setSelectedFood(null);
+      const result = await res.json();
+
+      if (!result.success) {
+        alert(result.message || "Xóa món thất bại");
+        return;
+      }
+
+      setFoods((prev) =>
+        prev.filter((food) => !selectedFoodIds.includes(food.id)),
+      );
+
+      if (selectedFoodIds.includes(selectedFood?.id)) {
+        setSelectedFood(null);
+      }
+
+      setSelectedFoodIds([]);
+    } catch (error) {
+      console.error("Lỗi xóa nhiều món:", error);
+      alert("Không thể kết nối backend");
     }
-
-    setSelectedFoodIds([]);
   };
 
-  const stopSelectedFoods = () => {
+  //hàm chọn ngừng bán
+  const stopSelectedFoods = async () => {
     if (selectedFoodIds.length === 0) return;
 
     const updatedAt = new Date().toLocaleDateString("vi-VN");
 
-    setFoods((prev) =>
-      prev.map((food) =>
-        selectedFoodIds.includes(food.id)
+    try {
+      const res = await fetch(`${API_URL}/bulk/stop`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ids: selectedFoodIds,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!result.success) {
+        alert(result.message || "Ngừng bán thất bại");
+        return;
+      }
+
+      setFoods((prev) =>
+        prev.map((food) =>
+          selectedFoodIds.includes(food.id)
+            ? {
+                ...food,
+                status: "stopped",
+                updatedAt,
+              }
+            : food,
+        ),
+      );
+
+      setSelectedFood((prev) =>
+        prev && selectedFoodIds.includes(prev.id)
           ? {
-              ...food,
+              ...prev,
               status: "stopped",
               updatedAt,
             }
-          : food,
-      ),
-    );
+          : prev,
+      );
 
-    setSelectedFood((prev) =>
-      prev && selectedFoodIds.includes(prev.id)
-        ? {
-            ...prev,
-            status: "stopped",
-            updatedAt,
-          }
-        : prev,
-    );
-
-    setSelectedFoodIds([]);
+      setSelectedFoodIds([]);
+    } catch (error) {
+      console.error("Lỗi ngừng bán nhiều món:", error);
+      alert("Không thể kết nối backend");
+    }
   };
 
   //hàm thêm món ăn
@@ -915,8 +813,21 @@ function AdminMenuPage() {
                   </th>
                 </tr>
               </thead>
-
+              {/* hàm thông báo khi bảng trống */}
               <tbody>
+                {currentFoods.length === 0 && (
+                  <tr>
+                    <td colSpan={12} className="px-4 py-10 text-center">
+                      <p className="text-gray-500 font-bold">
+                        Chưa có món ăn nào.
+                      </p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Bấm “Thêm món ăn” để thêm dữ liệu vào database.
+                      </p>
+                    </td>
+                  </tr>
+                )}
+
                 {currentFoods.map((food) => (
                   <tr
                     key={food.id}
@@ -1342,6 +1253,12 @@ function AdminMenuPage() {
 
                 {/* Cột phải: thông tin */}
                 <div className="space-y-5">
+                  {isLoading && (
+                    <div className="rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+                      Đang tải danh sách món ăn...
+                    </div>
+                  )}
+
                   <div>
                     <InputBox
                       label="Tên món"
