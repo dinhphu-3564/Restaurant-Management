@@ -14,11 +14,23 @@ import {
   LogOut,
 } from "lucide-react";
 
+import { clearAuthSession, getCurrentUser } from "../../utils/auth";
+
+const ROLE_TEXT = {
+  admin: "Quản trị viên",
+  manager: "Quản lý",
+  staff: "Nhân viên",
+  user: "Khách hàng",
+};
+
 function AdminSidebar() {
   const navigate = useNavigate();
+  const currentUser = getCurrentUser();
+
+  const currentRole = currentUser?.role || "staff";
 
   const handleLogout = () => {
-    localStorage.removeItem("adminToken");
+    clearAuthSession();
     navigate("/admin/login");
   };
 
@@ -30,39 +42,97 @@ function AdminSidebar() {
           name: "Tổng quan",
           path: "/admin/dashboard",
           icon: LayoutDashboard,
+          roles: ["admin", "manager", "staff"],
         },
       ],
     },
     {
       group: "QUẢN LÝ",
       items: [
-        { name: "Đơn hàng", path: "/admin/orders", icon: ShoppingCart },
-        { name: "Đặt bàn", path: "/admin/bookings", icon: CalendarCheck },
-        { name: "Thực đơn", path: "/admin/menu", icon: Utensils },
-        { name: "Bàn & Khu vực", path: "/admin/tables", icon: Store },
-        { name: "Khách hàng", path: "/admin/users", icon: Users },
-        { name: "Khuyến mãi", path: "/admin/deals", icon: Gift },
+        {
+          name: "Đơn hàng",
+          path: "/admin/orders",
+          icon: ShoppingCart,
+          roles: ["admin", "manager", "staff"],
+        },
+        {
+          name: "Đặt bàn",
+          path: "/admin/bookings",
+          icon: CalendarCheck,
+          roles: ["admin", "manager", "staff"],
+        },
+        {
+          name: "Thực đơn",
+          path: "/admin/menu",
+          icon: Utensils,
+          roles: ["admin", "manager"],
+        },
+        {
+          name: "Bàn & Khu vực",
+          path: "/admin/tables",
+          icon: Store,
+          roles: ["admin", "manager", "staff"],
+        },
+        {
+          name: "Khách hàng",
+          path: "/admin/users",
+          icon: Users,
+          roles: ["admin", "manager"],
+        },
+        {
+          name: "Khuyến mãi",
+          path: "/admin/deals",
+          icon: Gift,
+          roles: ["admin", "manager"],
+        },
       ],
     },
     {
       group: "BÁO CÁO",
       items: [
-        { name: "Doanh thu", path: "/admin/revenue", icon: BarChart3 },
+        {
+          name: "Doanh thu",
+          path: "/admin/revenue",
+          icon: BarChart3,
+          roles: ["admin", "manager"],
+        },
         {
           name: "Báo cáo chi tiết",
           path: "/admin/reports",
           icon: ClipboardList,
+          roles: ["admin", "manager"],
         },
       ],
     },
     {
       group: "HỆ THỐNG",
       items: [
-        { name: "Cài đặt", path: "/admin/settings", icon: Settings },
-        { name: "Vai trò", path: "/admin/roles", icon: ShieldCheck },
+        {
+          name: "Cài đặt",
+          path: "/admin/settings",
+          icon: Settings,
+          roles: ["admin"],
+        },
+        {
+          name: "Vai trò",
+          path: "/admin/roles",
+          icon: ShieldCheck,
+          roles: ["admin"],
+        },
       ],
     },
   ];
+
+  const visibleMenus = menus
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.roles.includes(currentRole)),
+    }))
+    .filter((group) => group.items.length > 0);
+
+  const displayName = currentUser?.name || currentUser?.fullName || "Admin";
+  const displayRole = ROLE_TEXT[currentRole] || "Nhân viên";
+  const avatarLetter = displayName.charAt(0).toUpperCase();
 
   return (
     <aside className="w-[250px] shrink-0 min-h-screen bg-gradient-to-b from-green-950 to-emerald-950 text-white px-3 py-5 flex flex-col">
@@ -82,7 +152,7 @@ function AdminSidebar() {
       </div>
 
       <nav className="space-y-5 flex-1">
-        {menus.map((group, groupIndex) => (
+        {visibleMenus.map((group, groupIndex) => (
           <div key={groupIndex}>
             {group.group && (
               <p className="px-4 mb-2 text-[11px] font-black tracking-wider text-white/45">
@@ -123,12 +193,12 @@ function AdminSidebar() {
         <div className="flex items-center justify-between gap-3 px-2 py-2">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center font-black shrink-0">
-              A
+              {avatarLetter}
             </div>
 
             <div className="min-w-0">
-              <p className="font-black text-sm">Admin</p>
-              <p className="text-xs text-white/50">Quản trị viên</p>
+              <p className="font-black text-sm truncate">{displayName}</p>
+              <p className="text-xs text-white/50">{displayRole}</p>
             </div>
           </div>
 

@@ -30,7 +30,7 @@ function AdminLayout() {
     },
     "/admin/bookings": {
       title: "Quản lý đặt bàn",
-      subtitle: "Quản lý lịch đặt bàn khách hàng",
+      subtitle: "Quản lý lịch đặt bàn",
     },
     "/admin/menu": {
       title: "Quản lý thực đơn",
@@ -148,7 +148,7 @@ function AdminLayout() {
           setDateLabel={setDateLabel}
         />
 
-        <main className="px-5 py-4 min-h-[calc(100vh-76px)] overflow-x-auto">
+        <main className="px-3 sm:px-4 lg:px-5 py-4 min-h-[calc(100vh-76px)] overflow-x-hidden">
           <Outlet
             context={{
               setExportExcelHandler,

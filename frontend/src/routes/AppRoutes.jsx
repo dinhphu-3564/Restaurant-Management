@@ -11,6 +11,7 @@ import Footer from "../components/Footer";
 import Home from "../pages/Home";
 import Register from "../pages/Register";
 import Login from "../pages/Login";
+import VerifyEmailPage from "../pages/VerifyEmailPage";
 import MenuPage from "../pages/MenuPage";
 import CartPage from "../pages/CartPage";
 import ScrollToTop from "../components/ScrollToTop";
@@ -41,6 +42,7 @@ import AdminDealsPage from "../pages/admin/AdminDealsPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 import AdminRevenuePage from "../pages/admin/AdminRevenuePage";
 import AdminTablesPage from "../pages/admin/AdminTablesPage";
+import AdminRolesPage from "../pages/admin/AdminRolesPage";
 
 function MainLayout({ children }) {
   const location = useLocation();
@@ -96,6 +98,7 @@ function AppRoutes() {
 
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
         {/* Menu */}
         <Route
           path="/menu"
@@ -213,15 +216,6 @@ function AppRoutes() {
             </MainLayout>
           }
         />
-        {/* 404 */}
-        <Route
-          path="*"
-          element={
-            <MainLayout>
-              <NotFoundPage />
-            </MainLayout>
-          }
-        />
 
         {/* Admin */}
         <Route path="/admin/login" element={<AdminLoginPage />} />
@@ -244,7 +238,17 @@ function AppRoutes() {
           <Route path="deals" element={<AdminDealsPage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="revenue" element={<AdminRevenuePage />} />
+          <Route path="roles" element={<AdminRolesPage />} />
         </Route>
+        {/* 404 */}
+        <Route
+          path="*"
+          element={
+            <MainLayout>
+              <NotFoundPage />
+            </MainLayout>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

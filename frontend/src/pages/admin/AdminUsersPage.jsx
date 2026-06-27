@@ -1,5 +1,14 @@
 import { useMemo, useEffect, useState } from "react";
 import {
+  getUsers,
+  updateUserStatus,
+  deleteUserById,
+  bulkUpdateUserStatus,
+  bulkDeleteUsers as bulkDeleteUsersApi,
+} from "../../services/userService";
+import { updateUserRole } from "../../services/roleService";
+import { getCurrentUser } from "../../utils/auth";
+import {
   Users,
   UserPlus,
   ShoppingBag,
@@ -19,10 +28,24 @@ import {
   Unlock,
 } from "lucide-react";
 
+const ROLE_TEXT = {
+  admin: "Quản trị viên",
+  manager: "Quản lý",
+  staff: "Nhân viên",
+  user: "Khách hàng",
+};
+
 function AdminUsersPage() {
   const [users, setUsers] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [bookings, setBookings] = useState([]);
+  const [summary, setSummary] = useState({
+    totalUsers: 0,
+    newUsersThisMonth: 0,
+    totalOrders: 0,
+    totalBookings: 0,
+    totalSpent: 0,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [groupFilter, setGroupFilter] = useState("all");
@@ -30,46 +53,43 @@ function AdminUsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
 
+  const currentUser = getCurrentUser();
+  const canGrantRole = currentUser?.role === "admin";
+
+  const [roleModalUser, setRoleModalUser] = useState(null);
+  const [roleValue, setRoleValue] = useState("staff");
+  const [roleSubmitting, setRoleSubmitting] = useState(false);
+  const [roleToast, setRoleToast] = useState(false);
+
   const pageSize = 10;
 
-  useEffect(() => {
-    const loadData = () => {
-      const registeredUsers =
-        JSON.parse(localStorage.getItem("registeredUsers")) || [];
-      const savedUsers = JSON.parse(localStorage.getItem("users")) || [];
-      const savedOrders = JSON.parse(localStorage.getItem("orders")) || [];
-      const savedBookings = JSON.parse(localStorage.getItem("bookings")) || [];
+  const loadUsers = async () => {
+    setLoading(true);
+    setError("");
 
-      const mergedUsers = [...registeredUsers, ...savedUsers];
+    try {
+      const data = await getUsers();
 
-      const uniqueUsers = mergedUsers.filter(
-        (user, index, self) =>
-          index ===
-          self.findIndex(
-            (item) =>
-              String(item.email || "").toLowerCase() ===
-              String(user.email || "").toLowerCase(),
-          ),
+      setUsers(data.users || []);
+      setSummary(
+        data.summary || {
+          totalUsers: 0,
+          newUsersThisMonth: 0,
+          totalOrders: 0,
+          totalBookings: 0,
+          totalSpent: 0,
+        },
       );
+    } catch (error) {
+      console.error(error);
+      setError(error.message || "Không thể tải danh sách khách hàng.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      setUsers(uniqueUsers);
-      setOrders(savedOrders);
-      setBookings(savedBookings);
-    };
-
-    loadData();
-
-    window.addEventListener("storage", loadData);
-    window.addEventListener("usersUpdated", loadData);
-    window.addEventListener("bookingsUpdated", loadData);
-    window.addEventListener("ordersUpdated", loadData);
-
-    return () => {
-      window.removeEventListener("storage", loadData);
-      window.removeEventListener("usersUpdated", loadData);
-      window.removeEventListener("bookingsUpdated", loadData);
-      window.removeEventListener("ordersUpdated", loadData);
-    };
+  useEffect(() => {
+    loadUsers();
   }, []);
 
   const formatPrice = (price) =>
@@ -107,64 +127,16 @@ function AdminUsersPage() {
     )}`;
   };
 
-  const getUserOrders = (user) => {
-    return orders.filter((order) => {
-      const matchEmail =
-        user.email &&
-        order.email &&
-        String(order.email).toLowerCase() === String(user.email).toLowerCase();
+  const getUserOrders = (user) => user.orders || [];
 
-      const matchUserId =
-        user.id && order.userId && String(order.userId) === String(user.id);
-
-      return matchEmail || matchUserId;
-    });
-  };
-
-  const getUserBookings = (user) => {
-    return bookings.filter(
-      (booking) =>
-        user.email &&
-        String(booking.email || "").toLowerCase() ===
-          String(user.email || "").toLowerCase(),
-    );
-  };
-  const getUserTotalSpent = (user) => {
-    const userOrders = getUserOrders(user);
-    const userBookings = getUserBookings(user);
-
-    const orderTotal = userOrders.reduce(
-      (sum, order) => sum + Number(order.total || order.totalPrice || 0),
-      0,
-    );
-
-    const bookingTotal = userBookings.reduce(
-      (sum, booking) => sum + Number(booking.total || 0),
-      0,
-    );
-
-    return orderTotal + bookingTotal;
-  };
+  const getUserBookings = (user) => user.bookings || [];
+  const getUserTotalSpent = (user) => Number(user.totalSpent || 0);
 
   const getUserStatus = (user) => {
     return user.status || "active";
   };
 
-  const getUserGroup = (user) => {
-    const totalSpent = getUserTotalSpent(user);
-    const totalOrders = getUserOrders(user).length;
-    const totalBookings = getUserBookings(user).length;
-
-    if (totalSpent >= 15000000 || totalOrders + totalBookings >= 20) {
-      return "vip";
-    }
-
-    if (totalSpent >= 3000000 || totalOrders + totalBookings >= 5) {
-      return "regular";
-    }
-
-    return "new";
-  };
+  const getUserGroup = (user) => user.group || "new";
 
   const getGroupText = (group) => {
     if (group === "vip") return "VIP";
@@ -204,68 +176,115 @@ function AdminUsersPage() {
 
       return matchSearch && matchStatus && matchGroup;
     });
-  }, [users, search, statusFilter, groupFilter, orders, bookings]);
+  }, [users, search, statusFilter, groupFilter]);
 
-  const totalPages = Math.ceil(filteredUsers.length / pageSize);
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+  //Reset lại trang khi lọc/tìm kiếm
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
 
-  const totalSpentAll = users.reduce(
-    (sum, user) => sum + getUserTotalSpent(user),
-    0,
-  );
+  const startItem =
+    filteredUsers.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
 
-  const newUsersThisMonth = users.filter((user) => {
-    if (!user.createdAt && !user.id) return false;
+  const endItem = Math.min(currentPage * pageSize, filteredUsers.length);
 
-    const createdDate = new Date(user.createdAt || Number(user.id));
-    const now = new Date();
+  const totalSpentAll = summary.totalSpent || 0;
+  const newUsersThisMonth = summary.newUsersThisMonth || 0;
+  const totalOrders = summary.totalOrders || 0;
+  const totalBookings = summary.totalBookings || 0;
 
-    return (
-      createdDate.getMonth() === now.getMonth() &&
-      createdDate.getFullYear() === now.getFullYear()
-    );
-  }).length;
-
-  const totalOrders = orders.length;
-  const totalBookings = bookings.length;
-
-  const toggleUserStatus = (user) => {
+  //hàm khóa/mở khóa user
+  const toggleUserStatus = async (user) => {
     const newStatus = getUserStatus(user) === "locked" ? "active" : "locked";
 
-    const updatedUsers = users.map((item) =>
-      String(item.id) === String(user.id)
-        ? { ...item, status: newStatus, updatedAt: new Date().toISOString() }
-        : item,
-    );
+    try {
+      await updateUserStatus(user.id, newStatus);
+      await loadUsers();
 
-    setUsers(updatedUsers);
-    localStorage.setItem("registeredUsers", JSON.stringify(updatedUsers));
-
-    setSelectedUser((prev) =>
-      prev && String(prev.id) === String(user.id)
-        ? { ...prev, status: newStatus }
-        : prev,
-    );
+      setSelectedUser((prev) =>
+        prev && String(prev.id) === String(user.id)
+          ? { ...prev, status: newStatus }
+          : prev,
+      );
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể cập nhật trạng thái khách hàng.");
+    }
   };
 
-  const deleteUser = (user) => {
+  //hàm xóa user
+  const deleteUser = async (user) => {
     if (!window.confirm(`Bạn có chắc muốn xóa khách hàng ${user.name}?`)) {
       return;
     }
 
-    const updatedUsers = users.filter(
-      (item) => String(item.id) !== String(user.id),
-    );
+    try {
+      await deleteUserById(user.id);
+      await loadUsers();
 
-    setUsers(updatedUsers);
-    localStorage.setItem("registeredUsers", JSON.stringify(updatedUsers));
+      if (String(selectedUser?.id) === String(user.id)) {
+        setSelectedUser(null);
+      }
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể xóa khách hàng.");
+    }
+  };
 
-    if (String(selectedUser?.id) === String(user.id)) {
-      setSelectedUser(null);
+  //hàm cấp quyền
+  const openGrantRoleModal = (user) => {
+    setRoleModalUser(user);
+    setRoleValue("staff");
+  };
+
+  const closeGrantRoleModal = () => {
+    setRoleModalUser(null);
+    setRoleValue("staff");
+    setRoleSubmitting(false);
+  };
+
+  const grantUserRole = async () => {
+    if (!roleModalUser) return;
+
+    if (!["staff", "manager", "admin"].includes(roleValue)) {
+      alert("Vai trò không hợp lệ.");
+      return;
+    }
+
+    try {
+      setRoleSubmitting(true);
+
+      await updateUserRole(roleModalUser.id, roleValue);
+      await loadUsers();
+
+      setSelectedIds((prev) =>
+        prev.filter((id) => String(id) !== String(roleModalUser.id)),
+      );
+
+      if (String(selectedUser?.id) === String(roleModalUser.id)) {
+        setSelectedUser(null);
+      }
+
+      closeGrantRoleModal();
+
+      setRoleToast(true);
+
+      setTimeout(() => {
+        setRoleToast(false);
+      }, 3000);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể cấp quyền tài khoản.");
+    } finally {
+      setRoleSubmitting(false);
     }
   };
 
@@ -299,7 +318,8 @@ function AdminUsersPage() {
     );
   };
 
-  const bulkDeleteUsers = () => {
+  //hàm xử lý hàng loạt
+  const bulkDeleteUsers = async () => {
     if (selectedIds.length === 0) return;
 
     if (
@@ -308,41 +328,65 @@ function AdminUsersPage() {
       return;
     }
 
-    const updatedUsers = users.filter(
-      (user) => !selectedIds.includes(String(user.id)),
-    );
+    try {
+      await bulkDeleteUsersApi(selectedIds);
+      await loadUsers();
 
-    setUsers(updatedUsers);
-    localStorage.setItem("registeredUsers", JSON.stringify(updatedUsers));
-    setSelectedIds([]);
-    setSelectedUser(null);
+      setSelectedIds([]);
+      setSelectedUser(null);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể xóa hàng loạt khách hàng.");
+    }
   };
 
-  const bulkUpdateStatus = (status) => {
+  const bulkUpdateStatus = async (status) => {
     if (selectedIds.length === 0) return;
 
-    const updatedUsers = users.map((user) =>
-      selectedIds.includes(String(user.id))
-        ? {
-            ...user,
-            status,
-            updatedAt: new Date().toISOString(),
-          }
-        : user,
-    );
+    try {
+      await bulkUpdateUserStatus(selectedIds, status);
+      await loadUsers();
 
-    setUsers(updatedUsers);
-    localStorage.setItem("registeredUsers", JSON.stringify(updatedUsers));
-    setSelectedIds([]);
+      setSelectedIds([]);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể cập nhật hàng loạt.");
+    }
   };
 
   return (
     <div className="space-y-5">
+      {roleToast && (
+        <div className="fixed top-20 right-5 z-[9999] bg-white border border-green-100 shadow-xl rounded-2xl px-4 py-3 flex items-center gap-3 w-[330px]">
+          <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-700 font-black">
+            ✓
+          </div>
+
+          <div>
+            <p className="font-black text-green-900">Cấp quyền thành công</p>
+            <p className="text-sm text-gray-600">
+              Tài khoản đã được cập nhật vai trò.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-red-600 font-bold">
+          {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-green-700 font-bold">
+          Đang tải danh sách khách hàng...
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
         <UserStatCard
           icon={<Users />}
           title="Tổng khách hàng"
-          value={users.length}
+          value={summary.totalUsers || users.length}
           bg="bg-green-50"
           color="text-green-700"
         />
@@ -468,165 +512,180 @@ function AdminUsersPage() {
 
           <div className="overflow-x-auto">
             <table className="min-w-[1300px] w-full text-left text-sm">
-              <thead className="bg-[#fbfcfb] text-gray-500 font-bold text-sm whitespace-nowrap">
-                <thead className="bg-[#fbfcfb] text-gray-600 font-black text-xs uppercase">
-                  <tr>
-                    <th className="px-4 py-3 w-10">
-                      <input
-                        type="checkbox"
-                        checked={isAllChecked}
-                        onChange={toggleSelectAll}
-                        className="w-4 h-4 accent-green-700"
-                      />
-                    </th>
-                    <th className="px-4 py-3">Mã KH</th>
-                    <th className="px-4 py-3">Họ và tên</th>
-                    <th className="px-4 py-3">SĐT</th>
-                    <th className="px-4 py-3">Email</th>
-                    <th className="px-4 py-3">Đơn hàng</th>
-                    <th className="px-4 py-3">Đặt bàn</th>
-                    <th className="px-4 py-3">Tổng chi tiêu</th>
-                    <th className="px-4 py-3 text-center">Nhóm</th>
-                    <th className="px-4 py-3">Trạng thái</th>
-                    <th className="px-4 py-3 text-center sticky right-0 bg-[#fbfcfb] z-10">
-                      Thao tác
-                    </th>
-                  </tr>
-                </thead>
+              <thead className="bg-[#fbfcfb] text-gray-600 font-black text-xs uppercase whitespace-nowrap">
+                <tr>
+                  <th className="px-4 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={isAllChecked}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 accent-green-700"
+                    />
+                  </th>
+                  <th className="px-4 py-3">Mã KH</th>
+                  <th className="px-4 py-3">Họ và tên</th>
+                  <th className="px-4 py-3">SĐT</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Đơn hàng</th>
+                  <th className="px-4 py-3">Đặt bàn</th>
+                  <th className="px-4 py-3">Tổng chi tiêu</th>
+                  <th className="px-4 py-3 text-center">Nhóm</th>
+                  <th className="px-4 py-3">Trạng thái</th>
+                  <th className="px-4 py-3 text-center sticky right-0 bg-[#fbfcfb] z-10">
+                    Thao tác
+                  </th>
+                </tr>
+              </thead>
 
-                <tbody>
-                  {paginatedUsers.length > 0 ? (
-                    paginatedUsers.map((user, index) => {
-                      const userOrders = getUserOrders(user);
-                      const userBookings = getUserBookings(user);
-                      const totalSpent = getUserTotalSpent(user);
-                      const status = getUserStatus(user);
-                      const group = getUserGroup(user);
+              <tbody>
+                {paginatedUsers.length > 0 ? (
+                  paginatedUsers.map((user, index) => {
+                    const userOrders = getUserOrders(user);
+                    const userBookings = getUserBookings(user);
+                    const orderCount = Number(
+                      user.orderCount || userOrders.length || 0,
+                    );
+                    const bookingCount = Number(
+                      user.bookingCount || userBookings.length || 0,
+                    );
+                    const totalSpent = getUserTotalSpent(user);
+                    const status = getUserStatus(user);
+                    const group = getUserGroup(user);
 
-                      return (
-                        <tr
-                          key={user.id || index}
-                          onClick={() => setSelectedUser(user)}
-                          className={`border-t border-gray-100 hover:bg-green-50/30 cursor-pointer ${
-                            String(selectedUser?.id) === String(user.id)
-                              ? "bg-green-50/50"
-                              : ""
-                          }`}
-                        >
-                          <td className="px-4 py-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedIds.includes(String(user.id))}
-                              onChange={(e) => {
+                    return (
+                      <tr
+                        key={user.id || index}
+                        onClick={() => setSelectedUser(user)}
+                        className={`border-t border-gray-100 hover:bg-green-50/30 cursor-pointer ${
+                          String(selectedUser?.id) === String(user.id)
+                            ? "bg-green-50/50"
+                            : ""
+                        }`}
+                      >
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(String(user.id))}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              toggleSelectOne(user.id);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-4 h-4 accent-green-700"
+                          />
+                        </td>
+
+                        <td className="px-4 py-3 font-black text-green-700 whitespace-nowrap">
+                          KH{String(user.id || index + 1).slice(-5)}
+                        </td>
+
+                        <td className="px-4 py-3 font-bold text-gray-700 whitespace-nowrap">
+                          {user.name || user.fullName || "Khách hàng"}
+                        </td>
+
+                        <td className="px-4 py-3 text-gray-600 font-semibold whitespace-nowrap">
+                          {user.phone || "Chưa có"}
+                        </td>
+
+                        <td className="px-4 py-3 text-gray-600 font-semibold whitespace-nowrap">
+                          {user.email || "Chưa có"}
+                        </td>
+
+                        <td className="px-4 py-3 font-black text-center">
+                          {orderCount}
+                        </td>
+
+                        <td className="px-4 py-3 font-black text-center">
+                          {bookingCount}
+                        </td>
+
+                        <td className="px-4 py-3 font-black text-green-950 text-center whitespace-nowrap">
+                          {formatPrice(totalSpent)}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <span className="px-3 py-1.5 rounded-lg text-xs font-black bg-blue-50 text-blue-700 whitespace-nowrap">
+                            {getGroupText(group)}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <span
+                            className={`px-3 py-1.5 rounded-lg text-xs font-black whitespace-nowrap ${getStatusStyle(
+                              status,
+                            )}`}
+                          >
+                            {getStatusText(status)}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-3 sticky right-0 bg-white z-10 shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.25)]">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <IconButton
+                              icon={<Eye size={16} />}
+                              color="green"
+                              onClick={(e) => {
                                 e.stopPropagation();
-                                toggleSelectOne(user.id);
+                                setSelectedUser(user);
                               }}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-4 h-4 accent-green-700"
                             />
-                          </td>
 
-                          <td className="px-4 py-3 font-black text-green-700 whitespace-nowrap">
-                            KH{String(user.id || index + 1).slice(-5)}
-                          </td>
-
-                          <td className="px-4 py-3 font-bold text-gray-700 whitespace-nowrap">
-                            {user.name || user.fullName || "Khách hàng"}
-                          </td>
-
-                          <td className="px-4 py-3 text-gray-600 font-semibold whitespace-nowrap">
-                            {user.phone || "Chưa có"}
-                          </td>
-
-                          <td className="px-4 py-3 text-gray-600 font-semibold whitespace-nowrap">
-                            {user.email || "Chưa có"}
-                          </td>
-
-                          <td className="px-4 py-3 font-black text-center">
-                            {userOrders.length}
-                          </td>
-
-                          <td className="px-4 py-3 font-black text-center">
-                            {userBookings.length}
-                          </td>
-
-                          <td className="px-4 py-3 font-black text-green-950 text-center whitespace-nowrap">
-                            {formatPrice(totalSpent)}
-                          </td>
-
-                          <td className="px-4 py-3">
-                            <span className="px-3 py-1.5 rounded-lg text-xs font-black bg-blue-50 text-blue-700 whitespace-nowrap">
-                              {getGroupText(group)}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3">
-                            <span
-                              className={`px-3 py-1.5 rounded-lg text-xs font-black whitespace-nowrap ${getStatusStyle(
-                                status,
-                              )}`}
-                            >
-                              {getStatusText(status)}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3 sticky right-0 bg-white z-10 shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.25)]">
-                            <div className="flex items-center justify-center gap-1.5">
+                            {canGrantRole && (
                               <IconButton
-                                icon={<Eye size={16} />}
+                                icon={<Pencil size={16} />}
                                 color="green"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSelectedUser(user);
+                                  openGrantRoleModal(user);
                                 }}
                               />
-                              <IconButton
-                                icon={
-                                  status === "locked" ? (
-                                    <Unlock size={16} />
-                                  ) : (
-                                    <Lock size={16} />
-                                  )
-                                }
-                                color="orange"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleUserStatus(user);
-                                }}
-                              />
-                              <IconButton
-                                icon={<Trash2 size={16} />}
-                                color="red"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteUser(user);
-                                }}
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="11"
-                        className="px-5 py-14 text-center text-gray-400 font-bold"
-                      >
-                        Chưa có khách hàng phù hợp
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </thead>
+                            )}
+
+                            <IconButton
+                              icon={
+                                status === "locked" ? (
+                                  <Unlock size={16} />
+                                ) : (
+                                  <Lock size={16} />
+                                )
+                              }
+                              color="orange"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleUserStatus(user);
+                              }}
+                            />
+                            <IconButton
+                              icon={<Trash2 size={16} />}
+                              color="red"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteUser(user);
+                              }}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="11"
+                      className="px-5 py-14 text-center text-gray-400 font-bold"
+                    >
+                      Chưa có khách hàng phù hợp
+                    </td>
+                  </tr>
+                )}
+              </tbody>
             </table>
           </div>
 
           <div className="px-5 py-4 border-t border-gray-100 flex justify-between items-center">
             <p className="text-gray-600 font-bold">
-              Hiển thị {(currentPage - 1) * pageSize + 1} -{" "}
-              {Math.min(currentPage * pageSize, filteredUsers.length)} trong
-              tổng số {filteredUsers.length} khách hàng
+              Hiển thị {startItem} - {endItem} trong tổng số{" "}
+              {filteredUsers.length} khách hàng
             </p>
 
             <div className="flex items-center gap-2">
@@ -668,6 +727,16 @@ function AdminUsersPage() {
             onDelete={() => deleteUser(selectedUser)}
           />
         )}
+        {roleModalUser && (
+          <GrantRoleModal
+            user={roleModalUser}
+            roleValue={roleValue}
+            setRoleValue={setRoleValue}
+            submitting={roleSubmitting}
+            onClose={closeGrantRoleModal}
+            onSubmit={grantUserRole}
+          />
+        )}
       </div>
     </div>
   );
@@ -690,6 +759,10 @@ function UserDetailPanel({
   onToggleStatus,
   onDelete,
 }) {
+  const orderCount = Number(user.orderCount || orders.length || 0);
+  const bookingCount = Number(user.bookingCount || bookings.length || 0);
+  const averageValue = totalSpent / Math.max(orderCount + bookingCount, 1);
+
   return (
     <aside className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden 2xl:sticky 2xl:top-4">
       <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -748,15 +821,10 @@ function UserDetailPanel({
         </DetailBlock>
 
         <div className="grid grid-cols-2 gap-3">
-          <MiniStat label="Đơn hàng" value={orders.length} />
-          <MiniStat label="Đặt bàn" value={bookings.length} />
+          <MiniStat label="Đơn hàng" value={orderCount} />
+          <MiniStat label="Đặt bàn" value={bookingCount} />
           <MiniStat label="Tổng chi tiêu" value={formatPrice(totalSpent)} />
-          <MiniStat
-            label="Giá trị TB"
-            value={formatShortMoney(
-              totalSpent / Math.max(orders.length + bookings.length, 1),
-            )}
-          />
+          <MiniStat label="Giá trị TB" value={formatShortMoney(averageValue)} />
         </div>
 
         <DetailBlock title="Lịch sử đơn hàng">
@@ -768,8 +836,9 @@ function UserDetailPanel({
               amount={formatPrice(order.total || order.totalPrice)}
             />
           ))}
-
-          {orders.length === 0 && <EmptyText text="Chưa có đơn hàng" />}
+          {orders.length === 0 && (
+            <EmptyText text="Chưa đồng bộ chi tiết đơn hàng trong màn này" />
+          )}
         </DetailBlock>
 
         <DetailBlock title="Lịch sử đặt bàn">
@@ -785,8 +854,9 @@ function UserDetailPanel({
               }
             />
           ))}
-
-          {bookings.length === 0 && <EmptyText text="Chưa có lịch đặt bàn" />}
+          {bookings.length === 0 && (
+            <EmptyText text="Chưa đồng bộ chi tiết đặt bàn trong màn này" />
+          )}
         </DetailBlock>
 
         <div className="grid grid-cols-2 gap-2 pt-4 border-t border-gray-100">
@@ -806,6 +876,101 @@ function UserDetailPanel({
         </div>
       </div>
     </aside>
+  );
+}
+
+function GrantRoleModal({
+  user,
+  roleValue,
+  setRoleValue,
+  submitting,
+  onClose,
+  onSubmit,
+}) {
+  const displayName = user.name || user.fullName || "Khách hàng";
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] bg-black/45 flex items-center justify-center px-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-black text-green-950">
+              Cấp quyền tài khoản
+            </h3>
+            <p className="text-sm text-gray-500 font-semibold mt-1">
+              Chọn vai trò mới cho khách hàng.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 flex items-center justify-center"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="rounded-2xl bg-green-50 border border-green-100 p-4">
+            <p className="text-sm text-gray-500 font-bold">Tài khoản</p>
+            <h4 className="text-lg font-black text-green-950 mt-1">
+              {displayName}
+            </h4>
+            <p className="text-sm text-gray-600 font-semibold mt-1">
+              {user.email || "Chưa có email"}
+            </p>
+          </div>
+
+          <label className="block">
+            <span className="text-sm font-black text-green-950">
+              Vai trò cần cấp
+            </span>
+
+            <select
+              value={roleValue}
+              onChange={(e) => setRoleValue(e.target.value)}
+              className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 text-sm font-bold text-gray-700 outline-none focus:border-green-700"
+            >
+              <option value="staff">Nhân viên</option>
+              <option value="manager">Quản lý</option>
+              <option value="admin">Quản trị viên</option>
+            </select>
+          </label>
+
+          <div className="rounded-2xl bg-yellow-50 border border-yellow-100 p-4 text-sm text-yellow-800 font-semibold leading-6">
+            Sau khi cấp quyền, tài khoản này sẽ không còn nằm trong trang Khách
+            hàng và sẽ xuất hiện ở trang Vai trò.
+          </div>
+        </div>
+
+        <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="h-11 px-5 rounded-xl bg-gray-100 text-gray-600 font-black hover:bg-gray-200 disabled:opacity-60"
+          >
+            Hủy
+          </button>
+
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={submitting}
+            className="h-11 px-6 rounded-xl bg-green-800 text-white font-black hover:bg-green-900 disabled:opacity-60"
+          >
+            {submitting ? "Đang cấp..." : "Cấp quyền"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -845,6 +1010,7 @@ function SelectBox({ label, value, onChange, children }) {
 function IconButton({ icon, color, onClick }) {
   const styles = {
     green: "bg-green-50 text-green-700 hover:bg-green-100",
+    blue: "bg-blue-50 text-blue-600 hover:bg-blue-100",
     orange: "bg-orange-50 text-orange-600 hover:bg-orange-100",
     red: "bg-red-50 text-red-600 hover:bg-red-100",
   };

@@ -5,11 +5,13 @@ function AdminProtectedRoute({ children }) {
   const isLoggedIn = checkLogin();
   const currentUser = getCurrentUser();
 
+  const allowedRoles = ["admin", "manager", "staff"];
+
   if (!isLoggedIn) {
     return <Navigate to="/admin/login" replace />;
   }
 
-  if (currentUser?.role !== "admin") {
+  if (!allowedRoles.includes(currentUser?.role)) {
     return <Navigate to="/home" replace />;
   }
 

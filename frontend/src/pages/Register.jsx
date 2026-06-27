@@ -159,14 +159,8 @@ function Register() {
         return;
       }
 
-      saveAuthSession({
-        token: data.token,
-        user: data.user,
-        remember: true,
-      });
-
       setSuccessMessage(
-        "Đăng ký tài khoản thành công! Chào mừng bạn đến với Dê Hương Sơn",
+        "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản trước khi đăng nhập.",
       );
 
       setFormData({
@@ -181,8 +175,8 @@ function Register() {
       setErrors({});
 
       setTimeout(() => {
-        navigate("/home");
-      }, 1000);
+        navigate("/login");
+      }, 2500);
     } catch (error) {
       console.error(error);
 

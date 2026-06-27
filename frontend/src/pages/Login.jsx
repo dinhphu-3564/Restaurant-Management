@@ -1,7 +1,12 @@
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { loginUser, socialLogin } from "../services/authService";
-import { saveAuthSession } from "../utils/auth";
+import {
+  saveAuthSession,
+  checkLogin,
+  getCurrentUser,
+  clearAuthSession,
+} from "../utils/auth";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { signInWithPopup } from "firebase/auth";
@@ -146,15 +151,14 @@ function Login() {
 
   // Kiểm tra đăng nhập
   useEffect(() => {
-    const currentUser =
-      JSON.parse(localStorage.getItem("currentUser")) ||
-      JSON.parse(sessionStorage.getItem("currentUser"));
+    if (!checkLogin()) {
+      clearAuthSession();
+      return;
+    }
 
-    const isLoggedIn =
-      localStorage.getItem("isLoggedIn") === "true" ||
-      sessionStorage.getItem("isLoggedIn") === "true";
+    const currentUser = getCurrentUser();
 
-    if (isLoggedIn && currentUser) {
+    if (currentUser) {
       navigate(currentUser.role === "admin" ? "/admin/dashboard" : "/home");
     }
   }, [navigate]);

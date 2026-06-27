@@ -4,8 +4,9 @@ const db = require("../config/db");
 async function requireAuth(req, res, next) {
   try {
     const authHeader = req.headers.authorization || "";
+
     const token = authHeader.startsWith("Bearer ")
-      ? authHeader.replace("Bearer ", "")
+      ? authHeader.replace("Bearer ", "").trim()
       : null;
 
     if (!token) {
@@ -17,12 +18,30 @@ async function requireAuth(req, res, next) {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    if (!decoded?.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Token không chứa thông tin tài khoản.",
+      });
+    }
+
     const [rows] = await db.query(
       `
-      SELECT id, name, full_name, phone, email, avatar, role, status, created_at
-FROM users
-WHERE id = ?
-LIMIT 1
+      SELECT
+        id,
+        name,
+        full_name,
+        phone,
+        email,
+        address,
+        avatar,
+        role,
+        status,
+        email_verified,
+        created_at
+      FROM users
+      WHERE id = ? AND deleted_at IS NULL
+      LIMIT 1
       `,
       [decoded.id],
     );
@@ -49,16 +68,22 @@ LIMIT 1
       fullName: user.full_name || user.name,
       phone: user.phone,
       email: user.email,
+      address: user.address,
       avatar: user.avatar,
       role: user.role,
       status: user.status,
+      emailVerified: Boolean(user.email_verified),
+      createdAt: user.created_at,
     };
 
     next();
   } catch (error) {
+    console.error("Lỗi requireAuth:", error);
+
     return res.status(401).json({
       success: false,
       message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn.",
+      error: error.message,
     });
   }
 }
@@ -74,7 +99,35 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function requireBackOffice(req, res, next) {
+  const allowedRoles = ["admin", "manager", "staff"];
+
+  if (!req.user || !allowedRoles.includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Bạn không có quyền truy cập khu vực quản trị.",
+    });
+  }
+
+  next();
+}
+
+function requireRoles(...roles) {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền thực hiện chức năng này.",
+      });
+    }
+
+    next();
+  };
+}
+
 module.exports = {
   requireAuth,
   requireAdmin,
+  requireBackOffice,
+  requireRoles,
 };

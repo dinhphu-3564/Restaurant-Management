@@ -4,6 +4,9 @@ const jwt = require("jsonwebtoken");
 const db = require("../config/db");
 const firebaseAdmin = require("../config/firebaseAdmin");
 const { requireAuth } = require("../middleware/authMiddleware");
+const { createActivityLog } = require("../utils/activityLog");
+const crypto = require("crypto");
+const { sendVerifyEmail } = require("../utils/mail");
 
 const router = express.Router();
 
@@ -27,9 +30,11 @@ function mapUser(row) {
     fullName: row.full_name || row.name,
     phone: row.phone,
     email: row.email,
+    address: row.address,
     avatar: row.avatar,
     role: row.role,
     status: row.status,
+    emailVerified: Boolean(row.email_verified),
     createdAt: row.created_at,
   };
 }
@@ -60,11 +65,15 @@ router.post("/register", async (req, res) => {
 
     const [existedRows] = await db.query(
       `
-      SELECT id
-      FROM users
-      WHERE email = ? OR (phone IS NOT NULL AND phone != '' AND phone = ?)
-      LIMIT 1
-      `,
+  SELECT id
+  FROM users
+  WHERE deleted_at IS NULL
+    AND (
+      email = ?
+      OR (phone IS NOT NULL AND phone != '' AND phone = ?)
+    )
+  LIMIT 1
+  `,
       [email, phone],
     );
 
@@ -80,25 +89,62 @@ router.post("/register", async (req, res) => {
     const [result] = await db.query(
       `
   INSERT INTO users (
-    name,
-    full_name,
-    phone,
-    email,
-    password_hash,
-    role,
-    status
-  )
-  VALUES (?, ?, ?, ?, ?, 'user', 'active')
+  name,
+  full_name,
+  phone,
+  email,
+  password_hash,
+  role,
+  status,
+  email_verified
+)
+VALUES (?, ?, ?, ?, ?, 'user', 'active', 0)
   `,
       [name, name, phone || null, email, passwordHash],
     );
+    const verifyToken = crypto.randomBytes(32).toString("hex");
+    const verifyTokenHash = crypto
+      .createHash("sha256")
+      .update(verifyToken)
+      .digest("hex");
+
+    await db.query(
+      `
+  UPDATE users
+  SET
+    email_verify_token_hash = ?,
+    email_verify_expires_at = DATE_ADD(NOW(), INTERVAL 24 HOUR)
+  WHERE id = ?
+  `,
+      [verifyTokenHash, result.insertId],
+    );
+
+    const verifyUrl = `${process.env.APP_URL}/verify-email?token=${verifyToken}`;
+
+    try {
+      await sendVerifyEmail({
+        to: email,
+        name,
+        verifyUrl,
+      });
+    } catch (mailError) {
+      console.error("Lỗi gửi email xác thực:", mailError);
+    }
+    await createActivityLog({
+      targetUserId: result.insertId,
+      actorUserId: result.insertId,
+      action: "account_created",
+      oldValue: null,
+      newValue: "user",
+      message: "Tài khoản được tạo",
+    });
 
     const [rows] = await db.query(
       `
-  SELECT id, name, full_name, phone, email, avatar, role, status, created_at
-  FROM users
-  WHERE id = ?
-  LIMIT 1
+  SELECT id, name, full_name, phone, email, address, avatar, role, status, email_verified, created_at
+FROM users
+WHERE id = ? AND deleted_at IS NULL
+LIMIT 1
   `,
       [result.insertId],
     );
@@ -141,9 +187,10 @@ router.post("/login", async (req, res) => {
 
     const [rows] = await db.query(
       `
-  SELECT id, name, full_name, phone, email, avatar, password_hash, role, status, created_at
+  SELECT id, name, full_name, phone, email, address, avatar, password_hash, role, status, email_verified, created_at
   FROM users
-  WHERE email = ? OR phone = ?
+  WHERE (email = ? OR phone = ?)
+    AND deleted_at IS NULL
   LIMIT 1
   `,
       [account, account],
@@ -184,14 +231,21 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const user = mapUser(userRow);
-    const token = createToken(user);
+    if (!userRow.email_verified) {
+      return res.status(403).json({
+        success: false,
+        message: "Vui lòng xác thực email trước khi đăng nhập.",
+      });
+    }
+
+    const loginUser = mapUser(userRow);
+    const token = createToken(loginUser);
 
     res.json({
       success: true,
       message: "Đăng nhập thành công.",
       token,
-      user,
+      user: loginUser,
     });
   } catch (error) {
     console.error("Lỗi đăng nhập:", error);
@@ -251,12 +305,15 @@ router.post("/social-login", async (req, res) => {
 
     const [existedRows] = await db.query(
       `
-      SELECT id, name, full_name, phone, email, avatar, role, status, created_at
-      FROM users
-      WHERE email = ?
-         OR (auth_provider = ? AND provider_uid = ?)
-      LIMIT 1
-      `,
+  SELECT id, name, full_name, phone, email, address, avatar, role, status, email_verified, created_at
+FROM users
+  WHERE deleted_at IS NULL
+    AND (
+      email = ?
+      OR (auth_provider = ? AND provider_uid = ?)
+    )
+  LIMIT 1
+  `,
       [email, provider, providerUid],
     );
 
@@ -275,24 +332,36 @@ router.post("/social-login", async (req, res) => {
 
       await db.query(
         `
-        UPDATE users
-        SET
-          name = COALESCE(NULLIF(name, ''), ?),
-          full_name = COALESCE(NULLIF(full_name, ''), ?),
-          avatar = COALESCE(NULLIF(avatar, ''), ?),
-          auth_provider = ?,
-          provider_uid = ?,
-          updated_at = NOW()
-        WHERE id = ?
-        `,
-        [name, name, avatar, provider, providerUid, userRow.id],
+  UPDATE users
+  SET
+    name = COALESCE(NULLIF(name, ''), ?),
+    full_name = COALESCE(NULLIF(full_name, ''), ?),
+    avatar = COALESCE(NULLIF(avatar, ''), ?),
+    auth_provider = ?,
+    provider_uid = ?,
+    email_verified = CASE
+      WHEN ? = 1 THEN 1
+      ELSE email_verified
+    END,
+    updated_at = NOW()
+  WHERE id = ?
+  `,
+        [
+          name,
+          name,
+          avatar,
+          provider,
+          providerUid,
+          decodedToken.email_verified ? 1 : 0,
+          userRow.id,
+        ],
       );
 
       const [updatedRows] = await db.query(
         `
-        SELECT id, name, full_name, phone, email, avatar, role, status, created_at
-        FROM users
-        WHERE id = ?
+        SELECT id, name, full_name, phone, email, address, avatar, role, status, email_verified, created_at
+FROM users
+WHERE id = ?
         LIMIT 1
         `,
         [userRow.id],
@@ -305,32 +374,49 @@ router.post("/social-login", async (req, res) => {
       const [result] = await db.query(
         `
     INSERT INTO users (
-      name,
-      full_name,
-      phone,
-      email,
-      avatar,
-      password_hash,
-      role,
-      status,
-      auth_provider,
-      provider_uid
-    )
-    VALUES (?, ?, ?, ?, ?, NULL, 'user', 'active', ?, ?)
+  name,
+  full_name,
+  phone,
+  email,
+  avatar,
+  password_hash,
+  role,
+  status,
+  auth_provider,
+  provider_uid,
+  email_verified
+)
+VALUES (?, ?, ?, ?, ?, NULL, 'user', 'active', ?, ?, ?)
     `,
-        [name, name, phone || null, email, avatar, provider, providerUid],
+        [
+          name,
+          name,
+          phone || null,
+          email,
+          avatar,
+          provider,
+          providerUid,
+          decodedToken.email_verified ? 1 : 0,
+        ],
       );
 
       const [rows] = await db.query(
         `
-        SELECT id, name, full_name, phone, email, avatar, role, status, created_at
-        FROM users
-        WHERE id = ?
-        LIMIT 1
-        `,
+  SELECT id, name, full_name, phone, email, address, avatar, role, status, email_verified, created_at
+FROM users
+WHERE id = ?
+  LIMIT 1
+  `,
         [result.insertId],
       );
-
+      await createActivityLog({
+        targetUserId: result.insertId,
+        actorUserId: result.insertId,
+        action: "account_created",
+        oldValue: null,
+        newValue: "user",
+        message: "Tài khoản được tạo bằng đăng nhập mạng xã hội",
+      });
       userRow = rows[0];
     }
 
@@ -363,6 +449,96 @@ router.get("/me", requireAuth, async (req, res) => {
     success: true,
     user: req.user,
   });
+});
+
+// GET /api/auth/verify-email?token=...
+router.get("/verify-email", async (req, res) => {
+  try {
+    const token = String(req.query.token || "").trim();
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu mã xác thực email.",
+      });
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const [rows] = await db.query(
+      `
+      SELECT
+        id,
+        email,
+        email_verified,
+        email_verify_expires_at
+      FROM users
+      WHERE email_verify_token_hash = ?
+        AND deleted_at IS NULL
+      LIMIT 1
+      `,
+      [tokenHash],
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Liên kết xác thực không hợp lệ.",
+      });
+    }
+
+    const user = rows[0];
+
+    if (user.email_verified) {
+      return res.json({
+        success: true,
+        message: "Email này đã được xác thực trước đó.",
+      });
+    }
+
+    const expiresAt = new Date(user.email_verify_expires_at);
+    const now = new Date();
+
+    if (!user.email_verify_expires_at || expiresAt <= now) {
+      return res.status(400).json({
+        success: false,
+        message: "Liên kết xác thực đã hết hạn.",
+      });
+    }
+
+    await db.query(
+      `
+      UPDATE users
+      SET
+        email_verified = 1,
+        updated_at = NOW()
+      WHERE id = ?
+      `,
+      [user.id],
+    );
+
+    await createActivityLog({
+      targetUserId: user.id,
+      actorUserId: user.id,
+      action: "email_verified",
+      oldValue: "0",
+      newValue: "1",
+      message: "Email đã được xác thực",
+    });
+
+    res.json({
+      success: true,
+      message: "Xác thực email thành công.",
+    });
+  } catch (error) {
+    console.error("Lỗi xác thực email:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi xác thực email.",
+      error: error.message,
+    });
+  }
 });
 
 module.exports = router;
