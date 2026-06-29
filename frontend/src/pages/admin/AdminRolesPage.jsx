@@ -57,6 +57,37 @@ const STATUS_BADGE = {
   deleted: "bg-gray-200 text-gray-700 border border-gray-300",
 };
 
+const ROLE_THEME = {
+  admin: {
+    box: "bg-red-50 text-red-700 border-red-200",
+    text: "text-red-700",
+    check: "text-red-600",
+    iconBg: "bg-red-50 text-red-700",
+    hover: "hover:bg-red-50/40 hover:border-red-100",
+  },
+  manager: {
+    box: "bg-yellow-50 text-yellow-800 border-yellow-200",
+    text: "text-yellow-800",
+    check: "text-yellow-700",
+    iconBg: "bg-yellow-50 text-yellow-700",
+    hover: "hover:bg-yellow-50/50 hover:border-yellow-100",
+  },
+  staff: {
+    box: "bg-blue-50 text-blue-700 border-blue-200",
+    text: "text-blue-700",
+    check: "text-blue-600",
+    iconBg: "bg-blue-50 text-blue-700",
+    hover: "hover:bg-blue-50/40 hover:border-blue-100",
+  },
+  user: {
+    box: "bg-gray-50 text-gray-700 border-gray-200",
+    text: "text-gray-700",
+    check: "text-gray-500",
+    iconBg: "bg-gray-50 text-gray-700",
+    hover: "hover:bg-gray-50 hover:border-gray-200",
+  },
+};
+
 const ROLE_ICON = {
   admin: <Crown size={22} />,
   manager: <BriefcaseBusiness size={22} />,
@@ -93,7 +124,7 @@ const roleCards = [
     key: "staff",
     title: "Nhân viên",
     description: "Thực hiện nghiệp vụ cơ bản",
-    color: "bg-green-50 text-green-700",
+    color: "bg-blue-50 text-blue-700",
     permissions: [
       "Tạo và xử lý đơn hàng",
       "Check-in đặt bàn",
@@ -932,18 +963,22 @@ function TopStatCard({ icon, title, value, note, bg, color, hover }) {
 }
 
 function RolePermissionCard({ role, count }) {
+  const theme = ROLE_THEME[role.key] || ROLE_THEME.staff;
+
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 min-h-[178px] min-w-0 hover:bg-green-50/25 hover:border-green-100 hover:shadow-md transition">
+    <div
+      className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-4 min-h-[178px] min-w-0 hover:shadow-md transition ${theme.hover}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
           <div
-            className={`w-10 h-10 rounded-xl ${role.color} flex items-center justify-center shrink-0`}
+            className={`w-10 h-10 rounded-xl ${theme.iconBg} flex items-center justify-center shrink-0`}
           >
             {ROLE_ICON[role.key]}
           </div>
 
           <div className="min-w-0">
-            <h3 className="text-lg font-black text-green-950 leading-6">
+            <h3 className={`text-lg font-black leading-6 ${theme.text}`}>
               {role.title}
             </h3>
 
@@ -960,7 +995,7 @@ function RolePermissionCard({ role, count }) {
             key={permission}
             className="text-xs text-gray-600 font-bold flex items-start gap-2 leading-5"
           >
-            <span className="text-green-600 font-black shrink-0 leading-5">
+            <span className={`${theme.check} font-black shrink-0 leading-5`}>
               ✓
             </span>
             <span className="break-words">{permission}</span>
@@ -1164,7 +1199,7 @@ function RecentActivityPanel({ activities, loading, formatDateTime }) {
           >
             {showAll
               ? "Thu gọn nhật ký"
-              : `Xem thêm ${activities.length - 10} hoạt động`}
+              : `Xem thêm ${activities.length - 5} hoạt động`}
 
             <ChevronDown
               size={17}
@@ -1190,7 +1225,9 @@ function AccountDetailPanel({
 }) {
   const role = user.role || "staff";
   const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.staff;
+  const roleTheme = ROLE_THEME[role] || ROLE_THEME.staff;
   const isLocked = user.status === "locked";
+
   const displayName = user.name || user.fullName || "Tài khoản";
   const [showAllActivities, setShowAllActivities] = useState(false);
 
@@ -1243,12 +1280,10 @@ function AccountDetailPanel({
 
               <span
                 className={`px-3 py-1 rounded-lg text-xs font-black ${
-                  isLocked
-                    ? "bg-red-50 text-red-600"
-                    : "bg-green-50 text-green-700"
+                  STATUS_BADGE[user.status] || STATUS_BADGE.active
                 }`}
               >
-                {isLocked ? "Đã khóa" : "Hoạt động"}
+                {STATUS_TEXT[user.status] || "Đang hoạt động"}
               </span>
             </div>
           </div>
@@ -1290,7 +1325,7 @@ function AccountDetailPanel({
               value={role}
               disabled={String(user.id) === String(getCurrentUser()?.id)}
               onChange={(e) => onChangeRole(user, e.target.value)}
-              className="h-10 rounded-xl border border-gray-100 px-3 text-sm font-black text-gray-700 outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+              className={`h-10 rounded-xl border px-3 text-sm font-black outline-none disabled:opacity-60 disabled:cursor-not-allowed ${roleTheme.box}`}
             >
               <option value="admin">Quản trị viên</option>
               <option value="manager">Quản lý</option>
@@ -1300,10 +1335,17 @@ function AccountDetailPanel({
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-black text-green-700">Quyền đã có</p>
+            <p className={`text-sm font-black ${roleTheme.text}`}>
+              Quyền đã có
+            </p>
 
             {permissions.allowed.map((item) => (
-              <PermissionLine key={item} type="allow" text={item} />
+              <PermissionLine
+                key={item}
+                type="allow"
+                text={item}
+                colorClass={roleTheme.check}
+              />
             ))}
           </div>
         </DetailBox>
@@ -1437,14 +1479,12 @@ function DetailLine({ icon, label, value }) {
   );
 }
 
-function PermissionLine({ type, text }) {
+function PermissionLine({ type, text, colorClass = "text-green-600" }) {
   const isAllow = type === "allow";
 
   return (
     <div className="flex items-start gap-2 text-sm">
-      <span
-        className={`mt-0.5 ${isAllow ? "text-green-600" : "text-gray-400"}`}
-      >
+      <span className={`mt-0.5 ${isAllow ? colorClass : "text-gray-400"}`}>
         {isAllow ? <CheckCircle size={16} /> : <XCircle size={16} />}
       </span>
 

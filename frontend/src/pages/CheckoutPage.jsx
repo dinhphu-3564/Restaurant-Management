@@ -27,6 +27,10 @@ function CheckoutPage() {
   const API_URL = "http://localhost:5001";
 
   const navigate = useNavigate();
+  const currentUser =
+    JSON.parse(localStorage.getItem("currentUser")) ||
+    JSON.parse(sessionStorage.getItem("currentUser")) ||
+    {};
 
   const savedCheckoutForm =
     JSON.parse(localStorage.getItem("checkoutForm")) || {};
@@ -58,14 +62,41 @@ function CheckoutPage() {
     return price.toLocaleString("vi-VN") + "đ";
   };
 
+  const normalizeMoney = (value) => {
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    const number = Number(String(value || "").replace(/[^\d]/g, ""));
+
+    return Number.isFinite(number) ? number : 0;
+  };
+
   // Tính tổng tiền tạm tính
   const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.qty,
+    (sum, item) => sum + normalizeMoney(item.price) * Number(item.qty || 1),
     0,
   );
+
   const checkoutSummary =
     JSON.parse(localStorage.getItem("checkoutSummary")) || null;
   const savedCoupon = checkoutSummary?.appliedCoupon || null;
+
+  const SERVICE_TYPE_LABELS = {
+    dinein: "Ăn tại quán",
+    delivery: "Giao tận nơi",
+    pickup: "Đến lấy tại quán",
+  };
+
+  const couponServiceTypes = Array.isArray(savedCoupon?.serviceTypes)
+    ? savedCoupon.serviceTypes
+    : [];
+
+  const isCouponServiceValid =
+    savedCoupon && couponServiceTypes.includes(serviceType);
+
+  const isCouponMinOrderValid =
+    savedCoupon && subtotal >= Number(savedCoupon.minOrder || 0);
 
   const autoDiscountRule = checkoutSummary?.autoDiscountRule || {
     title: "Hóa đơn trên 2.000.000đ",
@@ -76,9 +107,7 @@ function CheckoutPage() {
 
   // Chỉ áp dụng mã nếu mã đó hỗ trợ hình thức phục vụ đang chọn
   const appliedCoupon =
-    savedCoupon &&
-    savedCoupon.serviceTypes?.includes(serviceType) &&
-    subtotal >= savedCoupon.minOrder
+    savedCoupon && isCouponServiceValid && isCouponMinOrderValid
       ? savedCoupon
       : null;
   // Tự động giảm giá
@@ -91,9 +120,13 @@ function CheckoutPage() {
     ? (subtotal * autoDiscountRule.percent) / 100
     : 0;
 
-  const couponDiscountTotal = appliedCoupon
-    ? (subtotal * appliedCoupon.percent) / 100
+  const rawCouponDiscountTotal = appliedCoupon
+    ? appliedCoupon.discountType === "fixed"
+      ? appliedCoupon.amount
+      : (subtotal * appliedCoupon.percent) / 100
     : 0;
+
+  const couponDiscountTotal = Math.min(rawCouponDiscountTotal, subtotal);
 
   const discountTotal = appliedCoupon ? couponDiscountTotal : autoDiscountTotal;
 
@@ -477,7 +510,9 @@ function CheckoutPage() {
                     <div className="flex justify-between gap-3 text-xs text-green-800">
                       <span>
                         Mã {appliedCoupon.code} - {appliedCoupon.title} giảm{" "}
-                        {appliedCoupon.percent}%
+                        {appliedCoupon.discountType === "fixed"
+                          ? formatPrice(appliedCoupon.amount)
+                          : `${appliedCoupon.percent}%`}
                       </span>
 
                       <span className="shrink-0">
@@ -508,17 +543,24 @@ function CheckoutPage() {
                       </p>
                     )}
 
-                  {savedCoupon &&
-                    !savedCoupon.serviceTypes?.includes(serviceType) && (
-                      <p className="text-xs text-red-500 mt-2">
-                        Mã {savedCoupon.code} không áp dụng cho hình thức phục
-                        vụ hiện tại.
-                      </p>
-                    )}
+                  {savedCoupon && !isCouponServiceValid && (
+                    <p className="text-xs text-red-500 mt-2">
+                      Mã {savedCoupon.code} chỉ áp dụng cho:{" "}
+                      {couponServiceTypes
+                        .map((type) => SERVICE_TYPE_LABELS[type])
+                        .filter(Boolean)
+                        .join(", ")}
+                      <br />
+                      Hình thức hiện tại là {
+                        SERVICE_TYPE_LABELS[serviceType]
+                      }{" "}
+                      nên mã đã được loại khỏi đơn.
+                    </p>
+                  )}
 
                   {savedCoupon &&
-                    savedCoupon.serviceTypes?.includes(serviceType) &&
-                    subtotal < savedCoupon.minOrder && (
+                    isCouponServiceValid &&
+                    !isCouponMinOrderValid && (
                       <p className="text-xs text-red-500 mt-2">
                         Đơn hàng cần tối thiểu{" "}
                         {formatPrice(savedCoupon.minOrder)} để dùng mã{" "}
@@ -572,6 +614,14 @@ function CheckoutPage() {
                   const guests = checkoutForm.guests || "";
                   const note = checkoutForm.note || "";
 
+                  const normalizedCartItems = cartItems.map((item) => ({
+                    ...item,
+                    id: item.id || item.code,
+                    code: item.code || item.id,
+                    price: normalizeMoney(item.price),
+                    qty: Number(item.qty || 1),
+                  }));
+
                   if (serviceType === "dinein") {
                     const bookingData = {
                       id: Date.now(),
@@ -582,7 +632,8 @@ function CheckoutPage() {
                       customerName,
                       name: customerName,
                       phone,
-                      email: "",
+                      email: currentUser.email || "",
+                      userId: currentUser.id || "",
 
                       date,
                       time,
@@ -594,7 +645,7 @@ function CheckoutPage() {
 
                       note,
 
-                      cartItems,
+                      cartItems: normalizedCartItems,
                       subtotal,
                       total,
 
@@ -630,21 +681,23 @@ function CheckoutPage() {
 
                   const finalOrderData = {
                     id: orderId,
-                    cartItems,
 
+                    userId: currentUser.id || "",
+                    customerName:
+                      currentUser.name || currentUser.fullName || customerName,
+                    email: currentUser.email || "",
+                    phone: currentUser.phone || phone,
+
+                    cartItems: normalizedCartItems,
                     serviceType,
                     deliveryTimeType,
-
-                    paymentMethod: "",
+                    paymentMethod: "bank",
                     paymentContent,
-
                     name: customerName,
-                    phone,
                     address,
                     date,
                     time,
                     note,
-
                     subtotal,
                     appliedCoupon,
                     autoDiscountTotal,
@@ -652,13 +705,12 @@ function CheckoutPage() {
                     discountTotal,
                     shippingFee,
                     total,
-
                     qty: totalItems,
-                    images: cartItems.map((item) => item.image),
-                    extra: Math.max(cartItems.length - 4, 0),
-
-                    status: "Chờ chọn phương thức thanh toán",
+                    images: normalizedCartItems.map((item) => item.image),
+                    extra: Math.max(normalizedCartItems.length - 4, 0),
+                    status: "pending",
                     paymentStatus: "pending_payment",
+                    createdAt: new Date().toISOString(),
                   };
 
                   const res = await fetch(`${API_URL}/api/orders`, {
@@ -684,6 +736,20 @@ function CheckoutPage() {
                   localStorage.setItem(
                     "currentOrder",
                     JSON.stringify(savedOrder),
+                  );
+
+                  const oldOrders =
+                    JSON.parse(localStorage.getItem("orders")) || [];
+
+                  localStorage.setItem(
+                    "orders",
+                    JSON.stringify([savedOrder, ...oldOrders]),
+                  );
+
+                  window.dispatchEvent(
+                    new CustomEvent("ordersUpdated", {
+                      detail: [savedOrder, ...oldOrders],
+                    }),
                   );
 
                   navigate("/payment-qr");

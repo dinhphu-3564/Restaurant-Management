@@ -53,3 +53,11 @@ export async function getUserActivities(userId) {
 
   return handleResponse(res);
 }
+
+export async function getAdminRoleActivities() {
+  const res = await fetch(`${API_URL}/admin-activities`, {
+    headers: authHeaders(),
+  });
+
+  return handleResponse(res);
+}

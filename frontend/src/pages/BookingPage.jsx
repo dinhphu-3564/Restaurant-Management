@@ -1,6 +1,8 @@
 import { checkLogin } from "../utils/auth";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { tableService } from "../services/tableService";
+import { bookingService } from "../services/bookingService";
 
 import LoginRequiredModal from "../components/LoginRequiredModal";
 
@@ -17,6 +19,49 @@ import {
   ChefHat,
   Headset,
 } from "lucide-react";
+
+//hàm sắp xếp khu vực
+const removeVietnameseTones = (str = "") =>
+  String(str)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .trim();
+
+const getAreaPriority = (area) => {
+  const name = removeVietnameseTones(area.title || area.name || "");
+
+  if (name.includes("vip")) return 0;
+
+  const floorMatch = name.match(/tang\s*(\d+)/);
+
+  if (floorMatch) {
+    return Number(floorMatch[1]);
+  }
+
+  if (name.includes("tret")) return 1;
+
+  return 99;
+};
+
+const sortAreasByPriority = (areas = []) => {
+  return [...areas].sort((a, b) => {
+    const priorityA = getAreaPriority(a);
+    const priorityB = getAreaPriority(b);
+
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+
+    return String(a.title || a.name || "").localeCompare(
+      String(b.title || b.name || ""),
+      "vi",
+      { numeric: true },
+    );
+  });
+};
 
 function BookingPage() {
   const navigate = useNavigate();
@@ -53,33 +98,260 @@ function BookingPage() {
   });
 
   const [errors, setErrors] = useState({});
-  const [selectedArea, setSelectedArea] = useState("floor1");
-  const [selectedTable, setSelectedTable] = useState(101);
+  const [areas, setAreas] = useState([]);
+  const [adminTables, setAdminTables] = useState([]);
+  const [bookings, setBookings] = useState([]);
+
+  const [selectedArea, setSelectedArea] = useState("");
+  const [selectedTable, setSelectedTable] = useState("");
 
   const phoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
-  //dữ liệu khu vực/bàn
-  const areas = [
-    {
-      id: "floor1",
-      title: "Khu vực tầng trệt",
-      text: "Không gian rộng rãi, thoáng mát",
-      tables: [101, 102, 103, 104, 105, 106, 107, 108, 109, 110],
-    },
-    {
-      id: "floor2",
-      title: "Khu vực tầng 2",
-      text: "Không gian riêng tư, yên tĩnh",
-      tables: [201, 202, 203, 204, 205, 206, 207, 208],
-    },
-    {
-      id: "vip",
-      title: "Phòng VIP",
-      text: "Sang trọng, riêng tư",
-      tables: [301, 302, 303, 304],
-    },
-  ];
 
-  const currentArea = areas.find((area) => area.id === selectedArea);
+  // load dữ liệu bàn/khu vực từ API
+  useEffect(() => {
+    const loadTableData = async () => {
+      try {
+        const [apiAreas, apiTables] = await Promise.all([
+          tableService.getAreas(),
+          tableService.getTables(),
+        ]);
+
+        const mappedAreas = sortAreasByPriority(
+          apiAreas.map((area) => ({
+            id: String(area.id),
+            title: area.name,
+            text: area.description,
+          })),
+        );
+
+        const mappedTables = apiTables.map((table) => ({
+          ...table,
+          id: String(table.id),
+          areaId: String(table.areaId),
+          code: String(table.code || table.tableCode),
+          capacity: Number(table.capacity || table.seats || 4),
+          status: table.status || "available",
+        }));
+
+        setAreas(mappedAreas);
+        setAdminTables(mappedTables);
+
+        const firstArea = mappedAreas[0];
+
+        if (!firstArea) {
+          setSelectedArea("");
+          setSelectedTable("");
+          return;
+        }
+
+        setSelectedArea((prev) => {
+          const existed = mappedAreas.some(
+            (area) => String(area.id) === String(prev),
+          );
+
+          return existed ? prev : firstArea.id;
+        });
+
+        setSelectedTable((prevTable) => {
+          if (prevTable) return prevTable;
+
+          const firstAvailableTable = mappedTables.find(
+            (table) =>
+              String(table.areaId) === String(firstArea.id) &&
+              table.status !== "serving" &&
+              table.status !== "maintenance" &&
+              table.status !== "disabled",
+          );
+
+          return firstAvailableTable?.code || "";
+        });
+      } catch (error) {
+        console.error(error);
+        setAreas([]);
+        setAdminTables([]);
+        setSelectedArea("");
+        setSelectedTable("");
+      }
+    };
+
+    loadTableData();
+
+    window.addEventListener("tablesUpdated", loadTableData);
+
+    return () => {
+      window.removeEventListener("tablesUpdated", loadTableData);
+    };
+  }, []);
+
+  useEffect(() => {
+    const loadBookingAvailability = async () => {
+      if (!form.date) {
+        setBookings([]);
+        return;
+      }
+
+      try {
+        const bookedTables = await bookingService.getBookingAvailability(
+          form.date,
+        );
+
+        setBookings(Array.isArray(bookedTables) ? bookedTables : []);
+      } catch (error) {
+        console.error(error);
+        setBookings([]);
+      }
+    };
+
+    loadBookingAvailability();
+
+    window.addEventListener("bookingsUpdated", loadBookingAvailability);
+
+    return () => {
+      window.removeEventListener("bookingsUpdated", loadBookingAvailability);
+    };
+  }, [form.date]);
+
+  const currentArea = areas.find(
+    (area) => String(area.id) === String(selectedArea),
+  );
+
+  const currentTables = adminTables
+    .filter((table) => String(table.areaId) === String(selectedArea))
+    .sort((a, b) =>
+      String(a.code || "").localeCompare(String(b.code || ""), "vi", {
+        numeric: true,
+      }),
+    );
+
+  const isAutoArrange = bookingCartItems.length > 0;
+
+  const selectedTableInfo = adminTables.find(
+    (table) =>
+      String(table.code) === String(selectedTable) &&
+      String(table.areaId) === String(selectedArea),
+  );
+
+  const selectedTableOverCapacity =
+    !isAutoArrange &&
+    selectedTableInfo &&
+    Number(form.guests || 0) > 0 &&
+    Number(form.guests || 0) > Number(selectedTableInfo.capacity || 0);
+  //hàm kiểm tra bàn bị khóa theo ngày
+  const isActiveBooking = (booking) => {
+    return (
+      booking.status === "pending" ||
+      booking.status === "confirmed" ||
+      booking.status === "Chờ xác nhận" ||
+      booking.status === "Đã xác nhận"
+    );
+  };
+
+  //hàm chỉ đặt theo ngày
+  const isTableReservedAtSelectedDate = (tableCode) => {
+    if (!form.date) return false;
+
+    return bookings.some((booking) => {
+      return (
+        isActiveBooking(booking) &&
+        String(booking.selectedTable) === String(tableCode) &&
+        booking.date === form.date
+      );
+    });
+  };
+
+  const getTableBookingAtSelectedDate = (tableCode) => {
+    if (!form.date) return null;
+
+    return bookings.find((booking) => {
+      return (
+        isActiveBooking(booking) &&
+        String(booking.selectedTable) === String(tableCode) &&
+        booking.date === form.date
+      );
+    });
+  };
+
+  //hàm tìm bàn phù hợp
+  const getGuestCount = () => Number(form.guests || 0);
+
+  const isUnavailableTable = (table) => {
+    return (
+      isTableReservedAtSelectedDate(table.code) ||
+      table.status === "serving" ||
+      table.status === "maintenance" ||
+      table.status === "disabled"
+    );
+  };
+
+  const findBestAvailableTable = (areaId = selectedArea) => {
+    const guestCount = getGuestCount();
+
+    return (
+      adminTables
+        .filter(
+          (table) =>
+            String(table.areaId) === String(areaId) &&
+            !isUnavailableTable(table) &&
+            (guestCount <= 0 || Number(table.capacity || 0) >= guestCount),
+        )
+        .sort((a, b) => {
+          const capacityDiff =
+            Number(a.capacity || 0) - Number(b.capacity || 0);
+
+          if (capacityDiff !== 0) return capacityDiff;
+
+          return String(a.code || "").localeCompare(
+            String(b.code || ""),
+            "vi",
+            {
+              numeric: true,
+            },
+          );
+        })[0] || null
+    );
+  };
+
+  const handleSelectTable = (table) => {
+    if (isAutoArrange) return;
+
+    if (isUnavailableTable(table)) return;
+
+    const guestCount = getGuestCount();
+    const tableCapacity = Number(table.capacity || 0);
+
+    if (guestCount > 0 && tableCapacity < guestCount) {
+      const suggestedTable = findBestAvailableTable(selectedArea);
+
+      if (suggestedTable) {
+        const shouldSwitch = window.confirm(
+          `Bàn ${table.code} chỉ chứa tối đa ${tableCapacity} người, nhưng bạn đang đặt ${guestCount} người.\n\nBạn có muốn chuyển sang bàn ${suggestedTable.code} (${suggestedTable.capacity} người) không?`,
+        );
+
+        if (shouldSwitch) {
+          setSelectedTable(suggestedTable.code);
+        }
+
+        return;
+      }
+
+      alert(
+        `Bàn ${table.code} chỉ chứa tối đa ${tableCapacity} người, nhưng bạn đang đặt ${guestCount} người. Hiện khu vực này chưa có bàn phù hợp, vui lòng chọn khu vực khác.`,
+      );
+
+      return;
+    }
+
+    setSelectedTable(table.code);
+  };
+
+  //tự chọn bàn khi đổi ngày / khu vực / số khách
+  useEffect(() => {
+    if (!form.date || !selectedArea) return;
+
+    const bestTable = findBestAvailableTable(selectedArea);
+
+    setSelectedTable(bestTable?.code || "");
+  }, [form.date, form.guests, selectedArea, bookings, adminTables]);
 
   const handleChange = (e) => {
     setForm({
@@ -134,7 +406,7 @@ function BookingPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!isLoggedIn) {
       setShowLoginModal(true);
       return;
@@ -142,28 +414,69 @@ function BookingPage() {
 
     if (!validateForm()) return;
 
-    // yêu cầu đăng nhập trc khi đặt bàn
+    if (!isAutoArrange) {
+      const guestCount = Number(form.guests || 0);
+
+      if (!selectedTable) {
+        alert("Vui lòng chọn bàn trống để đặt.");
+        return;
+      }
+
+      const selectedTableData = adminTables.find(
+        (table) =>
+          String(table.code) === String(selectedTable) &&
+          String(table.areaId) === String(selectedArea),
+      );
+
+      if (!selectedTableData) {
+        alert("Bàn bạn chọn không hợp lệ. Vui lòng chọn lại bàn.");
+        return;
+      }
+
+      if (guestCount > Number(selectedTableData.capacity || 0)) {
+        const suggestedTable = findBestAvailableTable(selectedArea);
+
+        if (suggestedTable) {
+          const shouldSwitch = window.confirm(
+            `Bàn ${selectedTableData.code} chỉ chứa tối đa ${selectedTableData.capacity} người, nhưng bạn đang đặt ${guestCount} người.\n\nBạn có muốn chuyển sang bàn ${suggestedTable.code} (${suggestedTable.capacity} người) không?`,
+          );
+
+          if (shouldSwitch) {
+            setSelectedTable(suggestedTable.code);
+          }
+
+          return;
+        }
+
+        alert(
+          `Hiện khu vực ${currentArea?.title || ""} không có bàn phù hợp cho ${guestCount} người. Vui lòng chọn khu vực khác hoặc liên hệ nhà hàng.`,
+        );
+
+        return;
+      }
+    }
+
     const newBooking = {
       id: Date.now(),
       source: "booking_page",
 
-      // Nếu có món đi kèm thì là đặt bàn kèm món
-      type: bookingCartItems.length > 0 ? "table_with_food" : "table_only",
+      type: isAutoArrange ? "table_with_food" : "table_only",
 
       customerName: form.name,
       phone: form.phone,
       email: form.email,
 
-      selectedArea,
-      selectedTable,
-      selectedAreaTitle: currentArea.title,
+      selectedArea: isAutoArrange ? "" : selectedArea,
+      selectedTable: isAutoArrange ? "" : selectedTable,
+      selectedAreaTitle: isAutoArrange
+        ? "Nhà hàng sắp xếp"
+        : currentArea?.title || "Chưa có khu vực",
 
       date: form.date,
       time: form.time,
       guests: form.guests,
       note: form.note,
 
-      // Món bấm trực tiếp từ Menu
       selectedDish: selectedDish
         ? {
             id: selectedDish.id,
@@ -173,10 +486,8 @@ function BookingPage() {
           }
         : null,
 
-      // Danh sách món đã chọn trong giỏ khi chuyển qua đặt bàn
       cartItems: bookingCartItems,
 
-      // Tổng tiền và tổng số lượng món
       subtotal,
       total: subtotal,
       totalQty: totalBookingQty,
@@ -185,16 +496,16 @@ function BookingPage() {
       createdAt: new Date().toISOString(),
     };
 
-    const oldBookings = JSON.parse(localStorage.getItem("bookings")) || [];
+    try {
+      const savedBooking = await bookingService.createBooking(newBooking);
 
-    localStorage.setItem(
-      "bookings",
-      JSON.stringify([newBooking, ...oldBookings]),
-    );
+      setBookings((prev) => [savedBooking, ...prev]);
 
-    localStorage.setItem("currentBooking", JSON.stringify(newBooking));
-
-    navigate("/booking-success");
+      navigate("/booking-success");
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể tạo đặt bàn. Vui lòng thử lại.");
+    }
   };
 
   return (
@@ -372,12 +683,17 @@ function BookingPage() {
               {areas.map((area) => (
                 <AreaCard
                   key={area.id}
-                  active={selectedArea === area.id}
+                  active={String(selectedArea) === String(area.id)}
                   title={area.title}
                   text={area.text}
                   onClick={() => {
-                    setSelectedArea(area.id);
-                    setSelectedTable(area.tables[0]);
+                    const areaId = String(area.id);
+
+                    setSelectedArea(areaId);
+
+                    const bestTable = findBestAvailableTable(areaId);
+
+                    setSelectedTable(bestTable?.code || "");
                   }}
                 />
               ))}
@@ -390,43 +706,86 @@ function BookingPage() {
               3. CHỌN BÀN
             </h2>
 
+            {isAutoArrange && (
+              <div className="mb-5 rounded-2xl bg-orange-50 border border-orange-100 p-4 text-orange-700 font-bold text-sm">
+                Bạn đang đặt bàn kèm món ăn. Nhà hàng sẽ tự xếp bàn phù hợp sau
+                khi xác nhận.
+              </div>
+            )}
+
             <div className="flex items-center gap-6 text-sm mb-5">
               <Legend color="bg-green-800" text="Bàn trống" />
               <Legend color="bg-[#f7dca4]" text="Đang giữ" />
-              <Legend color="bg-gray-200" text="Đã đặt" />
+              <Legend color="bg-red-500" text="Đã đặt" />
             </div>
 
             <p className="font-black text-green-950 mb-4">
-              {currentArea.title}
+              {currentArea?.title || "Chưa có khu vực"}
             </p>
 
             <div className="grid grid-cols-5 gap-3">
-              {currentArea.tables.map((table) => {
-                const holding = [103, 108, 114].includes(table);
-                const booked = [105, 110].includes(table);
-                const active = table === selectedTable;
+              {currentTables.map((table) => {
+                const tableBooking = getTableBookingAtSelectedDate(table.code);
 
+                const holding =
+                  tableBooking?.status === "pending" ||
+                  tableBooking?.status === "Chờ xác nhận";
+
+                const booked =
+                  tableBooking?.status === "confirmed" ||
+                  tableBooking?.status === "Đã xác nhận";
+
+                const disabled =
+                  !!tableBooking ||
+                  table.status === "serving" ||
+                  table.status === "maintenance" ||
+                  table.status === "disabled";
+
+                const guestCount = getGuestCount();
+
+                const insufficientCapacity =
+                  guestCount > 0 && Number(table.capacity || 0) < guestCount;
+
+                const active =
+                  String(table.code) === String(selectedTable) &&
+                  !disabled &&
+                  !isAutoArrange;
                 return (
                   <button
-                    key={table}
-                    disabled={booked}
-                    onClick={() => setSelectedTable(table)}
+                    key={table.id}
+                    disabled={disabled || isAutoArrange}
+                    onClick={() => handleSelectTable(table)}
                     className={`relative h-16 rounded-xl border font-black transition ${
                       active
                         ? "border-green-800 bg-green-50 text-green-900"
                         : holding
-                          ? "border-[#f7dca4] bg-[#fff6e6] text-[#c28b2c]"
+                          ? "border-[#f7dca4] bg-[#fff6e6] text-[#c28b2c] cursor-not-allowed"
                           : booked
-                            ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                            : "border-[#eadfcd] bg-white text-green-950 hover:border-green-700"
+                            ? "border-red-200 bg-red-50 text-red-600 cursor-not-allowed"
+                            : disabled || isAutoArrange
+                              ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : insufficientCapacity
+                                ? "border-yellow-300 bg-yellow-50 text-yellow-700 hover:border-yellow-500"
+                                : "border-[#eadfcd] bg-white text-green-950 hover:border-green-700"
                     }`}
                   >
-                    {active && (
+                    {active && !isAutoArrange && (
                       <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-green-800 text-white text-xs flex items-center justify-center">
                         ✓
                       </span>
                     )}
-                    {table}
+
+                    <span className="block leading-tight">{table.code}</span>
+
+                    <span className="block text-[10px] mt-1 font-bold opacity-80">
+                      {table.capacity} người
+                    </span>
+
+                    {insufficientCapacity && !disabled && !isAutoArrange && (
+                      <span className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-200 text-[10px] font-black">
+                        Thiếu chỗ
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -439,12 +798,38 @@ function BookingPage() {
 
               <div>
                 <h3 className="font-black text-green-900">
-                  Bàn {selectedTable} - {currentArea.title}
+                  {isAutoArrange
+                    ? "Nhà hàng sẽ tự xếp bàn"
+                    : `Bàn ${selectedTable || "chưa chọn"} - ${
+                        currentArea?.title || "Chưa có khu vực"
+                      }`}
                 </h3>
+
                 <ul className="text-sm text-gray-600 mt-2 space-y-1">
-                  <li>✓ Sức chứa: 6 - 8 người</li>
-                  <li>✓ Vị trí đẹp, gần cửa sổ</li>
-                  <li>✓ Phục vụ tốt nhất cho nhóm của bạn</li>
+                  <li>
+                    ✓ Sức chứa:{" "}
+                    {isAutoArrange
+                      ? "Theo số khách"
+                      : selectedTableInfo
+                        ? `${selectedTableInfo.capacity} người`
+                        : "Chưa có"}
+                  </li>
+                  {selectedTableOverCapacity && (
+                    <li className="text-red-600 font-bold">
+                      ⚠ Bàn này không đủ sức chứa cho {form.guests} người
+                    </li>
+                  )}
+
+                  <li>
+                    ✓ Trạng thái:{" "}
+                    {isAutoArrange
+                      ? "Nhà hàng sắp xếp"
+                      : form.date
+                        ? "Có thể đặt trong ngày này"
+                        : "Vui lòng chọn ngày đặt bàn"}
+                  </li>
+
+                  <li>✓ Khu vực: {currentArea?.title || "Chưa có khu vực"}</li>
                 </ul>
               </div>
             </div>

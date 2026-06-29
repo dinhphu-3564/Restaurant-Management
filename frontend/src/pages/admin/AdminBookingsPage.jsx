@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { tableService } from "../../services/tableService";
+import { bookingService } from "../../services/bookingService";
 import {
   CalendarCheck,
   Clock3,
@@ -13,13 +14,19 @@ import {
   RotateCcw,
   CalendarDays,
   Users,
-  Phone,
-  Mail,
-  MapPin,
   Utensils,
   X,
   Check,
 } from "lucide-react";
+
+const normalizeTableStatus = (status) => {
+  if (!status) return "available";
+
+  if (status === "empty") return "available";
+  if (status === "free") return "available";
+
+  return status;
+};
 
 function AdminBookingsPage() {
   const TABLE_STATUS_STYLE = {
@@ -43,6 +50,56 @@ function AdminBookingsPage() {
     disabled: "bg-gray-300",
     selected: "bg-blue-500",
   };
+
+  const TABLE_STATUS_TEXT = {
+    available: "Trống",
+    holding: "Đang giữ",
+    booked: "Đã đặt",
+    serving: "Đang phục vụ",
+    maintenance: "Bảo trì",
+    disabled: "Ngừng sử dụng",
+  };
+
+  const removeVietnameseTones = (str = "") =>
+    String(str)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "D")
+      .toLowerCase()
+      .trim();
+
+  const getAreaPriority = (area) => {
+    const name = removeVietnameseTones(area.name || area.title || "");
+
+    if (name.includes("vip")) return 0;
+
+    const floorMatch = name.match(/tang\s*(\d+)/);
+
+    if (floorMatch) {
+      return Number(floorMatch[1]);
+    }
+
+    if (name.includes("tret")) return 1;
+
+    return 99;
+  };
+
+  const sortAreasByPriority = (areas = []) => {
+    return [...areas].sort((a, b) => {
+      const priorityA = getAreaPriority(a);
+      const priorityB = getAreaPriority(b);
+
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+
+      return String(a.name || "").localeCompare(String(b.name || ""), "vi", {
+        numeric: true,
+      });
+    });
+  };
+
   const { globalSearch, dateRange } = useOutletContext();
 
   const [bookings, setBookings] = useState([]);
@@ -85,28 +142,89 @@ function AdminBookingsPage() {
 
   const pageSize = 10;
   //Tự cập nhật khi trang khác thay đổi bookings
+  const loadBookings = async () => {
+    try {
+      const [apiBookings] = await Promise.all([
+        bookingService.getBookings(),
+        loadTableLayout(),
+      ]);
+
+      setBookings(apiBookings);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể tải danh sách đặt bàn.");
+    }
+  };
+
+  const loadTableLayout = async () => {
+    try {
+      const [apiAreas, apiTables] = await Promise.all([
+        tableService.getAreas(),
+        tableService.getTables(),
+      ]);
+
+      const nextAreas = sortAreasByPriority(
+        apiAreas.map((area) => ({
+          ...area,
+          id: String(area.id),
+          name: area.name || area.title || "Khu vực",
+        })),
+      );
+
+      const nextTables = apiTables.map((table) => ({
+        ...table,
+        id: String(table.id || table.code),
+        code: String(table.code || table.tableCode || table.name || table.id),
+        areaId: String(table.areaId),
+        areaName: table.areaName || "",
+        status: normalizeTableStatus(table.status),
+        capacity: Number(table.capacity || table.seats || 4),
+      }));
+
+      setAreas(nextAreas);
+      setTables(nextTables);
+
+      return {
+        areas: nextAreas,
+        tables: nextTables,
+      };
+    } catch (error) {
+      console.error(error);
+      setAreas([]);
+      setTables([]);
+
+      return {
+        areas: [],
+        tables: [],
+      };
+    }
+  };
+
   useEffect(() => {
-    const loadData = () => {
-      setBookings(JSON.parse(localStorage.getItem("bookings")) || []);
-      setAreas(tableService.getAreas());
-      setTables(tableService.getTables());
-    };
+    loadBookings();
 
-    loadData();
-
-    window.addEventListener("bookingsUpdated", loadData);
-    window.addEventListener("tablesUpdated", loadData);
-    window.addEventListener("storage", loadData);
+    window.addEventListener("bookingsUpdated", loadBookings);
+    window.addEventListener("tablesUpdated", loadBookings);
 
     return () => {
-      window.removeEventListener("bookingsUpdated", loadData);
-      window.removeEventListener("tablesUpdated", loadData);
-      window.removeEventListener("storage", loadData);
+      window.removeEventListener("bookingsUpdated", loadBookings);
+      window.removeEventListener("tablesUpdated", loadBookings);
     };
   }, []);
 
   useEffect(() => {
-    const openAddBookingModal = () => {
+    const openAddBookingModal = async () => {
+      const layout = await loadTableLayout();
+      const firstArea = layout.areas[0];
+
+      setAddForm((prev) => ({
+        ...prev,
+        date: prev.date || new Date().toISOString().split("T")[0],
+        selectedArea: firstArea?.id || "",
+        selectedAreaTitle: firstArea?.name || "",
+        selectedTable: "",
+      }));
+
       setIsAddingBooking(true);
     };
 
@@ -137,15 +255,6 @@ function AdminBookingsPage() {
       { hour: "2-digit", minute: "2-digit" },
     )}`;
   };
-
-  const removeVietnameseTones = (str = "") =>
-    str
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/đ/g, "d")
-      .replace(/Đ/g, "D")
-      .toLowerCase()
-      .trim();
 
   const getStatusText = (status) => {
     switch (status) {
@@ -188,20 +297,27 @@ function AdminBookingsPage() {
     return "bg-blue-50 text-blue-600";
   };
 
-  const updateBookingStatus = (id, status) => {
-    const updatedAt = new Date().toISOString();
+  //cập nhật trạng thái admin
+  const updateBookingStatus = async (id, status) => {
+    try {
+      const updatedBooking = await bookingService.updateBookingStatus(
+        id,
+        status,
+      );
 
-    const newBookings = bookings.map((item) =>
-      String(item.id) === String(id) ? { ...item, status, updatedAt } : item,
-    );
+      setBookings((prev) =>
+        prev.map((item) =>
+          String(item.id) === String(id) ? updatedBooking : item,
+        ),
+      );
 
-    saveBookingsToStorage(newBookings);
-
-    setSelectedBooking((prev) =>
-      prev && String(prev.id) === String(id)
-        ? { ...prev, status, updatedAt }
-        : prev,
-    );
+      setSelectedBooking((prev) =>
+        prev && String(prev.id) === String(id) ? updatedBooking : prev,
+      );
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể cập nhật trạng thái đặt bàn.");
+    }
   };
   //hàm mở popup sửa
   const openEditBookingModal = (booking) => {
@@ -209,16 +325,17 @@ function AdminBookingsPage() {
 
     const areaTitle = booking.selectedAreaTitle || booking.area || "";
 
-    const matchedArea = tableService
-      .getAreas()
-      .find((area) => area.name === areaTitle);
+    const matchedArea = areas.find(
+      (area) =>
+        String(area.id) === String(booking.selectedArea) ||
+        area.name === areaTitle,
+    );
 
     setEditForm({
       status: booking.status || "pending",
       date: booking.date || "",
-
       selectedArea: booking.selectedArea || matchedArea?.id || "",
-      selectedAreaTitle: areaTitle,
+      selectedAreaTitle: areaTitle || matchedArea?.name || "",
       selectedTable: booking.selectedTable || "",
       note: booking.note || "",
     });
@@ -239,18 +356,6 @@ function AdminBookingsPage() {
     return bookings.find(
       (booking) =>
         String(booking.id) !== String(editingBooking?.id) &&
-        isActiveBooking(booking) &&
-        String(booking.selectedTable) === String(tableCode) &&
-        booking.date === date,
-    );
-  };
-  //hàm lấy booking của bàn theo ngày
-  const getCurrentBookingTableAtDate = (tableCode, date) => {
-    if (!date) return null;
-
-    return bookings.find(
-      (booking) =>
-        String(booking.id) === String(editingBooking?.id) &&
         isActiveBooking(booking) &&
         String(booking.selectedTable) === String(tableCode) &&
         booking.date === date,
@@ -277,77 +382,69 @@ function AdminBookingsPage() {
     return table.status;
   };
 
-  const canSelectTableForEdit = (table) => {
-    const status = getTableStatusForEdit(table);
-
-    return status === "available";
-  };
   //hàm lưu chỉnh sửa
-  const saveEditBooking = () => {
+  const saveEditBooking = async () => {
     if (!editingBooking) return;
 
-    const newBookings = bookings.map((booking) =>
-      String(booking.id) === String(editingBooking.id)
-        ? {
-            ...booking,
-            status: editForm.status,
-            date: editForm.date,
-            selectedArea: editForm.selectedArea,
-            selectedAreaTitle: editForm.selectedAreaTitle,
-            selectedTable: editForm.selectedTable,
-            note: editForm.note,
-            assignedAt: editForm.selectedTable
-              ? new Date().toISOString()
-              : booking.assignedAt,
-            assignedBy: editForm.selectedTable ? "admin" : booking.assignedBy,
-            updatedAt: new Date().toISOString(),
-          }
-        : booking,
-    );
+    try {
+      const updatedBooking = await bookingService.updateBooking(
+        editingBooking.id,
+        {
+          status: editForm.status,
+          date: editForm.date,
+          time: editForm.time || editingBooking.time,
+          selectedArea: editForm.selectedArea,
+          selectedAreaTitle: editForm.selectedAreaTitle,
+          selectedTable: editForm.selectedTable,
+          note: editForm.note,
+        },
+      );
 
-    saveBookingsToStorage(newBookings);
+      setBookings((prev) =>
+        prev.map((booking) =>
+          String(booking.id) === String(editingBooking.id)
+            ? updatedBooking
+            : booking,
+        ),
+      );
 
-    setSelectedBooking((prev) =>
-      prev && String(prev.id) === String(editingBooking.id)
-        ? {
-            ...prev,
-            status: editForm.status,
-            date: editForm.date,
-            selectedArea: editForm.selectedArea,
-            selectedAreaTitle: editForm.selectedAreaTitle,
-            selectedTable: editForm.selectedTable,
-            note: editForm.note,
-            assignedAt: editForm.selectedTable
-              ? new Date().toISOString()
-              : prev.assignedAt,
-            assignedBy: editForm.selectedTable ? "admin" : prev.assignedBy,
-            updatedAt: new Date().toISOString(),
-          }
-        : prev,
-    );
+      setSelectedBooking((prev) =>
+        prev && String(prev.id) === String(editingBooking.id)
+          ? updatedBooking
+          : prev,
+      );
 
-    setEditingBooking(null);
-  };
-  //hàm hủy đặt bàn
-  const cancelBookingByTrash = (booking) => {
-    const confirmCancel = window.confirm(
-      `Bạn có chắc muốn hủy đặt bàn DB${booking.id}?`,
-    );
-
-    if (!confirmCancel) return;
-
-    updateBookingStatus(booking.id, "cancelled");
+      setEditingBooking(null);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể cập nhật đặt bàn.");
+    }
   };
 
-  const deleteBooking = (id) => {
-    const newBookings = bookings.filter(
-      (item) => String(item.id) !== String(id),
+  const deleteBooking = async (id) => {
+    const confirmDelete = window.confirm(
+      `Bạn có chắc muốn xóa lịch đặt bàn DB${id}?`,
     );
 
-    saveBookingsToStorage(newBookings);
+    if (!confirmDelete) return;
 
-    if (String(selectedBooking?.id) === String(id)) {
-      setSelectedBooking(newBookings[0] || null);
+    try {
+      await bookingService.deleteBooking(id);
+
+      setBookings((prev) =>
+        prev.filter((booking) => String(booking.id) !== String(id)),
+      );
+
+      setSelectedBooking((prev) =>
+        prev && String(prev.id) === String(id) ? null : prev,
+      );
+
+      setSelectedBookingIds((prev) =>
+        prev.filter((bookingId) => String(bookingId) !== String(id)),
+      );
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể xóa đặt bàn.");
     }
   };
 
@@ -376,7 +473,7 @@ function AdminBookingsPage() {
     }
   };
   //hàm cập nhật trạng thái nhiều
-  const updateSelectedBookingsStatus = (status) => {
+  const updateSelectedBookingsStatus = async (status) => {
     if (selectedBookingIds.length === 0) return;
 
     const statusText = getStatusText(status);
@@ -387,37 +484,40 @@ function AdminBookingsPage() {
 
     if (!confirmUpdate) return;
 
-    const updatedAt = new Date().toISOString();
+    try {
+      const updatedBookings = await Promise.all(
+        selectedBookingIds.map((id) =>
+          bookingService.updateBookingStatus(id, status),
+        ),
+      );
 
-    const newBookings = bookings.map((booking) =>
-      selectedBookingIds.includes(String(booking.id))
-        ? { ...booking, status, updatedAt }
-        : booking,
-    );
-    saveBookingsToStorage(newBookings);
+      const updatedMap = new Map(
+        updatedBookings.map((booking) => [String(booking.id), booking]),
+      );
 
-    setSelectedBooking((prev) =>
-      prev && selectedBookingIds.includes(String(prev.id))
-        ? { ...prev, status, updatedAt }
-        : prev,
-    );
+      setBookings((prev) =>
+        prev.map((booking) =>
+          updatedMap.has(String(booking.id))
+            ? updatedMap.get(String(booking.id))
+            : booking,
+        ),
+      );
 
-    setSelectedBookingIds([]);
-  };
-  //hàm lưu bookings có đồng bộ
-  const saveBookingsToStorage = (newBookings) => {
-    setBookings(newBookings);
-    localStorage.setItem("bookings", JSON.stringify(newBookings));
+      setSelectedBooking((prev) =>
+        prev && updatedMap.has(String(prev.id))
+          ? updatedMap.get(String(prev.id))
+          : prev,
+      );
 
-    window.dispatchEvent(
-      new CustomEvent("bookingsUpdated", {
-        detail: newBookings,
-      }),
-    );
+      setSelectedBookingIds([]);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể cập nhật trạng thái hàng loạt.");
+    }
   };
 
   //hàm xóa nhiều
-  const deleteSelectedBookings = () => {
+  const deleteSelectedBookings = async () => {
     if (selectedBookingIds.length === 0) return;
 
     const confirmDelete = window.confirm(
@@ -426,20 +526,26 @@ function AdminBookingsPage() {
 
     if (!confirmDelete) return;
 
-    const newBookings = bookings.filter(
-      (booking) => !selectedBookingIds.includes(String(booking.id)),
-    );
+    try {
+      await Promise.all(
+        selectedBookingIds.map((id) => bookingService.deleteBooking(id)),
+      );
 
-    saveBookingsToStorage(newBookings);
+      setBookings((prev) =>
+        prev.filter(
+          (booking) => !selectedBookingIds.includes(String(booking.id)),
+        ),
+      );
 
-    if (
-      selectedBooking &&
-      selectedBookingIds.includes(String(selectedBooking.id))
-    ) {
-      setSelectedBooking(null);
+      setSelectedBooking((prev) =>
+        prev && selectedBookingIds.includes(String(prev.id)) ? null : prev,
+      );
+
+      setSelectedBookingIds([]);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể xóa các đặt bàn đã chọn.");
     }
-
-    setSelectedBookingIds([]);
   };
 
   const todayString = new Date().toISOString().split("T")[0];
@@ -628,7 +734,7 @@ function AdminBookingsPage() {
   };
 
   //hàm lưu đặt bàn mới
-  const saveAddBooking = () => {
+  const saveAddBooking = async () => {
     if (!addForm.customerName.trim()) {
       alert("Vui lòng nhập tên khách hàng.");
       return;
@@ -654,10 +760,33 @@ function AdminBookingsPage() {
       return;
     }
 
-    const newBooking = {
-      id: Date.now(),
+    const guestCount = Number(addForm.guests);
+
+    if (!Number.isFinite(guestCount) || guestCount <= 0) {
+      alert("Số khách phải lớn hơn 0.");
+      return;
+    }
+
+    const selectedTableData = tables.find(
+      (table) =>
+        String(table.code) === String(addForm.selectedTable) &&
+        String(table.areaId) === String(addForm.selectedArea),
+    );
+
+    if (!selectedTableData) {
+      alert("Bàn đã chọn không hợp lệ. Vui lòng chọn lại.");
+      return;
+    }
+
+    if (guestCount > Number(selectedTableData.capacity || 0)) {
+      alert(
+        `Bàn ${selectedTableData.code} chỉ chứa tối đa ${selectedTableData.capacity} người. Vui lòng chọn bàn khác phù hợp hơn.`,
+      );
+      return;
+    }
+
+    const payload = {
       customerName: addForm.customerName.trim(),
-      name: addForm.customerName.trim(),
       phone: addForm.phone.trim(),
       email: addForm.email.trim(),
       date: addForm.date,
@@ -670,31 +799,32 @@ function AdminBookingsPage() {
       status: addForm.status,
       type: "table_only",
       total: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: "admin",
     };
 
-    const newBookings = [newBooking, ...bookings];
+    try {
+      const savedBooking = await bookingService.createAdminBooking(payload);
 
-    saveBookingsToStorage(newBookings);
+      setBookings((prev) => [savedBooking, ...prev]);
+      setSelectedBooking(savedBooking);
+      setIsAddingBooking(false);
 
-    setSelectedBooking(newBooking);
-    setIsAddingBooking(false);
-
-    setAddForm({
-      customerName: "",
-      phone: "",
-      email: "",
-      date: "",
-      time: "",
-      guests: 1,
-      selectedArea: "",
-      selectedAreaTitle: "",
-      selectedTable: "",
-      note: "",
-      status: "pending",
-    });
+      setAddForm({
+        customerName: "",
+        phone: "",
+        email: "",
+        date: "",
+        time: "",
+        guests: 1,
+        selectedArea: "",
+        selectedAreaTitle: "",
+        selectedTable: "",
+        note: "",
+        status: "pending",
+      });
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể tạo đặt bàn.");
+    }
   };
 
   return (
@@ -804,9 +934,12 @@ function AdminBookingsPage() {
                 onChange={(e) => setAreaFilter(e.target.value)}
               >
                 <option value="all">Tất cả</option>
-                <option value="tầng trệt">Tầng trệt</option>
-                <option value="tầng 2">Tầng 2</option>
-                <option value="vip">Phòng VIP</option>
+
+                {areas.map((area) => (
+                  <option key={area.id} value={area.name}>
+                    {area.name}
+                  </option>
+                ))}
               </SelectBox>
 
               <SelectBox
@@ -960,7 +1093,7 @@ function AdminBookingsPage() {
                       </td>
 
                       <td className="px-4 py-3 font-black text-green-700 whitespace-nowrap">
-                        DB{booking.id}
+                        {booking.bookingCode || `DB${booking.id}`}
                       </td>
 
                       <td className="px-4 py-3 font-bold text-gray-700 whitespace-nowrap">
@@ -1042,9 +1175,10 @@ function AdminBookingsPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              cancelBookingByTrash(booking);
+                              deleteBooking(booking.id);
                             }}
                             className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100"
+                            title="Xóa lịch đặt bàn"
                           >
                             <Trash2 size={16} />
                           </button>
@@ -1147,7 +1281,7 @@ function AdminBookingsPage() {
                   Chỉnh sửa đặt bàn
                 </h3>
                 <p className="text-sm text-gray-500 font-semibold mt-1">
-                  DB{editingBooking.id}
+                  {editingBooking.bookingCode || `DB${editingBooking.id}`}
                 </p>
               </div>
 
@@ -1212,7 +1346,9 @@ function AdminBookingsPage() {
                     value={editForm.selectedArea}
                     onChange={(e) => {
                       const areaId = e.target.value;
-                      const area = areas.find((item) => item.id === areaId);
+                      const area = areas.find(
+                        (item) => String(item.id) === String(areaId),
+                      );
 
                       setEditForm((prev) => ({
                         ...prev,
@@ -1226,7 +1362,7 @@ function AdminBookingsPage() {
                     <option value="">Nhà hàng sắp xếp</option>
 
                     {areas.map((area) => (
-                      <option key={area.id} value={area.id}>
+                      <option key={area.id} value={String(area.id)}>
                         {area.name}
                       </option>
                     ))}
@@ -1279,7 +1415,9 @@ function AdminBookingsPage() {
                     <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3">
                       {tables
                         .filter(
-                          (table) => table.areaId === editForm.selectedArea,
+                          (table) =>
+                            String(table.areaId) ===
+                            String(editForm.selectedArea),
                         )
                         .map((table) => {
                           const currentTable =
@@ -1315,7 +1453,8 @@ function AdminBookingsPage() {
                                   ? TABLE_STATUS_STYLE.selected
                                   : newSelectedTable
                                     ? "border-green-700 bg-green-600 text-white ring-2 ring-green-300"
-                                    : TABLE_STATUS_STYLE[status]
+                                    : TABLE_STATUS_STYLE[status] ||
+                                      TABLE_STATUS_STYLE.available
                               } ${
                                 disabled
                                   ? "cursor-not-allowed opacity-90"
@@ -1498,6 +1637,7 @@ function AdminBookingsPage() {
                       setAddForm((prev) => ({
                         ...prev,
                         guests: e.target.value,
+                        selectedTable: "",
                       }))
                     }
                     className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
@@ -1511,8 +1651,10 @@ function AdminBookingsPage() {
                   <select
                     value={addForm.selectedArea}
                     onChange={(e) => {
-                      const areaId = e.target.value;
-                      const area = areas.find((item) => item.id === areaId);
+                      const areaId = String(e.target.value);
+                      const area = areas.find(
+                        (item) => String(item.id) === areaId,
+                      );
 
                       setAddForm((prev) => ({
                         ...prev,
@@ -1524,8 +1666,9 @@ function AdminBookingsPage() {
                     className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
                   >
                     <option value="">Chọn khu vực</option>
+
                     {areas.map((area) => (
-                      <option key={area.id} value={area.id}>
+                      <option key={area.id} value={String(area.id)}>
                         {area.name}
                       </option>
                     ))}
@@ -1577,13 +1720,21 @@ function AdminBookingsPage() {
                     <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3">
                       {tables
                         .filter(
-                          (table) => table.areaId === addForm.selectedArea,
+                          (table) =>
+                            String(table.areaId) ===
+                            String(addForm.selectedArea),
                         )
                         .map((table) => {
                           const status = getTableStatusForAdd(table);
                           const isSelected =
                             String(addForm.selectedTable) ===
                             String(table.code);
+
+                          const guestCount = Number(addForm.guests || 0);
+
+                          const insufficientCapacity =
+                            guestCount > 0 &&
+                            Number(table.capacity || 0) < guestCount;
 
                           const disabled = status !== "available";
 
@@ -1595,6 +1746,13 @@ function AdminBookingsPage() {
                               onClick={() => {
                                 if (disabled) return;
 
+                                if (insufficientCapacity) {
+                                  alert(
+                                    `Bàn ${table.code} chỉ chứa tối đa ${table.capacity} người. Vui lòng chọn bàn khác phù hợp hơn.`,
+                                  );
+                                  return;
+                                }
+
                                 setAddForm((prev) => ({
                                   ...prev,
                                   selectedTable: table.code,
@@ -1603,7 +1761,13 @@ function AdminBookingsPage() {
                               className={`relative h-16 rounded-xl border font-black transition ${
                                 isSelected
                                   ? "border-green-700 bg-green-600 text-white ring-2 ring-green-300"
-                                  : TABLE_STATUS_STYLE[status]
+                                  : disabled
+                                    ? TABLE_STATUS_STYLE[status] ||
+                                      TABLE_STATUS_STYLE.available
+                                    : insufficientCapacity
+                                      ? "border-yellow-300 bg-yellow-50 text-yellow-700"
+                                      : TABLE_STATUS_STYLE[status] ||
+                                        TABLE_STATUS_STYLE.available
                               } ${
                                 disabled
                                   ? "cursor-not-allowed opacity-80"
@@ -1621,11 +1785,25 @@ function AdminBookingsPage() {
                               <div className="flex flex-col items-center leading-tight">
                                 <span>{table.code}</span>
 
+                                <span className="mt-1 text-[10px] font-black">
+                                  {status === "available"
+                                    ? `${table.capacity} người`
+                                    : TABLE_STATUS_TEXT[status] || status}
+                                </span>
+
                                 {isSelected && (
                                   <span className="mt-1 text-[10px] font-black text-white">
                                     Đang chọn
                                   </span>
                                 )}
+
+                                {insufficientCapacity &&
+                                  !disabled &&
+                                  !isSelected && (
+                                    <span className="mt-1 text-[10px] font-black text-yellow-700">
+                                      Thiếu chỗ
+                                    </span>
+                                  )}
                               </div>
                             </button>
                           );
@@ -1710,7 +1888,7 @@ function BookingDetailPanel({
           </div>
 
           <h2 className="text-2xl font-black text-green-950 mt-1 break-all leading-tight">
-            DB{booking.id}
+            {booking.bookingCode || `DB${booking.id}`}
           </h2>
 
           <p className="text-xs text-gray-500 font-semibold mt-2">

@@ -12,7 +12,6 @@ import {
   Search,
   Eye,
   Pencil,
-  Trash2,
   RotateCcw,
   X,
   Plus,
@@ -47,6 +46,45 @@ const STATUS_DOT = {
   disabled: "bg-gray-300",
 };
 
+//hàm sắp xếp khu vực
+const removeVietnameseTones = (str = "") =>
+  String(str)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .trim();
+
+const getAreaPriority = (area) => {
+  const name = removeVietnameseTones(area.name);
+
+  if (name.includes("vip")) return 0;
+
+  const floorMatch = name.match(/tang\s*(\d+)/);
+
+  if (floorMatch) {
+    return Number(floorMatch[1]);
+  }
+
+  if (name.includes("tret")) return 1;
+
+  return 99;
+};
+
+const sortAreasByPriority = (areas) => {
+  return [...areas].sort((a, b) => {
+    const priorityA = getAreaPriority(a);
+    const priorityB = getAreaPriority(b);
+
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+
+    return String(a.name || "").localeCompare(String(b.name || ""), "vi");
+  });
+};
+
 const TABLE_STATUS_STYLE = {
   available: "border-green-200 bg-green-50 text-green-700",
   holding: "border-orange-200 bg-orange-50 text-orange-600",
@@ -65,74 +103,18 @@ const TABLE_DOT_STYLE = {
   disabled: "bg-gray-300",
 };
 
-const DEFAULT_AREAS = [
-  {
-    id: "floor1",
-    name: "Tầng trệt",
-    description: "Khu vực chính, gần lối vào",
-    tablePrefix: 1,
-    count: 20,
-  },
-  {
-    id: "floor2",
-    name: "Tầng 2",
-    description: "Không gian rộng, yên tĩnh",
-    tablePrefix: 2,
-    count: 20,
-  },
-  {
-    id: "vip",
-    name: "Phòng VIP",
-    description: "Riêng tư, phù hợp tiếp khách",
-    tablePrefix: 3,
-    count: 10,
-  },
-];
-
-function createDefaultTables() {
-  return DEFAULT_AREAS.flatMap((area) =>
-    Array.from({ length: area.count }, (_, index) => {
-      const number = area.tablePrefix * 100 + index + 1;
-
-      return {
-        id: String(number),
-        code: String(number),
-        areaId: area.id,
-        areaName: area.name,
-        capacity: area.id === "vip" ? 8 : index % 2 === 0 ? 4 : 6,
-
-        status:
-          number === 108 || number === 304
-            ? "serving"
-            : number === 111 || number === 305
-              ? "maintenance"
-              : "available",
-        description:
-          index % 2 === 0 ? "Gần lối vào" : "Gần cửa sổ, không gian thoáng mát",
-        updatedAt: new Date().toISOString(),
-      };
-    }),
-  );
-}
-
 function AdminTablesPage() {
   const { globalSearch } = useOutletContext();
 
   const [assignBooking, setAssignBooking] = useState(null);
   const [assignForm, setAssignForm] = useState({
-    areaId: "floor1",
+    areaId: "",
     tableCode: "",
   });
 
-  const [areas, setAreas] = useState(() => {
-    return JSON.parse(localStorage.getItem("adminAreas")) || DEFAULT_AREAS;
-  });
-
-  const [tables, setTables] = useState(() => {
-    return (
-      JSON.parse(localStorage.getItem("adminTables")) || createDefaultTables()
-    );
-  });
+  const [areas, setAreas] = useState([]);
+  const [tables, setTables] = useState([]);
+  const [tableLoading, setTableLoading] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -146,18 +128,17 @@ function AdminTablesPage() {
     date: today,
     time: "",
     guests: 1,
-    selectedArea: "floor1",
-    selectedAreaTitle: "Tầng trệt",
+    selectedArea: "",
+    selectedAreaTitle: "",
     selectedTable: "",
     note: "",
     status: "pending",
   });
   const [activeTab, setActiveTab] = useState("map");
-  const [selectedArea, setSelectedArea] = useState("floor1");
+  const [selectedArea, setSelectedArea] = useState("");
   const [selectedTable, setSelectedTable] = useState(null);
 
   const [viewDate, setViewDate] = useState(today);
-  const [viewTime, setViewTime] = useState("");
 
   const [search, setSearch] = useState("");
   const [areaFilter, setAreaFilter] = useState("all");
@@ -167,7 +148,30 @@ function AdminTablesPage() {
 
   const [editingTable, setEditingTable] = useState(null);
   const [editForm, setEditForm] = useState({
-    areaId: "floor1",
+    areaId: "",
+    code: "",
+    capacity: 4,
+    status: "available",
+    description: "",
+  });
+
+  // thêm khu vực và thêm bàn
+  const [isAddingArea, setIsAddingArea] = useState(false);
+  const [areaForm, setAreaForm] = useState({
+    name: "",
+    description: "",
+  });
+
+  //chỉnh sửa thôgn tin khu vực
+  const [editingArea, setEditingArea] = useState(null);
+  const [areaEditForm, setAreaEditForm] = useState({
+    name: "",
+    description: "",
+  });
+
+  const [isAddingTable, setIsAddingTable] = useState(false);
+  const [tableForm, setTableForm] = useState({
+    areaId: "",
     capacity: 4,
     status: "available",
     description: "",
@@ -175,27 +179,93 @@ function AdminTablesPage() {
 
   const pageSize = 10;
 
+  //Thêm hàm load bàn/khu vực từ API
+  const loadTableLayout = async () => {
+    setTableLoading(true);
+
+    try {
+      const [apiAreas, apiTables] = await Promise.all([
+        tableService.getAreas(),
+        tableService.getTables(),
+      ]);
+
+      const sortedAreas = sortAreasByPriority(apiAreas);
+
+      setAreas(sortedAreas);
+      setTables(apiTables);
+
+      const firstArea = sortedAreas[0];
+
+      setSelectedArea((prev) => {
+        const existed = sortedAreas.some(
+          (area) => String(area.id) === String(prev),
+        );
+
+        return existed ? prev : firstArea?.id || "";
+      });
+
+      setAssignForm((prev) => {
+        const existed = sortedAreas.some(
+          (area) => String(area.id) === String(prev.areaId),
+        );
+
+        return {
+          ...prev,
+          areaId: existed ? prev.areaId : firstArea?.id || "",
+          tableCode: existed ? prev.tableCode : "",
+        };
+      });
+
+      setAddForm((prev) => {
+        const existedArea = sortedAreas.find(
+          (area) => String(area.id) === String(prev.selectedArea),
+        );
+
+        const nextArea = existedArea || firstArea;
+
+        return {
+          ...prev,
+          selectedArea: nextArea?.id || "",
+          selectedAreaTitle: nextArea?.name || "",
+          selectedTable: existedArea ? prev.selectedTable : "",
+        };
+      });
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể tải danh sách bàn/khu vực.");
+    } finally {
+      setTableLoading(false);
+    }
+  };
+
+  //gọi API
   useEffect(() => {
-    localStorage.setItem("adminAreas", JSON.stringify(areas));
-  }, [areas]);
+    loadTableLayout();
+
+    window.addEventListener("tablesUpdated", loadTableLayout);
+
+    return () => {
+      window.removeEventListener("tablesUpdated", loadTableLayout);
+    };
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem("adminTables", JSON.stringify(tables));
-  }, [tables]);
-
-  useEffect(() => {
-    const loadBookings = () => {
-      setBookings(JSON.parse(localStorage.getItem("bookings")) || []);
+    const loadBookings = async () => {
+      try {
+        const apiBookings = await bookingService.getBookings();
+        setBookings(apiBookings);
+      } catch (error) {
+        console.error(error);
+        setBookings([]);
+      }
     };
 
     loadBookings();
 
     window.addEventListener("bookingsUpdated", loadBookings);
-    window.addEventListener("storage", loadBookings);
 
     return () => {
       window.removeEventListener("bookingsUpdated", loadBookings);
-      window.removeEventListener("storage", loadBookings);
     };
   }, []);
 
@@ -294,11 +364,18 @@ function AdminTablesPage() {
     return displayTables.filter((table) => {
       const matchSearch =
         !keyword ||
-        table.code.toLowerCase().includes(keyword) ||
-        table.areaName.toLowerCase().includes(keyword) ||
-        table.description.toLowerCase().includes(keyword);
+        String(table.code || "")
+          .toLowerCase()
+          .includes(keyword) ||
+        String(table.areaName || "")
+          .toLowerCase()
+          .includes(keyword) ||
+        String(table.description || "")
+          .toLowerCase()
+          .includes(keyword);
 
-      const matchArea = areaFilter === "all" || table.areaId === areaFilter;
+      const matchArea =
+        areaFilter === "all" || String(table.areaId) === String(areaFilter);
       const matchStatus =
         statusFilter === "all" || table.status === statusFilter;
 
@@ -348,70 +425,256 @@ function AdminTablesPage() {
     setCapacityFilter("all");
   };
 
+  //hàm xử lý thêm khu vực / thêm bàn
+  const openAddArea = () => {
+    setAreaForm({
+      name: "",
+      description: "",
+    });
+
+    setIsAddingArea(true);
+  };
+
+  const saveAddArea = async () => {
+    if (!areaForm.name.trim()) {
+      alert("Vui lòng nhập tên khu vực.");
+      return;
+    }
+
+    try {
+      const savedArea = await tableService.createArea({
+        name: areaForm.name.trim(),
+        description: areaForm.description.trim(),
+      });
+
+      setAreas((prev) => sortAreasByPriority([...prev, savedArea]));
+      setSelectedArea(savedArea.id);
+
+      setAssignForm((prev) => ({
+        ...prev,
+        areaId: savedArea.id,
+        tableCode: "",
+      }));
+
+      setAddForm((prev) => ({
+        ...prev,
+        selectedArea: savedArea.id,
+        selectedAreaTitle: savedArea.name,
+        selectedTable: "",
+      }));
+
+      setTableForm((prev) => ({
+        ...prev,
+        areaId: savedArea.id,
+      }));
+
+      setAreaForm({
+        name: "",
+        description: "",
+      });
+
+      setIsAddingArea(false);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể thêm khu vực.");
+    }
+  };
+
+  const openEditArea = (area) => {
+    setEditingArea(area);
+    setAreaEditForm({
+      name: area.name || "",
+      description: area.description || "",
+    });
+  };
+
+  const saveEditArea = async () => {
+    if (!editingArea) return;
+
+    if (!areaEditForm.name.trim()) {
+      alert("Vui lòng nhập tên khu vực.");
+      return;
+    }
+
+    try {
+      const updatedArea = await tableService.updateArea(editingArea.id, {
+        name: areaEditForm.name.trim(),
+        description: areaEditForm.description.trim(),
+      });
+
+      setAreas((prev) =>
+        sortAreasByPriority(
+          prev.map((area) =>
+            String(area.id) === String(editingArea.id) ? updatedArea : area,
+          ),
+        ),
+      );
+
+      setTables((prev) =>
+        prev.map((table) =>
+          String(table.areaId) === String(editingArea.id)
+            ? {
+                ...table,
+                areaName: updatedArea.name,
+              }
+            : table,
+        ),
+      );
+
+      setSelectedTable((prev) =>
+        prev && String(prev.areaId) === String(editingArea.id)
+          ? {
+              ...prev,
+              areaName: updatedArea.name,
+            }
+          : prev,
+      );
+
+      setAddForm((prev) =>
+        String(prev.selectedArea) === String(editingArea.id)
+          ? {
+              ...prev,
+              selectedAreaTitle: updatedArea.name,
+            }
+          : prev,
+      );
+
+      setAssignForm((prev) =>
+        String(prev.areaId) === String(editingArea.id)
+          ? {
+              ...prev,
+              areaId: updatedArea.id,
+            }
+          : prev,
+      );
+
+      setEditingArea(null);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể cập nhật khu vực.");
+    }
+  };
+
+  const openAddTable = () => {
+    const currentArea =
+      areas.find((area) => String(area.id) === String(selectedArea)) ||
+      areas[0];
+
+    if (!currentArea) {
+      alert("Vui lòng tạo khu vực trước khi thêm bàn.");
+      return;
+    }
+
+    setTableForm({
+      areaId: currentArea.id,
+      capacity: 4,
+      status: "available",
+      description: "",
+    });
+
+    setIsAddingTable(true);
+  };
+
+  const saveAddTable = async () => {
+    if (!tableForm.areaId) {
+      alert("Vui lòng chọn khu vực.");
+      return;
+    }
+
+    if (Number(tableForm.capacity) <= 0) {
+      alert("Sức chứa phải lớn hơn 0.");
+      return;
+    }
+
+    try {
+      const savedTable = await tableService.createTable({
+        areaId: tableForm.areaId,
+        code: "",
+        capacity: Number(tableForm.capacity || 4),
+        status: tableForm.status,
+        description: tableForm.description.trim(),
+      });
+
+      setTables((prev) => [...prev, savedTable]);
+      setSelectedArea(savedTable.areaId);
+      setSelectedTable(savedTable);
+      setActiveTab("map");
+
+      setTableForm({
+        areaId: savedTable.areaId,
+        capacity: 4,
+        status: "available",
+        description: "",
+      });
+
+      setIsAddingTable(false);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể thêm bàn.");
+    }
+  };
+
   const openEditTable = (table) => {
+    const editableStatus =
+      table.status === "holding" || table.status === "booked"
+        ? "available"
+        : table.status;
+
     setEditingTable(table);
     setEditForm({
       areaId: table.areaId,
+      code: table.code,
       capacity: table.capacity,
-      status: table.status,
+      status: editableStatus,
       description: table.description,
     });
   };
 
-  const saveEditTable = () => {
-    const area = areas.find((item) => item.id === editForm.areaId);
-    const updatedAt = new Date().toISOString();
+  const saveEditTable = async () => {
+    if (!editingTable) return;
 
-    const updatedTable = {
-      ...editingTable,
-      areaId: editForm.areaId,
-      areaName: area?.name || editingTable.areaName,
-      capacity: Number(editForm.capacity),
-      status: editForm.status,
-      description: editForm.description,
-      updatedAt,
-    };
+    try {
+      const updatedTable = await tableService.updateTable(editingTable.id, {
+        areaId: editForm.areaId,
+        code: String(editForm.code || "").trim(),
+        capacity: Number(editForm.capacity),
+        status: editForm.status,
+        description: editForm.description,
+      });
 
-    setTables((prev) =>
-      prev.map((table) =>
-        table.id === editingTable.id ? updatedTable : table,
-      ),
-    );
+      setTables((prev) =>
+        prev.map((table) =>
+          String(table.id) === String(editingTable.id) ? updatedTable : table,
+        ),
+      );
 
-    setSelectedTable(updatedTable);
-    setEditingTable(null);
+      setSelectedTable(updatedTable);
+      setEditingTable(null);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể cập nhật bàn.");
+    }
   };
 
-  const updateTableStatus = (tableId, status) => {
-    const updatedAt = new Date().toISOString();
+  const updateTableStatus = async (tableId, status) => {
+    try {
+      const updatedTable = await tableService.updateTableStatus(
+        tableId,
+        status,
+      );
 
-    setTables((prev) =>
-      prev.map((table) =>
-        table.id === tableId
-          ? {
-              ...table,
-              status,
-              updatedAt,
-            }
-          : table,
-      ),
-    );
+      setTables((prev) =>
+        prev.map((table) =>
+          String(table.id) === String(tableId) ? updatedTable : table,
+        ),
+      );
 
-    setSelectedTable((prev) =>
-      prev?.id === tableId ? { ...prev, status, updatedAt } : prev,
-    );
-  };
-
-  const deleteTable = (table) => {
-    const confirmDelete = window.confirm(
-      `Bạn có chắc muốn xóa bàn ${table.code}?`,
-    );
-    if (!confirmDelete) return;
-
-    setTables((prev) => prev.filter((item) => item.id !== table.id));
-
-    if (selectedTable?.id === table.id) {
-      setSelectedTable(null);
+      setSelectedTable((prev) =>
+        prev && String(prev.id) === String(tableId) ? updatedTable : prev,
+      );
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể cập nhật trạng thái bàn.");
     }
   };
 
@@ -419,42 +682,40 @@ function AdminTablesPage() {
     setCurrentPage(1);
   }, [search, globalSearch, areaFilter, statusFilter, capacityFilter]);
   //hàm hủy đặt bàn
-  const cancelCurrentBooking = (booking) => {
+  const cancelCurrentBooking = async (booking) => {
     if (!booking) return;
 
     const confirmCancel = window.confirm(
-      `Bạn có chắc muốn hủy đặt bàn DB${booking.id}?`,
+      `Bạn có chắc muốn hủy đặt bàn ${booking.bookingCode || `DB${booking.id}`}?`,
     );
 
     if (!confirmCancel) return;
 
-    const updatedAt = new Date().toISOString();
+    try {
+      const updatedBooking = await bookingService.updateBookingStatus(
+        booking.id,
+        "cancelled",
+      );
 
-    const newBookings = bookings.map((item) =>
-      String(item.id) === String(booking.id)
-        ? {
-            ...item,
-            status: "cancelled",
-            updatedAt,
-          }
-        : item,
-    );
+      setBookings((prev) =>
+        prev.map((item) =>
+          String(item.id) === String(booking.id) ? updatedBooking : item,
+        ),
+      );
 
-    setBookings(newBookings);
-    localStorage.setItem("bookings", JSON.stringify(newBookings));
-
-    setTables(tableService.getTables());
-
-    setSelectedTable((prev) =>
-      prev
-        ? {
-            ...prev,
-            status: "available",
-            currentBooking: null,
-            updatedAt,
-          }
-        : prev,
-    );
+      setSelectedTable((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "available",
+              currentBooking: null,
+            }
+          : prev,
+      );
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể hủy đặt bàn.");
+    }
   };
 
   //biến lọc khách chưa chọn bàn
@@ -481,14 +742,16 @@ function AdminTablesPage() {
   });
   //hàm mở popup và lưu xếp bàn
   const openAssignBookingModal = (booking) => {
+    const firstArea = areas[0];
+
     setAssignBooking(booking);
     setAssignForm({
-      areaId: "floor1",
+      areaId: booking.selectedArea || firstArea?.id || "",
       tableCode: "",
     });
   };
 
-  const saveAssignBooking = () => {
+  const saveAssignBooking = async () => {
     if (!assignBooking) return;
 
     if (!assignForm.tableCode) {
@@ -496,56 +759,120 @@ function AdminTablesPage() {
       return;
     }
 
-    const area = areas.find((item) => item.id === assignForm.areaId);
-    const updatedAt = new Date().toISOString();
-
-    const newBookings = bookings.map((booking) =>
-      String(booking.id) === String(assignBooking.id)
-        ? {
-            ...booking,
-            selectedArea: assignForm.areaId,
-            selectedAreaTitle: area?.name || "",
-            selectedTable: assignForm.tableCode,
-
-            status: "confirmed",
-
-            assignedAt: updatedAt,
-            assignedBy: "admin",
-
-            updatedAt,
-          }
-        : booking,
+    const area = areas.find(
+      (item) => String(item.id) === String(assignForm.areaId),
     );
 
-    setBookings(newBookings);
-    localStorage.setItem("bookings", JSON.stringify(newBookings));
+    try {
+      const updatedBooking = await bookingService.updateBooking(
+        assignBooking.id,
+        {
+          status: "confirmed",
+          selectedArea: assignForm.areaId,
+          selectedAreaTitle: area?.name || "",
+          selectedTable: assignForm.tableCode,
+          note: assignBooking.note || "",
+          date: assignBooking.date,
+          time: assignBooking.time,
+          guests: Number(assignBooking.guests || assignBooking.people || 1),
+        },
+      );
+      setBookings((prev) =>
+        prev.map((booking) =>
+          String(booking.id) === String(assignBooking.id)
+            ? updatedBooking
+            : booking,
+        ),
+      );
 
-    setTables(tableService.getTables());
+      setSelectedTable((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "booked",
+              currentBooking: updatedBooking,
+            }
+          : prev,
+      );
 
-    setAssignBooking(null);
+      setAssignBooking(null);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể xếp bàn.");
+    }
   };
+
+  const completeCurrentBooking = async (booking, table) => {
+    if (!booking || !table) return;
+
+    const confirmComplete = window.confirm(
+      `Bạn có chắc muốn hoàn thành đặt bàn ${booking.bookingCode || `DB${booking.id}`} và mở lại bàn ${table.code}?`,
+    );
+
+    if (!confirmComplete) return;
+
+    try {
+      const updatedBooking = await bookingService.updateBookingStatus(
+        booking.id,
+        "completed",
+      );
+
+      const updatedTable = await tableService.updateTableStatus(
+        table.id,
+        "available",
+      );
+
+      setBookings((prev) =>
+        prev.map((item) =>
+          String(item.id) === String(booking.id) ? updatedBooking : item,
+        ),
+      );
+
+      setTables((prev) =>
+        prev.map((item) =>
+          String(item.id) === String(table.id) ? updatedTable : item,
+        ),
+      );
+
+      setSelectedTable({
+        ...updatedTable,
+        currentBooking: null,
+      });
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể hoàn thành đặt bàn.");
+    }
+  };
+
   //hàm xác nhận booking
-  const confirmCurrentBooking = (booking) => {
+  const confirmCurrentBooking = async (booking) => {
     if (!booking) return;
 
-    const updatedBookings = bookingService.confirmBooking(booking.id);
-    setBookings(updatedBookings);
+    try {
+      const updatedBooking = await bookingService.updateBookingStatus(
+        booking.id,
+        "confirmed",
+      );
 
-    setTables(tableService.getTables());
+      setBookings((prev) =>
+        prev.map((item) =>
+          String(item.id) === String(booking.id) ? updatedBooking : item,
+        ),
+      );
 
-    setSelectedTable((prev) =>
-      prev
-        ? {
-            ...prev,
-            status: "booked",
-            currentBooking: {
-              ...booking,
-              status: "confirmed",
-              updatedAt: new Date().toISOString(),
-            },
-          }
-        : prev,
-    );
+      setSelectedTable((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "booked",
+              currentBooking: updatedBooking,
+            }
+          : prev,
+      );
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể xác nhận đặt bàn.");
+    }
   };
 
   const isTableBookedAtDate = (tableCode, date) => {
@@ -558,6 +885,80 @@ function AdminTablesPage() {
           booking.status === "Chờ xác nhận" ||
           booking.status === "Đã xác nhận"),
     );
+  };
+
+  const findBestTableForAddBooking = () => {
+    const guestCount = Number(addForm.guests || 0);
+
+    return (
+      tables
+        .filter((table) => {
+          const sameArea =
+            String(table.areaId) === String(addForm.selectedArea);
+
+          const available =
+            table.status === "available" &&
+            !isTableBookedAtDate(table.code, addForm.date);
+
+          const enoughCapacity =
+            guestCount <= 0 || Number(table.capacity || 0) >= guestCount;
+
+          return sameArea && available && enoughCapacity;
+        })
+        .sort((a, b) => {
+          const capacityDiff =
+            Number(a.capacity || 0) - Number(b.capacity || 0);
+
+          if (capacityDiff !== 0) return capacityDiff;
+
+          return String(a.code || "").localeCompare(
+            String(b.code || ""),
+            "vi",
+            {
+              numeric: true,
+            },
+          );
+        })[0] || null
+    );
+  };
+
+  const handleSelectTableForAddBooking = (table, status) => {
+    const disabled = status !== "available";
+
+    if (disabled) return;
+
+    const guestCount = Number(addForm.guests || 0);
+    const tableCapacity = Number(table.capacity || 0);
+
+    if (guestCount > 0 && tableCapacity < guestCount) {
+      const suggestedTable = findBestTableForAddBooking();
+
+      if (suggestedTable) {
+        const shouldSwitch = window.confirm(
+          `Bàn ${table.code} chỉ chứa tối đa ${tableCapacity} người, nhưng lịch đặt này có ${guestCount} khách.\n\nBạn có muốn chuyển sang bàn ${suggestedTable.code} (${suggestedTable.capacity} người) không?`,
+        );
+
+        if (shouldSwitch) {
+          setAddForm((prev) => ({
+            ...prev,
+            selectedTable: suggestedTable.code,
+          }));
+        }
+
+        return;
+      }
+
+      alert(
+        `Bàn ${table.code} chỉ chứa tối đa ${tableCapacity} người. Hiện khu vực này không có bàn phù hợp cho ${guestCount} khách.`,
+      );
+
+      return;
+    }
+
+    setAddForm((prev) => ({
+      ...prev,
+      selectedTable: table.code,
+    }));
   };
 
   //hàm kiểm tra trạng thái bàn khi thêm
@@ -592,7 +993,7 @@ function AdminTablesPage() {
   };
 
   //hàm lưu đặt bàn
-  const saveAddBooking = () => {
+  const saveAddBooking = async () => {
     if (!addForm.customerName.trim()) {
       alert("Vui lòng nhập tên khách hàng.");
       return;
@@ -613,20 +1014,61 @@ function AdminTablesPage() {
       return;
     }
 
+    const guestCount = Number(addForm.guests);
+
+    if (!Number.isFinite(guestCount) || guestCount <= 0) {
+      alert("Số khách phải lớn hơn 0.");
+      return;
+    }
+
     if (!addForm.selectedTable) {
       alert("Vui lòng chọn bàn.");
       return;
     }
 
-    const newBooking = {
-      id: Date.now(),
+    const selectedTableData = tables.find(
+      (table) =>
+        String(table.code) === String(addForm.selectedTable) &&
+        String(table.areaId) === String(addForm.selectedArea),
+    );
+
+    if (!selectedTableData) {
+      alert("Bàn đã chọn không hợp lệ. Vui lòng chọn lại.");
+      return;
+    }
+
+    if (guestCount > Number(selectedTableData.capacity || 0)) {
+      const suggestedTable = findBestTableForAddBooking();
+
+      if (suggestedTable) {
+        const shouldSwitch = window.confirm(
+          `Bàn ${selectedTableData.code} chỉ chứa tối đa ${selectedTableData.capacity} người, nhưng lịch đặt này có ${addForm.guests} khách.\n\nBạn có muốn chuyển sang bàn ${suggestedTable.code} (${suggestedTable.capacity} người) không?`,
+        );
+
+        if (shouldSwitch) {
+          setAddForm((prev) => ({
+            ...prev,
+            selectedTable: suggestedTable.code,
+          }));
+        }
+
+        return;
+      }
+
+      alert(
+        `Khu vực này không có bàn phù hợp cho ${addForm.guests} khách. Vui lòng chọn khu vực khác.`,
+      );
+
+      return;
+    }
+
+    const payload = {
       customerName: addForm.customerName.trim(),
-      name: addForm.customerName.trim(),
       phone: addForm.phone.trim(),
       email: addForm.email.trim(),
       date: addForm.date,
       time: addForm.time,
-      guests: Number(addForm.guests || 1),
+      guests: guestCount,
       selectedArea: addForm.selectedArea,
       selectedAreaTitle: addForm.selectedAreaTitle,
       selectedTable: addForm.selectedTable,
@@ -634,91 +1076,102 @@ function AdminTablesPage() {
       status: addForm.status,
       type: "table_only",
       total: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: "admin",
     };
 
-    const newBookings = [newBooking, ...bookings];
+    try {
+      const savedBooking = await bookingService.createAdminBooking(payload);
 
-    setBookings(newBookings);
-    localStorage.setItem("bookings", JSON.stringify(newBookings));
+      setBookings((prev) => [savedBooking, ...prev]);
+      setSelectedTable(null);
+      setIsAddingBooking(false);
 
-    window.dispatchEvent(
-      new CustomEvent("bookingsUpdated", {
-        detail: newBookings,
-      }),
-    );
+      const firstArea = areas[0];
 
-    setSelectedTable(null);
-    setIsAddingBooking(false);
-
-    setAddForm({
-      customerName: "",
-      phone: "",
-      email: "",
-      date: today,
-      time: "",
-      guests: 1,
-      selectedArea: "floor1",
-      selectedAreaTitle: "Tầng trệt",
-      selectedTable: "",
-      note: "",
-      status: "pending",
-    });
+      setAddForm({
+        customerName: "",
+        phone: "",
+        email: "",
+        date: today,
+        time: "",
+        guests: 1,
+        selectedArea: firstArea?.id || "",
+        selectedAreaTitle: firstArea?.name || "",
+        selectedTable: "",
+        note: "",
+        status: "pending",
+      });
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể tạo đặt bàn.");
+    }
   };
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3">
-        <StatCard
-          icon={<Building2 />}
-          title="Tổng khu vực"
-          value={totalAreas}
-          bg="bg-green-50"
-          color="text-green-700"
-        />
-        <StatCard
-          icon={<LayoutGrid />}
-          title="Tổng bàn"
-          value={totalTables}
-          bg="bg-blue-50"
-          color="text-blue-600"
-        />
-        <StatCard
-          icon={<CheckCircle />}
-          title="Bàn trống"
-          value={availableCount}
-          bg="bg-green-50"
-          color="text-green-600"
-        />
-        <StatCard
-          icon={<Clock3 />}
-          title="Đang giữ ngày đã chọn"
-          value={holdingCount}
-          bg="bg-orange-50"
-          color="text-orange-600"
-        />
+      <div className="overflow-x-auto xl:overflow-visible pb-1">
+        <div className="grid grid-flow-col auto-cols-[150px] sm:auto-cols-[158px] md:auto-cols-[166px] lg:auto-cols-[172px] xl:grid-flow-row xl:grid-cols-6 xl:auto-cols-auto gap-2 w-max xl:w-full">
+          <StatCard
+            icon={<Building2 size={18} />}
+            title="Tổng khu vực"
+            value={totalAreas}
+            bg="bg-green-50"
+            color="text-green-700"
+          />
 
-        <StatCard
-          icon={<CalendarCheck />}
-          title="Đã đặt ngày đã chọn"
-          value={bookedCount}
-          bg="bg-red-50"
-          color="text-red-600"
-        />
-        <StatCard
-          icon={<Wrench />}
-          title="Bảo trì"
-          value={maintenanceCount}
-          bg="bg-gray-100"
-          color="text-gray-600"
-        />
+          <StatCard
+            icon={<LayoutGrid size={18} />}
+            title="Tổng bàn"
+            value={totalTables}
+            bg="bg-blue-50"
+            color="text-blue-600"
+          />
+
+          <StatCard
+            icon={<CheckCircle size={18} />}
+            title="Bàn trống"
+            value={availableCount}
+            bg="bg-green-50"
+            color="text-green-600"
+          />
+
+          <StatCard
+            icon={<Clock3 size={18} />}
+            title="Đang giữ ngày đã chọn"
+            value={holdingCount}
+            bg="bg-orange-50"
+            color="text-orange-600"
+          />
+
+          <StatCard
+            icon={<CalendarCheck size={18} />}
+            title="Đã đặt ngày đã chọn"
+            value={bookedCount}
+            bg="bg-red-50"
+            color="text-red-600"
+          />
+
+          <StatCard
+            icon={<Wrench size={18} />}
+            title="Bảo trì"
+            value={maintenanceCount}
+            bg="bg-gray-100"
+            color="text-gray-600"
+          />
+        </div>
       </div>
+      {tableLoading && (
+        <div className="rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-black text-green-700">
+          Đang tải danh sách bàn/khu vực...
+        </div>
+      )}
       <div
-        className={`grid grid-cols-1 gap-4 items-start ${selectedTable ? "xl:grid-cols-[minmax(0,1fr)_340px]" : ""}`}
+        className={`grid grid-cols-1 gap-4 items-start ${
+          selectedTable
+            ? "xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_360px]"
+            : ""
+        }`}
       >
-        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden min-w-0">
           <div className="px-5 border-b border-gray-100">
             <div className="flex items-center gap-8 overflow-x-auto">
               <TabButton
@@ -759,75 +1212,122 @@ function AdminTablesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-[230px_minmax(0,1fr)] gap-4 p-4">
-                <aside className="rounded-2xl border border-gray-100 bg-white p-4 self-start">
+              <div className="grid grid-cols-1 xl:grid-cols-[210px_minmax(0,1fr)] 2xl:grid-cols-[230px_minmax(0,1fr)] gap-3 sm:gap-4 p-3 sm:p-4">
+                <aside className="rounded-2xl border border-gray-100 bg-white p-3 sm:p-4 self-start">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-black text-green-950">Khu vực</h3>
 
-                    <button className="w-9 h-9 rounded-xl border border-gray-100 flex items-center justify-center text-green-700 hover:bg-green-50">
+                    <button
+                      onClick={openAddArea}
+                      title="Thêm khu vực"
+                      className="w-9 h-9 rounded-xl border border-gray-100 flex items-center justify-center text-green-700 hover:bg-green-50"
+                    >
                       <Plus size={18} />
                     </button>
                   </div>
 
                   <div className="space-y-3">
-                    {areas.map((area) => (
-                      <button
-                        key={area.id}
-                        onClick={() => setSelectedArea(area.id)}
-                        className={`w-full rounded-xl border p-4 text-left transition ${
-                          selectedArea === area.id
-                            ? "bg-green-50 border-green-200 text-green-900"
-                            : "bg-white border-gray-100 text-gray-600 hover:bg-green-50/50"
-                        }`}
-                      >
-                        <p className="font-black">{area.name}</p>
+                    {areas.map((area) => {
+                      const areaTableCount = displayTables.filter(
+                        (table) => String(table.areaId) === String(area.id),
+                      ).length;
 
-                        <p className="text-sm font-semibold mt-1">
-                          {
-                            displayTables.filter(
-                              (table) => table.areaId === area.id,
-                            ).length
-                          }{" "}
-                          bàn
-                        </p>
-                      </button>
-                    ))}
+                      const isActive = String(selectedArea) === String(area.id);
+
+                      return (
+                        <div
+                          key={area.id}
+                          className={`group w-full rounded-xl border p-3 sm:p-4 transition flex items-start justify-between gap-3 ${
+                            isActive
+                              ? "bg-green-50 border-green-200 text-green-900"
+                              : "bg-white border-gray-100 text-gray-600 hover:bg-green-50/50"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setSelectedArea(area.id)}
+                            className="flex-1 text-left"
+                          >
+                            <p className="font-black text-sm sm:text-base leading-5">
+                              {area.name}
+                            </p>
+
+                            <p className="text-xs sm:text-sm font-semibold mt-1">
+                              {areaTableCount} bàn
+                            </p>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditArea(area);
+                            }}
+                            title="Chỉnh sửa khu vực"
+                            className="w-8 h-8 rounded-lg bg-white border border-gray-100 text-emerald-700 flex items-center justify-center opacity-100 lg:opacity-0 group-hover:opacity-100 hover:bg-emerald-50 transition"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </aside>
 
                 <div className="space-y-4 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {Object.entries(TABLE_STATUS).map(([key, label]) => (
-                      <Legend key={key} color={STATUS_DOT[key]} text={label} />
-                    ))}
-
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="ml-auto h-10 rounded-xl border border-gray-100 px-4 text-sm font-bold outline-none"
-                    >
-                      <option value="all">Tất cả trạng thái</option>
-
-                      {Object.entries(TABLE_STATUS)
-                        .filter(
-                          ([key]) => key !== "holding" && key !== "booked",
-                        )
-                        .map(([key, label]) => (
-                          <option key={key} value={key}>
-                            {label}
-                          </option>
+                  <div className="overflow-x-auto pb-1 -mx-1 px-1">
+                    <div className="flex items-center gap-2 min-w-max xl:min-w-0 xl:w-full">
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {Object.entries(TABLE_STATUS).map(([key, label]) => (
+                          <Legend
+                            key={key}
+                            color={STATUS_DOT[key]}
+                            text={label}
+                            compact={!!selectedTable}
+                          />
                         ))}
-                    </select>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 xl:ml-auto">
+                        <button
+                          onClick={openAddTable}
+                          className="h-8 px-3 rounded-xl bg-green-800 text-white text-[11px] font-black flex items-center justify-center gap-1.5 hover:bg-green-900 transition whitespace-nowrap"
+                        >
+                          <Plus size={14} />
+                          Thêm bàn
+                        </button>
+
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                          className="h-8 w-[132px] rounded-xl border border-gray-100 px-2.5 text-[11px] font-black outline-none bg-white"
+                        >
+                          <option value="all">Tất cả trạng thái</option>
+
+                          {Object.entries(TABLE_STATUS)
+                            .filter(
+                              ([key]) => key !== "holding" && key !== "booked",
+                            )
+                            .map(([key, label]) => (
+                              <option key={key} value={key}>
+                                {label}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
 
                   {areas
                     .filter(
                       (area) =>
-                        selectedArea === "all" || area.id === selectedArea,
+                        selectedArea === "all" ||
+                        String(area.id) === String(selectedArea),
                     )
                     .map((area) => {
                       const areaTables = displayTables.filter((table) => {
-                        const matchArea = table.areaId === area.id;
+                        const matchArea =
+                          String(table.areaId) === String(area.id);
                         const matchStatus =
                           statusFilter === "all" ||
                           table.status === statusFilter;
@@ -847,7 +1347,7 @@ function AdminTablesPage() {
                             </span>
                           </h3>
 
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 xl:gap-4">
                             {areaTables.map((table) => (
                               <TableButton
                                 key={table.id}
@@ -1087,11 +1587,25 @@ function AdminTablesPage() {
                             />
 
                             <ActionButton
-                              icon={<Trash2 size={16} />}
-                              color="red"
+                              icon={
+                                table.status === "disabled" ? (
+                                  <Unlock size={16} />
+                                ) : (
+                                  <Lock size={16} />
+                                )
+                              }
+                              color={
+                                table.status === "disabled" ? "green" : "red"
+                              }
                               onClick={(e) => {
                                 e.stopPropagation();
-                                deleteTable(table);
+
+                                updateTableStatus(
+                                  table.id,
+                                  table.status === "disabled"
+                                    ? "available"
+                                    : "disabled",
+                                );
                               }}
                             />
                           </div>
@@ -1150,6 +1664,12 @@ function AdminTablesPage() {
             }
             onConfirmBooking={() =>
               confirmCurrentBooking(selectedTable.currentBooking)
+            }
+            onCompleteBooking={() =>
+              completeCurrentBooking(
+                selectedTable.currentBooking,
+                selectedTable,
+              )
             }
           />
         )}
@@ -1213,7 +1733,7 @@ function AdminTablesPage() {
                 {tables
                   .filter(
                     (table) =>
-                      table.areaId === assignForm.areaId &&
+                      String(table.areaId) === String(assignForm.areaId) &&
                       table.status === "available" &&
                       Number(table.capacity) >=
                         Number(
@@ -1262,6 +1782,266 @@ function AdminTablesPage() {
           </div>
         </div>
       )}
+
+      {/* popup “Thêm khu vực” */}
+      {isAddingArea && (
+        <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-green-950">
+                  Thêm khu vực
+                </h3>
+                <p className="text-sm text-gray-500 font-semibold mt-1">
+                  Tạo tầng hoặc khu vực mới trong nhà hàng
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsAddingArea(false)}
+                className="text-gray-400 hover:text-red-500"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <InputField
+                label="Tên khu vực"
+                value={areaForm.name}
+                onChange={(value) =>
+                  setAreaForm((prev) => ({
+                    ...prev,
+                    name: value,
+                  }))
+                }
+              />
+
+              <label className="block">
+                <span className="text-sm font-black text-gray-500">Mô tả</span>
+                <textarea
+                  value={areaForm.description}
+                  onChange={(e) =>
+                    setAreaForm((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="Ví dụ: Khu vực tầng 3, phòng riêng, ngoài trời..."
+                  className="mt-2 w-full h-24 rounded-xl border border-gray-100 px-4 py-3 text-sm font-semibold outline-none resize-none shadow-sm"
+                />
+              </label>
+
+              <div className="rounded-2xl bg-green-50 border border-green-100 p-4 text-sm text-green-900 font-semibold">
+                Sau khi thêm, khu vực này sẽ xuất hiện trong sơ đồ bàn và popup
+                đặt bàn.
+              </div>
+            </div>
+
+            <div className="px-6 py-5 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                onClick={() => setIsAddingArea(false)}
+                className="h-11 px-5 rounded-xl bg-gray-100 text-gray-600 font-black hover:bg-gray-200"
+              >
+                Đóng
+              </button>
+
+              <button
+                onClick={saveAddArea}
+                className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+              >
+                Thêm khu vực
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* popup “Thêm bàn vật lý” */}
+      {isAddingTable && (
+        <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-green-950">
+                  Thêm bàn mới
+                </h3>
+                <p className="text-sm text-gray-500 font-semibold mt-1">
+                  Tạo bàn vật lý trong khu vực nhà hàng
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsAddingTable(false)}
+                className="text-gray-400 hover:text-red-500"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <SelectField
+                label="Khu vực"
+                value={tableForm.areaId}
+                onChange={(value) =>
+                  setTableForm((prev) => ({
+                    ...prev,
+                    areaId: value,
+                  }))
+                }
+              >
+                <option value="">Chọn khu vực</option>
+
+                {areas.map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {area.name}
+                  </option>
+                ))}
+              </SelectField>
+
+              <InputField
+                label="Sức chứa"
+                type="number"
+                value={tableForm.capacity}
+                onChange={(value) =>
+                  setTableForm((prev) => ({
+                    ...prev,
+                    capacity: value,
+                  }))
+                }
+              />
+
+              <SelectField
+                label="Trạng thái"
+                value={tableForm.status}
+                onChange={(value) =>
+                  setTableForm((prev) => ({
+                    ...prev,
+                    status: value,
+                  }))
+                }
+              >
+                {Object.entries(TABLE_STATUS)
+                  .filter(([key]) => key !== "holding" && key !== "booked")
+                  .map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+              </SelectField>
+
+              <label className="block">
+                <span className="text-sm font-black text-gray-500">Mô tả</span>
+                <textarea
+                  value={tableForm.description}
+                  onChange={(e) =>
+                    setTableForm((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="Ví dụ: Gần cửa sổ, phù hợp gia đình, phòng riêng..."
+                  className="mt-2 w-full h-24 rounded-xl border border-gray-100 px-4 py-3 text-sm font-semibold outline-none resize-none shadow-sm"
+                />
+              </label>
+
+              <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4 text-sm text-blue-900 font-semibold">
+                Mã bàn sẽ được hệ thống tự tạo theo khu vực: Tầng 1 → 101, Tầng
+                2 → 201, Phòng VIP → VIP01. Có thể chỉnh sửa mã bàn sau khi tạo.
+              </div>
+            </div>
+
+            <div className="px-6 py-5 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                onClick={() => setIsAddingTable(false)}
+                className="h-11 px-5 rounded-xl bg-gray-100 text-gray-600 font-black hover:bg-gray-200"
+              >
+                Đóng
+              </button>
+
+              <button
+                onClick={saveAddTable}
+                className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+              >
+                Thêm bàn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingArea && (
+        <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-green-950">
+                  Chỉnh sửa khu vực
+                </h3>
+                <p className="text-sm text-gray-500 font-semibold mt-1">
+                  Cập nhật tên tầng, phòng hoặc mô tả khu vực
+                </p>
+              </div>
+
+              <button
+                onClick={() => setEditingArea(null)}
+                className="text-gray-400 hover:text-red-500"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <InputField
+                label="Tên khu vực"
+                value={areaEditForm.name}
+                onChange={(value) =>
+                  setAreaEditForm((prev) => ({
+                    ...prev,
+                    name: value,
+                  }))
+                }
+              />
+
+              <label className="block">
+                <span className="text-sm font-black text-gray-500">Mô tả</span>
+                <textarea
+                  value={areaEditForm.description}
+                  onChange={(e) =>
+                    setAreaEditForm((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="Ví dụ: Khu vực tầng 1, phòng riêng, sân vườn..."
+                  className="mt-2 w-full h-24 rounded-xl border border-gray-100 px-4 py-3 text-sm font-semibold outline-none resize-none shadow-sm"
+                />
+              </label>
+
+              <div className="rounded-2xl bg-green-50 border border-green-100 p-4 text-sm text-green-900 font-semibold">
+                Nếu đổi tên khu vực, các bàn thuộc khu vực này sẽ hiển thị theo
+                tên mới.
+              </div>
+            </div>
+
+            <div className="px-6 py-5 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                onClick={() => setEditingArea(null)}
+                className="h-11 px-5 rounded-xl bg-gray-100 text-gray-600 font-black hover:bg-gray-200"
+              >
+                Đóng
+              </button>
+
+              <button
+                onClick={saveEditArea}
+                className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+              >
+                Lưu thay đổi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editingTable && (
         <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
           <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden">
@@ -1299,6 +2079,17 @@ function AdminTablesPage() {
               </SelectField>
 
               <InputField
+                label="Mã bàn"
+                value={editForm.code}
+                onChange={(value) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    code: value,
+                  }))
+                }
+              />
+
+              <InputField
                 label="Sức chứa"
                 type="number"
                 value={editForm.capacity}
@@ -1314,11 +2105,13 @@ function AdminTablesPage() {
                   setEditForm((prev) => ({ ...prev, status: value }))
                 }
               >
-                {Object.entries(TABLE_STATUS).map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
+                {Object.entries(TABLE_STATUS)
+                  .filter(([key]) => key !== "holding" && key !== "booked")
+                  .map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
               </SelectField>
 
               <label className="block">
@@ -1430,16 +2223,22 @@ function AdminTablesPage() {
                   label="Số khách"
                   type="number"
                   value={addForm.guests}
-                  onChange={(value) =>
-                    setAddForm((prev) => ({ ...prev, guests: value }))
-                  }
+                  onChange={(value) => {
+                    setAddForm((prev) => ({
+                      ...prev,
+                      guests: value,
+                      selectedTable: "",
+                    }));
+                  }}
                 />
 
                 <SelectField
                   label="Khu vực"
                   value={addForm.selectedArea}
                   onChange={(value) => {
-                    const area = areas.find((item) => item.id === value);
+                    const area = areas.find(
+                      (item) => String(item.id) === String(value),
+                    );
 
                     setAddForm((prev) => ({
                       ...prev,
@@ -1478,12 +2277,21 @@ function AdminTablesPage() {
                 <div className="rounded-2xl border border-gray-100 p-4 max-h-[500px] overflow-y-auto">
                   <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3">
                     {tables
-                      .filter((table) => table.areaId === addForm.selectedArea)
+                      .filter(
+                        (table) =>
+                          String(table.areaId) === String(addForm.selectedArea),
+                      )
                       .map((table) => {
                         const status = getTableStatusForAdd(table);
 
                         const isSelected =
                           String(addForm.selectedTable) === String(table.code);
+
+                        const guestCount = Number(addForm.guests || 0);
+
+                        const insufficientCapacity =
+                          guestCount > 0 &&
+                          Number(table.capacity || 0) < guestCount;
 
                         const disabled = status !== "available";
 
@@ -1492,18 +2300,17 @@ function AdminTablesPage() {
                             key={table.id}
                             type="button"
                             disabled={disabled}
-                            onClick={() => {
-                              if (disabled) return;
-
-                              setAddForm((prev) => ({
-                                ...prev,
-                                selectedTable: table.code,
-                              }));
-                            }}
+                            onClick={() =>
+                              handleSelectTableForAddBooking(table, status)
+                            }
                             className={`relative h-16 rounded-xl border font-black transition ${
                               isSelected
                                 ? "border-green-700 bg-green-600 text-white ring-2 ring-green-300"
-                                : TABLE_STATUS_STYLE[status]
+                                : disabled
+                                  ? TABLE_STATUS_STYLE[status]
+                                  : insufficientCapacity
+                                    ? "border-yellow-300 bg-yellow-50 text-yellow-700"
+                                    : TABLE_STATUS_STYLE[status]
                             } ${
                               disabled
                                 ? "cursor-not-allowed opacity-80"
@@ -1532,6 +2339,14 @@ function AdminTablesPage() {
                                   Đang chọn
                                 </span>
                               )}
+
+                              {insufficientCapacity &&
+                                !disabled &&
+                                !isSelected && (
+                                  <span className="mt-1 text-[10px] font-black text-yellow-700">
+                                    Thiếu chỗ
+                                  </span>
+                                )}
                             </div>
                           </button>
                         );
@@ -1567,14 +2382,15 @@ function TableButton({ table, active, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`relative h-12 rounded-xl border font-black transition ${
+      className={`relative h-11 sm:h-12 rounded-xl border font-black text-xs sm:text-sm transition ${
         active ? "ring-2 ring-green-700" : ""
       } ${STATUS_STYLE[table.status]}`}
     >
       <span
-        className={`absolute top-2 left-2 w-2.5 h-2.5 rounded-full ${STATUS_DOT[table.status]}`}
-      ></span>
-      {table.code}
+        className={`absolute top-2 left-2 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${STATUS_DOT[table.status]}`}
+      />
+
+      <span className="block px-2 truncate">{table.code}</span>
     </button>
   );
 }
@@ -1589,9 +2405,10 @@ function TableDetailPanel({
   onStatusChange,
   onCancelBooking,
   onConfirmBooking,
+  onCompleteBooking,
 }) {
   return (
-    <aside className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden 2xl:sticky 2xl:top-4">
+    <aside className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden xl:sticky xl:top-4 xl:self-start xl:h-fit xl:max-h-none">
       <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-xl font-black text-green-950">
           Chi tiết bàn {table.code}
@@ -1602,8 +2419,8 @@ function TableDetailPanel({
       </div>
 
       <div className="p-4 space-y-4">
-        <div className="h-36 rounded-2xl border border-gray-100 bg-[#fbfcfb] flex items-center justify-center">
-          <div className="w-28 h-28 rounded-xl border-2 border-gray-200 bg-white flex items-center justify-center text-3xl font-black text-green-950 shadow-sm">
+        <div className="h-28 rounded-2xl border border-gray-100 bg-[#fbfcfb] flex items-center justify-center">
+          <div className="w-20 h-20 rounded-xl border-2 border-gray-200 bg-white flex items-center justify-center text-2xl font-black text-green-950 shadow-sm">
             {table.code}
           </div>
         </div>
@@ -1618,74 +2435,69 @@ function TableDetailPanel({
           <DetailRow label="Cập nhật" value={formatDateTime(table.updatedAt)} />
         </DetailBlock>
 
-        {booking && (
+        {booking ? (
           <DetailBlock title="Thông tin đặt bàn hiện tại">
-            {booking ? (
-              <>
-                <DetailRow
-                  label="Mã đặt bàn"
-                  value={`DB${booking.id || "Chưa có"}`}
-                />
-                <DetailRow
-                  label="Khách hàng"
-                  value={
-                    booking.customerName ||
-                    booking.fullName ||
-                    booking.name ||
-                    "Chưa có"
-                  }
-                />
-                <DetailRow
-                  label="Số điện thoại"
-                  value={booking.phone || "Chưa có"}
-                />
-                <DetailRow label="Email" value={booking.email || "Chưa có"} />
-                <DetailRow label="Ngày đặt" value={formatDate(booking.date)} />
-                <DetailRow label="Giờ đặt" value={booking.time || "Chưa có"} />
-                <DetailRow
-                  label="Số khách"
-                  value={`${booking.guests || booking.people || 0} người`}
-                />
-                <DetailRow
-                  label="Loại đặt"
-                  value={
-                    booking.type === "table_with_order"
-                      ? "Đặt bàn kèm đơn món"
-                      : booking.type === "table_with_food"
-                        ? "Đặt bàn kèm món"
-                        : "Chỉ đặt bàn"
-                  }
-                />
-                <DetailRow
-                  label="Tổng tiền"
-                  value={`${Number(booking.total || 0).toLocaleString("vi-VN")}đ`}
-                />
-                <DetailRow label="Ghi chú" value={booking.note || "Không có"} />
-                <DetailRow
-                  label="Tạo lúc"
-                  value={formatDateTime(booking.createdAt)}
-                />
-                <DetailRow
-                  label="Xếp bàn lúc"
-                  value={formatDateTime(booking.assignedAt)}
-                />
-
-                <DetailRow
-                  label="Xếp bởi"
-                  value={booking.assignedBy || "Chưa có"}
-                />
-              </>
-            ) : (
-              <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-5 text-center">
-                <p className="font-black text-gray-500">
-                  Bàn này chưa có lịch đặt hiện tại
-                </p>
-                <p className="text-sm text-gray-400 font-semibold mt-1">
-                  Khi khách đặt đúng mã bàn này, thông tin sẽ tự hiển thị ở đây.
-                </p>
-              </div>
-            )}
+            <DetailRow
+              label="Mã đặt bàn"
+              value={`DB${booking.id || "Chưa có"}`}
+            />
+            <DetailRow
+              label="Khách hàng"
+              value={
+                booking.customerName ||
+                booking.fullName ||
+                booking.name ||
+                "Chưa có"
+              }
+            />
+            <DetailRow
+              label="Số điện thoại"
+              value={booking.phone || "Chưa có"}
+            />
+            <DetailRow label="Email" value={booking.email || "Chưa có"} />
+            <DetailRow label="Ngày đặt" value={formatDate(booking.date)} />
+            <DetailRow label="Giờ đặt" value={booking.time || "Chưa có"} />
+            <DetailRow
+              label="Số khách"
+              value={`${booking.guests || booking.people || 0} người`}
+            />
+            <DetailRow
+              label="Loại đặt"
+              value={
+                booking.type === "table_with_order"
+                  ? "Đặt bàn kèm đơn món"
+                  : booking.type === "table_with_food"
+                    ? "Đặt bàn kèm món"
+                    : "Chỉ đặt bàn"
+              }
+            />
+            <DetailRow
+              label="Tổng tiền"
+              value={`${Number(booking.total || 0).toLocaleString("vi-VN")}đ`}
+            />
+            <DetailRow label="Ghi chú" value={booking.note || "Không có"} />
+            <DetailRow
+              label="Tạo lúc"
+              value={formatDateTime(booking.createdAt)}
+            />
+            <DetailRow
+              label="Xếp bàn lúc"
+              value={formatDateTime(booking.assignedAt)}
+            />
+            <DetailRow
+              label="Xếp bởi"
+              value={booking.assignedBy || "Chưa có"}
+            />
           </DetailBlock>
+        ) : (
+          <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-5 text-center">
+            <p className="font-black text-gray-500">
+              Bàn này chưa có lịch đặt hiện tại
+            </p>
+            <p className="text-sm text-gray-400 font-semibold mt-1">
+              Khi khách đặt đúng mã bàn này, thông tin sẽ tự hiển thị ở đây.
+            </p>
+          </div>
         )}
 
         {booking && (
@@ -1705,8 +2517,16 @@ function TableDetailPanel({
             Xác nhận đặt bàn
           </button>
         )}
+        {booking?.status === "confirmed" && booking?.selectedTable && (
+          <button
+            onClick={onCompleteBooking}
+            className="w-full h-12 rounded-xl bg-green-700 text-white border border-green-700 font-black hover:bg-green-800 transition"
+          >
+            Hoàn thành & mở bàn
+          </button>
+        )}
 
-        <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
+        <div className="grid grid-cols-2 gap-2 border-t border-gray-100 pt-4">
           <button
             onClick={() => onStatusChange("available")}
             className="h-11 rounded-xl bg-green-50 text-green-700 border border-green-100 font-black hover:bg-green-100"
@@ -1724,10 +2544,10 @@ function TableDetailPanel({
           </button>
 
           <button
-            onClick={() => onStatusChange("holding")}
-            className="h-11 rounded-xl bg-orange-50 text-orange-600 border border-orange-100 font-black hover:bg-orange-100"
+            onClick={() => onStatusChange("serving")}
+            className="h-11 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 font-black hover:bg-blue-100"
           >
-            Đang giữ
+            Đang phục vụ
           </button>
 
           <button
@@ -1755,16 +2575,22 @@ function StatusBadge({ status }) {
 
 function StatCard({ icon, title, value, bg, color }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 min-h-[96px] hover:bg-green-50/40 hover:border-green-100 hover:-translate-y-0.5 hover:shadow-md transition">
-      <div className="flex items-center gap-3">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-3 py-2.5 h-[86px] sm:h-[90px] flex flex-col justify-center hover:bg-green-50/40 hover:border-green-100 hover:-translate-y-0.5 hover:shadow-md transition min-w-0">
+      <div className="flex items-start gap-2.5 min-w-0">
         <div
-          className={`w-11 h-11 rounded-xl ${bg} ${color} flex items-center justify-center shrink-0`}
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${bg} ${color} flex items-center justify-center shrink-0`}
         >
           {icon}
         </div>
-        <div>
-          <p className="text-gray-500 font-bold text-sm">{title}</p>
-          <h3 className="text-2xl font-black text-green-950 mt-1">{value}</h3>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] sm:text-xs font-black text-gray-500 leading-4 line-clamp-2">
+            {title}
+          </p>
+
+          <h3 className="text-[22px] sm:text-[26px] font-black text-green-950 leading-none mt-1">
+            {value}
+          </h3>
         </div>
       </div>
     </div>
@@ -1788,12 +2614,15 @@ function TabButton({ active, onClick, children }) {
 
 function SelectBox({ label, value, onChange, children }) {
   return (
-    <label className="h-12 rounded-xl border border-gray-100 bg-white px-3 flex flex-col justify-center shadow-sm min-w-[150px]">
-      <span className="text-[11px] font-black text-gray-400">{label}</span>
+    <label className="h-11 sm:h-12 rounded-xl border border-gray-100 bg-white px-3 flex flex-col justify-center shadow-sm min-w-0">
+      <span className="text-[10px] sm:text-[11px] font-black text-gray-400">
+        {label}
+      </span>
+
       <select
         value={value}
         onChange={onChange}
-        className="outline-none bg-transparent text-sm font-bold text-gray-700"
+        className="outline-none bg-transparent text-xs sm:text-sm font-bold text-gray-700 min-w-0"
       >
         {children}
       </select>
@@ -1847,11 +2676,29 @@ function ActionButton({ icon, color, onClick }) {
   );
 }
 
-function Legend({ color, text }) {
+function Legend({ color, text, compact = false }) {
   return (
-    <div className="h-9 px-3 rounded-xl border border-gray-100 bg-white flex items-center gap-2 text-sm font-bold text-gray-600">
-      <span className={`w-2.5 h-2.5 rounded-full ${color}`}></span>
-      {text}
+    <div
+      title={text}
+      className={`group h-8 min-[1700px]:h-9 rounded-xl border border-gray-100 bg-white flex items-center text-[11px] min-[1700px]:text-xs font-black text-gray-600 whitespace-nowrap shrink-0 transition-all duration-200 ${
+        compact
+          ? "xl:max-[1699px]:w-8 xl:max-[1699px]:px-0 xl:max-[1699px]:justify-center xl:max-[1699px]:overflow-hidden xl:max-[1699px]:hover:w-auto xl:max-[1699px]:hover:px-2.5 gap-1.5 min-[1700px]:gap-2 px-2.5 min-[1700px]:px-3"
+          : "px-2.5 min-[1700px]:px-3 gap-1.5 min-[1700px]:gap-2"
+      }`}
+    >
+      <span
+        className={`w-2 h-2 min-[1700px]:w-2.5 min-[1700px]:h-2.5 rounded-full shrink-0 ${color}`}
+      />
+
+      <span
+        className={
+          compact
+            ? "inline xl:max-[1699px]:hidden xl:max-[1699px]:group-hover:inline"
+            : "inline"
+        }
+      >
+        {text}
+      </span>
     </div>
   );
 }
