@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { tableService } from "../../services/tableService";
 import { bookingService } from "../../services/bookingService";
+import { showAdminToast } from "../../components/admin/AdminToast";
 import {
   CalendarCheck,
   Clock3,
@@ -314,6 +315,13 @@ function AdminBookingsPage() {
       setSelectedBooking((prev) =>
         prev && String(prev.id) === String(id) ? updatedBooking : prev,
       );
+
+      showAdminToast({
+        title: "Cập nhật trạng thái thành công",
+        message: `Đã chuyển đặt bàn ${
+          updatedBooking.bookingCode || `DB${updatedBooking.id}`
+        } sang "${getStatusText(status)}".`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể cập nhật trạng thái đặt bàn.");
@@ -382,9 +390,135 @@ function AdminBookingsPage() {
     return table.status;
   };
 
+  const getEditGuestCount = () => {
+    return Number(editingBooking?.guests || editingBooking?.people || 0);
+  };
+
+  const findBestTableForEditBooking = () => {
+    const guestCount = getEditGuestCount();
+
+    return (
+      tables
+        .filter((table) => {
+          const sameArea =
+            String(table.areaId) === String(editForm.selectedArea);
+
+          const available = getTableStatusForEdit(table) === "available";
+
+          const enoughCapacity =
+            guestCount <= 0 || Number(table.capacity || 0) >= guestCount;
+
+          return sameArea && available && enoughCapacity;
+        })
+        .sort((a, b) => {
+          const capacityDiff =
+            Number(a.capacity || 0) - Number(b.capacity || 0);
+
+          if (capacityDiff !== 0) return capacityDiff;
+
+          return String(a.code || "").localeCompare(
+            String(b.code || ""),
+            "vi",
+            {
+              numeric: true,
+            },
+          );
+        })[0] || null
+    );
+  };
+
+  const handleSelectTableForEditBooking = (table, rawStatus, currentTable) => {
+    if (currentTable) return;
+
+    if (rawStatus !== "available") return;
+
+    const guestCount = getEditGuestCount();
+    const tableCapacity = Number(table.capacity || 0);
+
+    if (guestCount > 0 && tableCapacity < guestCount) {
+      const suggestedTable = findBestTableForEditBooking();
+
+      if (suggestedTable) {
+        const shouldSwitch = window.confirm(
+          `Bàn ${table.code} chỉ chứa tối đa ${tableCapacity} người, nhưng lịch đặt này có ${guestCount} khách.\n\nBạn có muốn chuyển sang bàn ${suggestedTable.code} (${suggestedTable.capacity} người) không?`,
+        );
+
+        if (shouldSwitch) {
+          setEditForm((prev) => ({
+            ...prev,
+            selectedTable: suggestedTable.code,
+          }));
+        }
+
+        return;
+      }
+
+      alert(
+        `Bàn ${table.code} chỉ chứa tối đa ${tableCapacity} người. Hiện khu vực này không có bàn phù hợp cho ${guestCount} khách.`,
+      );
+
+      return;
+    }
+
+    setEditForm((prev) => ({
+      ...prev,
+      selectedTable: table.code,
+    }));
+  };
+
   //hàm lưu chỉnh sửa
   const saveEditBooking = async () => {
     if (!editingBooking) return;
+
+    const guestCount = getEditGuestCount();
+
+    if (!editForm.date) {
+      alert("Vui lòng chọn ngày đặt bàn.");
+      return;
+    }
+
+    if (editForm.status === "confirmed" && !editForm.selectedTable) {
+      alert("Vui lòng chọn bàn trước khi xác nhận đặt bàn.");
+      return;
+    }
+
+    if (editForm.selectedTable) {
+      const selectedTableData = tables.find(
+        (table) =>
+          String(table.code) === String(editForm.selectedTable) &&
+          String(table.areaId) === String(editForm.selectedArea),
+      );
+
+      if (!selectedTableData) {
+        alert("Bàn đã chọn không hợp lệ. Vui lòng chọn lại.");
+        return;
+      }
+
+      if (guestCount > Number(selectedTableData.capacity || 0)) {
+        const suggestedTable = findBestTableForEditBooking();
+
+        if (suggestedTable) {
+          const shouldSwitch = window.confirm(
+            `Bàn ${selectedTableData.code} chỉ chứa tối đa ${selectedTableData.capacity} người, nhưng lịch đặt này có ${guestCount} khách.\n\nBạn có muốn chuyển sang bàn ${suggestedTable.code} (${suggestedTable.capacity} người) không?`,
+          );
+
+          if (shouldSwitch) {
+            setEditForm((prev) => ({
+              ...prev,
+              selectedTable: suggestedTable.code,
+            }));
+          }
+
+          return;
+        }
+
+        alert(
+          `Khu vực này không có bàn phù hợp cho ${guestCount} khách. Vui lòng chọn khu vực khác.`,
+        );
+
+        return;
+      }
+    }
 
     try {
       const updatedBooking = await bookingService.updateBooking(
@@ -414,6 +548,13 @@ function AdminBookingsPage() {
           : prev,
       );
 
+      showAdminToast({
+        title: "Lưu thay đổi thành công",
+        message: `Đã cập nhật đặt bàn ${
+          updatedBooking.bookingCode || `DB${updatedBooking.id}`
+        }.`,
+      });
+
       setEditingBooking(null);
     } catch (error) {
       console.error(error);
@@ -442,6 +583,10 @@ function AdminBookingsPage() {
       setSelectedBookingIds((prev) =>
         prev.filter((bookingId) => String(bookingId) !== String(id)),
       );
+      showAdminToast({
+        title: "Xóa đặt bàn thành công",
+        message: `Đã xóa đặt bàn DB${id}.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể xóa đặt bàn.");
@@ -475,6 +620,22 @@ function AdminBookingsPage() {
   //hàm cập nhật trạng thái nhiều
   const updateSelectedBookingsStatus = async (status) => {
     if (selectedBookingIds.length === 0) return;
+    if (status === "confirmed") {
+      const selectedBookings = bookings.filter((booking) =>
+        selectedBookingIds.includes(String(booking.id)),
+      );
+
+      const bookingsWithoutTable = selectedBookings.filter(
+        (booking) => !booking.selectedTable,
+      );
+
+      if (bookingsWithoutTable.length > 0) {
+        alert(
+          `Có ${bookingsWithoutTable.length} đặt bàn chưa được chọn bàn. Vui lòng chọn bàn trước khi xác nhận.`,
+        );
+        return;
+      }
+    }
 
     const statusText = getStatusText(status);
 
@@ -509,6 +670,11 @@ function AdminBookingsPage() {
           : prev,
       );
 
+      showAdminToast({
+        title: "Cập nhật hàng loạt thành công",
+        message: `Đã chuyển ${selectedBookingIds.length} đặt bàn sang trạng thái "${statusText}".`,
+      });
+
       setSelectedBookingIds([]);
     } catch (error) {
       console.error(error);
@@ -540,6 +706,11 @@ function AdminBookingsPage() {
       setSelectedBooking((prev) =>
         prev && selectedBookingIds.includes(String(prev.id)) ? null : prev,
       );
+
+      showAdminToast({
+        title: "Xóa hàng loạt thành công",
+        message: `Đã xóa ${selectedBookingIds.length} đặt bàn đã chọn.`,
+      });
 
       setSelectedBookingIds([]);
     } catch (error) {
@@ -807,6 +978,12 @@ function AdminBookingsPage() {
       setBookings((prev) => [savedBooking, ...prev]);
       setSelectedBooking(savedBooking);
       setIsAddingBooking(false);
+      showAdminToast({
+        title: "Tạo đặt bàn thành công",
+        message: `Đã tạo đặt bàn ${
+          savedBooking.bookingCode || `DB${savedBooking.id}`
+        }.`,
+      });
 
       setAddForm({
         customerName: "",
@@ -1202,9 +1379,12 @@ function AdminBookingsPage() {
 
           <div className="px-5 py-4 border-t border-gray-100 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
             <p className="text-gray-600 font-bold">
-              Hiển thị {(currentPage - 1) * pageSize + 1} -{" "}
-              {Math.min(currentPage * pageSize, filteredBookings.length)} trong
-              tổng số {filteredBookings.length} đặt bàn
+              Hiển thị{" "}
+              {filteredBookings.length === 0
+                ? 0
+                : (currentPage - 1) * pageSize + 1}{" "}
+              - {Math.min(currentPage * pageSize, filteredBookings.length)}{" "}
+              trong tổng số {filteredBookings.length} đặt bàn
             </p>
 
             {totalPages > 0 && (
@@ -1260,9 +1440,21 @@ function AdminBookingsPage() {
             getStatusStyle={getStatusStyle}
             getTypeText={getTypeText}
             onClose={() => setSelectedBooking(null)}
-            onConfirm={() =>
-              updateBookingStatus(selectedBooking.id, "confirmed")
-            }
+            onConfirm={() => {
+              if (!selectedBooking.selectedTable) {
+                openEditBookingModal(selectedBooking);
+
+                showAdminToast({
+                  title: "Cần chọn bàn trước",
+                  message: "Vui lòng chọn bàn trước khi xác nhận đặt bàn.",
+                  type: "warning",
+                });
+
+                return;
+              }
+
+              updateBookingStatus(selectedBooking.id, "confirmed");
+            }}
             onComplete={() =>
               updateBookingStatus(selectedBooking.id, "completed")
             }
@@ -1390,9 +1582,17 @@ function AdminBookingsPage() {
               {/* phần chọn khu vực + bàn trong popup */}
               <div className="min-w-0">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-black text-gray-500">
-                    Chọn bàn
-                  </span>
+                  <div>
+                    <span className="text-sm font-black text-gray-500">
+                      Chọn bàn
+                    </span>
+
+                    <p className="text-xs text-gray-400 font-bold mt-1">
+                      Lịch này có{" "}
+                      {editingBooking?.guests || editingBooking?.people || 0}{" "}
+                      khách. Chỉ nên chọn bàn đủ sức chứa.
+                    </p>
+                  </div>
 
                   <div className="flex items-center gap-3 text-xs font-bold">
                     <span className="flex items-center gap-1">
@@ -1432,6 +1632,12 @@ function AdminBookingsPage() {
                           const rawStatus = getTableStatusForEdit(table);
                           const status = currentTable ? "selected" : rawStatus;
 
+                          const guestCount = getEditGuestCount();
+
+                          const insufficientCapacity =
+                            guestCount > 0 &&
+                            Number(table.capacity || 0) < guestCount;
+
                           const disabled =
                             currentTable || rawStatus !== "available";
 
@@ -1440,21 +1646,25 @@ function AdminBookingsPage() {
                               key={table.id}
                               type="button"
                               disabled={disabled}
-                              onClick={() => {
-                                if (disabled) return;
-
-                                setEditForm((prev) => ({
-                                  ...prev,
-                                  selectedTable: table.code,
-                                }));
-                              }}
+                              onClick={() =>
+                                handleSelectTableForEditBooking(
+                                  table,
+                                  rawStatus,
+                                  currentTable,
+                                )
+                              }
                               className={`relative h-14 rounded-xl border font-black transition ${
                                 currentTable
                                   ? TABLE_STATUS_STYLE.selected
                                   : newSelectedTable
                                     ? "border-green-700 bg-green-600 text-white ring-2 ring-green-300"
-                                    : TABLE_STATUS_STYLE[status] ||
-                                      TABLE_STATUS_STYLE.available
+                                    : disabled
+                                      ? TABLE_STATUS_STYLE[status] ||
+                                        TABLE_STATUS_STYLE.available
+                                      : insufficientCapacity
+                                        ? "border-yellow-300 bg-yellow-50 text-yellow-700"
+                                        : TABLE_STATUS_STYLE[status] ||
+                                          TABLE_STATUS_STYLE.available
                               } ${
                                 disabled
                                   ? "cursor-not-allowed opacity-90"
@@ -1472,6 +1682,12 @@ function AdminBookingsPage() {
                               <div className="flex flex-col items-center leading-tight">
                                 <span>{table.code}</span>
 
+                                <span className="mt-1 text-[10px] font-black">
+                                  {rawStatus === "available"
+                                    ? `${table.capacity} người`
+                                    : TABLE_STATUS_TEXT[rawStatus] || rawStatus}
+                                </span>
+
                                 {currentTable && (
                                   <span className="mt-1 text-[10px] font-black text-green-800">
                                     Bàn đang chọn
@@ -1483,6 +1699,14 @@ function AdminBookingsPage() {
                                     Bàn mới
                                   </span>
                                 )}
+
+                                {insufficientCapacity &&
+                                  !disabled &&
+                                  !newSelectedTable && (
+                                    <span className="mt-1 text-[10px] font-black text-yellow-700">
+                                      Thiếu chỗ
+                                    </span>
+                                  )}
                               </div>
                             </button>
                           );
@@ -1695,9 +1919,15 @@ function AdminBookingsPage() {
 
               <div className="min-w-0">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-black text-gray-500">
-                    Chọn bàn
-                  </span>
+                  <div>
+                    <span className="text-sm font-black text-gray-500">
+                      Chọn bàn
+                    </span>
+                    <p className="text-xs text-gray-400 font-bold mt-1">
+                      Lịch này có {addForm.guests || 0} khách. Chỉ nên chọn bàn
+                      đủ sức chứa.
+                    </p>
+                  </div>
 
                   <div className="flex items-center gap-3 text-xs font-bold">
                     <span className="flex items-center gap-1">

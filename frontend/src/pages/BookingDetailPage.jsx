@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 import goatIcon from "../assets/images/Icon_De.png";
@@ -15,12 +16,102 @@ import {
   Info,
 } from "lucide-react";
 
+const API_URL = "http://localhost:5001";
+
+const getAuthToken = () => {
+  return (
+    localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+  );
+};
+
+const clearUserSession = () => {
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("currentUser");
+  localStorage.removeItem("avatar");
+
+  sessionStorage.removeItem("authToken");
+  sessionStorage.removeItem("currentUser");
+  sessionStorage.removeItem("avatar");
+
+  window.dispatchEvent(new Event("authChanged"));
+  window.dispatchEvent(new Event("loginStatusChanged"));
+  window.dispatchEvent(new Event("avatarUpdated"));
+};
+
 function BookingDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [booking, setBooking] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const bookings = JSON.parse(localStorage.getItem("bookings")) || [];
-  const booking = bookings.find((item) => String(item.id) === String(id));
+  useEffect(() => {
+    const loadBookingDetail = async () => {
+      const token = getAuthToken();
+
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
+      try {
+        setLoading(true);
+
+        const res = await fetch(`${API_URL}/api/bookings/me/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await res.json();
+
+        if (
+          data.code === "ACCOUNT_LOCKED" ||
+          data.code === "ACCOUNT_INACTIVE"
+        ) {
+          clearUserSession();
+          navigate("/login");
+          return;
+        }
+
+        if (res.status === 401) {
+          clearUserSession();
+          navigate("/login");
+          return;
+        }
+
+        if (res.status === 403) {
+          setBooking(null);
+          setErrorMessage(
+            data.message || "Bạn không có quyền xem đặt bàn này.",
+          );
+          return;
+        }
+
+        if (res.status === 404) {
+          setBooking(null);
+          setErrorMessage(data.message || "Không tìm thấy đặt bàn.");
+          return;
+        }
+
+        if (!res.ok || !data.success) {
+          setBooking(null);
+          setErrorMessage(data.message || "Không thể tải chi tiết đặt bàn.");
+          return;
+        }
+
+        setBooking(data.booking);
+      } catch (error) {
+        console.error("Lỗi tải chi tiết đặt bàn:", error);
+        setBooking(null);
+        setErrorMessage("Không thể kết nối backend. Vui lòng thử lại.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadBookingDetail();
+  }, [id, navigate]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "Chưa có";
@@ -82,6 +173,7 @@ function BookingDetailPage() {
         return "Lịch đặt bàn đã hoàn thành";
 
       case "cancelled":
+      case "canceled":
         return "Lịch đặt bàn đã bị hủy";
 
       default:
@@ -97,14 +189,26 @@ function BookingDetailPage() {
     switch (status) {
       case "confirmed":
         return "Đã xác nhận";
+
       case "completed":
         return "Hoàn thành";
+
       case "cancelled":
+      case "canceled":
         return "Đã hủy";
+
       default:
         return "Chờ xác nhận";
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#fbf7ec] flex items-center justify-center">
+        <p className="font-black text-green-900">Đang tải đặt bàn...</p>
+      </div>
+    );
+  }
 
   if (!booking) {
     return (
@@ -115,7 +219,7 @@ function BookingDetailPage() {
           </h1>
 
           <p className="text-gray-500 mt-3">
-            Mã đặt bàn không tồn tại hoặc đã bị xóa.
+            {errorMessage || "Mã đặt bàn không tồn tại hoặc đã bị xóa."}
           </p>
 
           <button
@@ -164,7 +268,9 @@ function BookingDetailPage() {
 
               <div>
                 <p className="text-white/70 font-bold">Mã đặt bàn</p>
-                <h1 className="text-3xl font-black">#{booking.id}</h1>
+                <h1 className="text-3xl font-black">
+                  {booking.bookingCode || `DB${booking.id}`}
+                </h1>
               </div>
             </div>
             {/* trạng thái trong header */}
@@ -337,7 +443,7 @@ function BookingDetailPage() {
                 <img
                   src={goatIcon}
                   alt="Dê Hương Sơn"
-                  className="w-46 h-46 object-contain opacity-90"
+                  className="w-44 h-44 object-contain opacity-90"
                 />
               </div>
 
