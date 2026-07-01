@@ -32,6 +32,12 @@ function CheckoutPage() {
     JSON.parse(sessionStorage.getItem("currentUser")) ||
     {};
 
+  const getAuthToken = () => {
+    return (
+      localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+    );
+  };
+
   const savedCheckoutForm =
     JSON.parse(localStorage.getItem("checkoutForm")) || {};
 
@@ -623,9 +629,14 @@ function CheckoutPage() {
                   }));
 
                   if (serviceType === "dinein") {
-                    const bookingData = {
-                      id: Date.now(),
+                    const token = getAuthToken();
 
+                    if (!token) {
+                      navigate("/login");
+                      return;
+                    }
+
+                    const bookingData = {
                       source: "checkout_page",
                       type: "table_with_order",
 
@@ -633,46 +644,63 @@ function CheckoutPage() {
                       name: customerName,
                       phone,
                       email: currentUser.email || "",
-                      userId: currentUser.id || "",
 
                       date,
                       time,
-                      guests,
+                      guests: Number(guests || 1),
 
-                      area: "Nhà hàng sắp xếp",
+                      selectedArea: "",
                       selectedAreaTitle: "Nhà hàng sắp xếp",
-                      selectedTable: "Đang sắp xếp",
+                      selectedTable: "",
 
                       note,
 
                       cartItems: normalizedCartItems,
                       subtotal,
                       total,
+                      totalQty: totalItems,
 
                       status: "pending",
                       createdAt: new Date().toISOString(),
                     };
 
-                    const oldBookings =
-                      JSON.parse(localStorage.getItem("bookings")) || [];
+                    const res = await fetch(`${API_URL}/api/bookings`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: JSON.stringify(bookingData),
+                    });
 
-                    localStorage.setItem(
-                      "bookings",
-                      JSON.stringify([bookingData, ...oldBookings]),
-                    );
+                    const data = await res.json();
+
+                    if (!res.ok || !data.success) {
+                      alert(
+                        data.message ||
+                          "Không thể tạo đặt bàn. Vui lòng thử lại.",
+                      );
+                      return;
+                    }
+
+                    const savedBooking = {
+                      ...bookingData,
+                      ...data.booking,
+                    };
 
                     localStorage.setItem(
                       "currentBooking",
-                      JSON.stringify(bookingData),
+                      JSON.stringify(savedBooking),
                     );
 
-                    // Xóa giỏ hàng sau khi đặt bàn kèm món thành công
                     localStorage.removeItem("cartItems");
                     localStorage.removeItem("checkoutSummary");
                     localStorage.removeItem("appliedCoupon");
                     localStorage.removeItem("checkoutForm");
 
                     window.dispatchEvent(new Event("cartUpdated"));
+                    window.dispatchEvent(new Event("bookingsUpdated"));
+
                     setCartItems([]);
 
                     navigate("/booking-success");
@@ -723,11 +751,13 @@ function CheckoutPage() {
 
                   const data = await res.json();
 
-                  if (!data.success) {
-                    alert("Không thể tạo đơn hàng. Vui lòng thử lại.");
+                  if (!res.ok || !data.success) {
+                    alert(
+                      data.message ||
+                        "Không thể tạo đơn hàng. Vui lòng thử lại.",
+                    );
                     return;
                   }
-
                   const savedOrder = {
                     ...finalOrderData,
                     ...data.order,

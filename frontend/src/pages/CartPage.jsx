@@ -41,6 +41,7 @@ function CartPage() {
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponMessage, setCouponMessage] = useState("");
+  const [adminCoupons, setAdminCoupons] = useState([]);
 
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("cartItems");
@@ -95,28 +96,97 @@ function CartPage() {
   useEffect(() => {
     const savedCoupon = JSON.parse(localStorage.getItem("appliedCoupon"));
 
-    if (savedCoupon) {
-      setAppliedCoupon(savedCoupon);
-      setCouponCode(savedCoupon.code);
-      setCouponMessage(
-        `Đã áp dụng mã ${savedCoupon.code} - giảm ${savedCoupon.percent}% cho đơn hàng.`,
-      );
+    if (!savedCoupon) return;
+
+    const latestCoupon = adminCoupons.find(
+      (item) =>
+        String(item.code || "").toUpperCase() ===
+        String(savedCoupon.code || "").toUpperCase(),
+    );
+
+    if (!latestCoupon || latestCoupon.status !== "active") {
+      setAppliedCoupon(null);
+      setCouponCode("");
+      setCouponMessage("Mã ưu đãi hiện không còn hiệu lực.");
+
+      localStorage.removeItem("appliedCoupon");
+      localStorage.removeItem("checkoutSummary");
+
+      return;
     }
-  }, []);
+
+    setAppliedCoupon(latestCoupon);
+    setCouponCode(latestCoupon.code);
+  }, [adminCoupons]);
+
   useEffect(() => {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
     window.dispatchEvent(new Event("cartUpdated"));
   }, [cartItems]);
 
+  //Thêm API lấy khuyến mãi
+  const convertDealToCoupon = (deal) => {
+    const discountText = String(deal.discount || "").trim();
+    const isPercent = discountText.includes("%");
+
+    return {
+      id: deal.id,
+      code: deal.code,
+      title: deal.name,
+      discountType: isPercent ? "percent" : "fixed",
+      percent: isPercent ? Number(discountText.replace(/[^\d]/g, "")) : 0,
+      amount: isPercent ? 0 : parseMoneyFromText(discountText),
+      minOrder: parseMoneyFromText(deal.condition),
+      status: deal.status || "active",
+
+      usageLimit: Number(deal.usageLimit || 0),
+      used: Number(deal.used || 0),
+
+      serviceTypes:
+        deal.serviceTypes && deal.serviceTypes.length > 0
+          ? deal.serviceTypes
+          : ["delivery", "pickup", "dinein"],
+    };
+  };
+
+  const loadCoupons = async () => {
+    try {
+      const res = await fetch("http://localhost:5001/api/deals");
+      const data = await res.json();
+
+      const coupons = (data.deals || []).map(convertDealToCoupon);
+
+      setAdminCoupons(coupons);
+
+      return coupons;
+    } catch (error) {
+      console.error("Lỗi tải mã ưu đãi:", error);
+      setAdminCoupons([]);
+
+      return [];
+    }
+  };
+
+  useEffect(() => {
+    loadCoupons();
+  }, []);
+
   const formatPrice = (price) => {
     return price.toLocaleString("vi-VN") + "đ";
   };
+
+  const parseMoneyFromText = (value) => {
+    const number = String(value || "").replace(/[^\d]/g, "");
+    return Number(number || 0);
+  };
   // Hàm áp dụng mã giảm giá với các điều kiện kiểm tra và lưu trạng thái đã áp dụng
-  const applyCoupon = () => {
+  const applyCoupon = async () => {
     const code = couponCode.trim().toUpperCase();
 
-    const coupon = promotionCoupons.find(
-      (item) => item.code.toUpperCase() === code,
+    const latestCoupons = await loadCoupons();
+
+    const coupon = latestCoupons.find(
+      (item) => String(item.code || "").toUpperCase() === code,
     );
 
     if (!code) {
@@ -149,10 +219,23 @@ function CartPage() {
       return;
     }
 
+    // chặn mã khi hết lượt
+    if (
+      coupon.usageLimit &&
+      Number(coupon.used || 0) >= Number(coupon.usageLimit)
+    ) {
+      setAppliedCoupon(null);
+      setCouponMessage("Mã ưu đãi đã hết lượt sử dụng.");
+      localStorage.removeItem("appliedCoupon");
+      return;
+    }
+
     setAppliedCoupon(coupon);
     localStorage.setItem("appliedCoupon", JSON.stringify(coupon));
     setCouponMessage(
-      `Đã áp dụng mã ${coupon.code} - giảm ${coupon.percent}% cho đơn hàng.`,
+      coupon.discountType === "fixed"
+        ? `Đã áp dụng mã ${coupon.code} - giảm ${formatPrice(coupon.amount)} cho đơn hàng.`
+        : `Đã áp dụng mã ${coupon.code} - giảm ${coupon.percent}% cho đơn hàng.`,
     );
   };
   // Hàm hiển thị toast thông báo với tự động ẩn sau 3 giây
@@ -178,41 +261,8 @@ function CartPage() {
       });
     }, 4000);
   };
-  // Dữ liệu khuyến mãi cho trang Deals
-  const systemCoupons = [
-    {
-      id: "family-combo",
-      code: "FAMILY20",
-      title: "Combo gia đình",
-      percent: 20,
-      minOrder: 2000000,
-      status: "active",
-      serviceTypes: ["dinein"],
-    },
 
-    {
-      id: "birthday",
-      code: "BIRTHDAY15",
-      title: "Ưu đãi sinh nhật",
-      percent: 15,
-      minOrder: 0,
-      status: "active",
-      serviceTypes: ["dinein"],
-    },
-
-    {
-      id: "online-order",
-      code: "ONLINE10",
-      title: "Đặt món online",
-      percent: 10,
-      minOrder: 1000000,
-      status: "active",
-      serviceTypes: ["delivery", "pickup"],
-    },
-  ];
-
-  const adminCoupons = JSON.parse(localStorage.getItem("adminCoupons")) || [];
-  const promotionCoupons = [...systemCoupons, ...adminCoupons];
+  const promotionCoupons = adminCoupons;
 
   // Tính toán subtotal, discount và total giảm giá
   const subtotal = cartItems.reduce(
@@ -233,9 +283,13 @@ function CartPage() {
       ? (subtotal * autoDiscountRule.percent) / 100
       : 0;
 
-  const couponDiscountTotal = appliedCoupon
-    ? (subtotal * appliedCoupon.percent) / 100
+  const rawCouponDiscountTotal = appliedCoupon
+    ? appliedCoupon.discountType === "fixed"
+      ? appliedCoupon.amount
+      : (subtotal * appliedCoupon.percent) / 100
     : 0;
+
+  const couponDiscountTotal = Math.min(rawCouponDiscountTotal, subtotal);
 
   const discountTotal = appliedCoupon ? couponDiscountTotal : autoDiscountTotal;
 
@@ -488,7 +542,7 @@ function CartPage() {
                 <input
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value)}
-                  placeholder="Nhập mã: ONLINE10"
+                  placeholder="Nhập mã ưu đãi"
                   className="flex-1 h-11 rounded-lg border border-[#eadfcd] px-3 outline-none text-sm bg-white uppercase"
                 />
 
@@ -543,7 +597,9 @@ function CartPage() {
                     <div className="flex justify-between gap-3 text-xs text-green-800">
                       <span>
                         Mã {appliedCoupon.code} - {appliedCoupon.title} giảm{" "}
-                        {appliedCoupon.percent}%
+                        {appliedCoupon.discountType === "fixed"
+                          ? formatPrice(appliedCoupon.amount)
+                          : `${appliedCoupon.percent}%`}
                       </span>
 
                       <span className="shrink-0">
@@ -580,7 +636,7 @@ function CartPage() {
             </p>
             {/* // thông báo khi giỏ hàng trống mà vẫn bấm vào thanh toán */}
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (cartItems.length === 0) {
                   setShowEmptyCartAlert(true);
                   return;
@@ -589,6 +645,43 @@ function CartPage() {
                 if (!isLoggedIn) {
                   setShowLoginModal(true);
                   return;
+                }
+
+                if (appliedCoupon) {
+                  const latestCoupons = await loadCoupons();
+
+                  const latestCoupon = latestCoupons.find(
+                    (item) =>
+                      String(item.code || "").toUpperCase() ===
+                      String(appliedCoupon.code || "").toUpperCase(),
+                  );
+
+                  if (!latestCoupon || latestCoupon.status !== "active") {
+                    setAppliedCoupon(null);
+                    setCouponCode("");
+                    setCouponMessage("Mã ưu đãi hiện không còn hiệu lực.");
+                    localStorage.removeItem("appliedCoupon");
+                    localStorage.removeItem("checkoutSummary");
+                    return;
+                  }
+
+                  if (
+                    latestCoupon.usageLimit &&
+                    Number(latestCoupon.used || 0) >=
+                      Number(latestCoupon.usageLimit)
+                  ) {
+                    setAppliedCoupon(null);
+                    setCouponCode("");
+                    setCouponMessage("Mã ưu đãi đã hết lượt sử dụng.");
+                    localStorage.removeItem("appliedCoupon");
+                    localStorage.removeItem("checkoutSummary");
+                    return;
+                  }
+
+                  localStorage.setItem(
+                    "appliedCoupon",
+                    JSON.stringify(latestCoupon),
+                  );
                 }
 
                 localStorage.setItem(
@@ -601,6 +694,7 @@ function CartPage() {
                     discountTotal,
                     total,
                     appliedCoupon,
+                    couponStatus: appliedCoupon?.status,
                   }),
                 );
 

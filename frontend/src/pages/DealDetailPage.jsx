@@ -1,107 +1,153 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   Gift,
-  Cake,
-  ShoppingCart,
   CalendarDays,
   CheckCircle,
   ArrowLeft,
   Utensils,
-  Users,
-  PhoneCall,
   Copy,
 } from "lucide-react";
-
-import chiTietSN from "../assets/images/Deals/chi-tiet-SN.png";
-import chiTietFML from "../assets/images/Deals/chi-tiet-FML.png";
-import chiTietOL from "../assets/images/Deals/chi-tiet-OL.png";
 
 function DealDetailPage() {
   const { dealId } = useParams();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const [adminDeals, setAdminDeals] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const deals = {
-    "family-combo": {
-      icon: <Users />,
-      image: chiTietFML,
-      label: "Ưu đãi nổi bật tháng này",
-      title: "Combo gia đình",
-      discount: "Giảm 20%",
-      code: "FAMILY20",
-      minOrder: "Áp dụng cho hóa đơn từ 2.000.000đ",
-      desc: "Ưu đãi đặc biệt dành cho những bữa ăn sum vầy cùng gia đình và người thân.",
-      time: "Áp dụng trong tháng này",
-      condition: [
-        "Áp dụng cho hóa đơn từ 2.000.000đ",
-        "Áp dụng khi dùng tại nhà hàng hoặc mang về",
-        "Không áp dụng kèm các ưu đãi khác",
-        "Không áp dụng vào ngày lễ, Tết",
-      ],
-      route: "/menu",
-      button: "Đặt món ngay",
-    },
+  useEffect(() => {
+    setLoading(true);
 
-    birthday: {
-      icon: <Cake />,
-      image: chiTietSN,
-      label: "Ưu đãi sinh nhật",
-      title: "Sinh nhật vui vẻ",
-      discount: "Giảm 15%",
-      code: "BIRTHDAY15",
-      minOrder: "Áp dụng khi đặt bàn sinh nhật",
-      desc: "Giảm ngay 15% tổng hóa đơn cho khách đặt bàn tổ chức sinh nhật tại nhà hàng.",
-      time: "Áp dụng quanh năm",
-      condition: [
-        "Áp dụng khi đặt bàn trước",
-        "Xuất trình giấy tờ tùy thân để xác nhận sinh nhật",
-        "Áp dụng cho bàn tiệc từ 4 người trở lên",
-        "Không áp dụng kèm các ưu đãi khác",
-      ],
-      route: "/booking",
-      button: "Đặt bàn sinh nhật",
-    },
+    fetch("http://localhost:5001/api/deals")
+      .then((res) => res.json())
+      .then((data) => {
+        setAdminDeals(data.deals || []);
+      })
+      .catch((error) => {
+        console.error("Lỗi tải chi tiết ưu đãi:", error);
+        setAdminDeals([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
-    "online-order": {
-      icon: <PhoneCall />,
-      image: chiTietOL,
-      label: "Ưu đãi đặt online",
-      title: "Đặt món online",
-      discount: "Giảm 10%",
-      code: "ONLINE10",
-      minOrder: "Áp dụng cho đơn hàng từ 1.000.000đ",
-      desc: "Tiện lợi, nhanh chóng và nhận ưu đãi hấp dẫn khi đặt món trực tiếp qua website.",
-      time: "Áp dụng trong tháng này",
-      condition: [
-        "Áp dụng khi đặt món qua website",
-        "Áp dụng cho đơn hàng từ 1.000.000đ",
-        "Ưu đãi được tính tại giỏ hàng",
-        "Không áp dụng kèm các ưu đãi khác",
-      ],
-      route: "/menu",
-      button: "Đặt món online",
-    },
+  const formatDate = (value) => {
+    if (!value) return "Chưa có";
 
-    "booking-special": {
-      icon: <CalendarDays />,
-      label: "Ưu đãi đặt bàn",
-      title: "Đặt bàn trước",
-      discount: "Ưu đãi đặc biệt",
-      desc: "Đặt bàn trước để được ưu tiên vị trí đẹp và nhận nhiều ưu đãi hấp dẫn.",
-      time: "Áp dụng mỗi ngày",
-      condition: [
-        "Áp dụng cho nhóm từ 6 người trở lên",
-        "Đặt bàn trước tối thiểu 2 giờ",
-        "Ưu tiên giữ bàn vào giờ cao điểm",
-        "Không áp dụng kèm các ưu đãi khác",
-      ],
-      route: "/booking",
-      button: "Đặt bàn ngay",
-    },
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return value;
+
+    return date.toLocaleDateString("vi-VN");
   };
 
-  const deal = deals[dealId];
+  const SERVICE_TYPE_LABELS = {
+    dinein: "Ăn tại quán",
+    delivery: "Giao tận nơi",
+    pickup: "Đến lấy tại quán",
+  };
+
+  const getServiceTypeText = (serviceTypes = []) => {
+    if (!Array.isArray(serviceTypes) || serviceTypes.length === 0) {
+      return "Tất cả hình thức phục vụ";
+    }
+
+    return serviceTypes
+      .map((type) => SERVICE_TYPE_LABELS[type])
+      .filter(Boolean)
+      .join(", ");
+  };
+
+  const getAdminConditions = (adminDeal) => {
+    const serviceTypes = adminDeal.serviceTypes || [];
+    const serviceConditionItems = adminDeal.serviceConditionItems || {};
+
+    const minOrderCondition = adminDeal.condition
+      ? [
+          `Áp dụng cho hóa đơn từ ${Number(adminDeal.condition).toLocaleString(
+            "vi-VN",
+          )}đ`,
+        ]
+      : [];
+
+    const serviceTypeCondition =
+      serviceTypes.length > 0
+        ? [`Áp dụng cho hình thức phục vụ: ${getServiceTypeText(serviceTypes)}`]
+        : [];
+
+    const conditionItems = Array.isArray(adminDeal.conditionItems)
+      ? adminDeal.conditionItems
+      : [];
+
+    const serviceConditions = serviceTypes.flatMap(
+      (type) => serviceConditionItems[type] || [],
+    );
+
+    return [
+      ...minOrderCondition,
+      ...serviceTypeCondition,
+      ...conditionItems,
+      ...serviceConditions,
+    ].filter((item, index, array) => item && array.indexOf(item) === index);
+  };
+
+  const getDealAction = (adminDeal) => {
+    const serviceTypes = adminDeal.serviceTypes || [];
+
+    if (serviceTypes.includes("delivery") || serviceTypes.includes("pickup")) {
+      return {
+        route: "/menu",
+        button: "Đặt món ngay",
+      };
+    }
+
+    if (serviceTypes.includes("dinein")) {
+      return {
+        route: "/booking",
+        button: "Đặt bàn ngay",
+      };
+    }
+
+    return {
+      route: "/menu",
+      button: "Đặt món ngay",
+    };
+  };
+
+  const adminDeal = adminDeals.find(
+    (item) =>
+      item.status === "active" &&
+      (String(item.slug) === String(dealId) ||
+        String(item.code) === String(dealId) ||
+        String(item.id) === String(dealId)),
+  );
+
+  const deal = adminDeal
+    ? {
+        icon: <Gift />,
+        image: adminDeal.detailImage || adminDeal.cardImage,
+        label: adminDeal.subtitle || adminDeal.type || "Khuyến mãi",
+        title: adminDeal.name,
+        discount: adminDeal.discount,
+        code: adminDeal.code,
+        minOrder: adminDeal.condition
+          ? `Áp dụng cho hóa đơn từ ${Number(
+              adminDeal.condition,
+            ).toLocaleString("vi-VN")}đ`
+          : "Không có điều kiện số tiền",
+        desc: adminDeal.desc || adminDeal.subtitle,
+        time: `${formatDate(adminDeal.startDate)} - ${formatDate(
+          adminDeal.endDate,
+        )}`,
+        serviceTypes: adminDeal.serviceTypes || [],
+        serviceText: getServiceTypeText(adminDeal.serviceTypes),
+        condition: getAdminConditions(adminDeal),
+        route: getDealAction(adminDeal).route,
+        button: getDealAction(adminDeal).button,
+      }
+    : null;
 
   const handleCopyCoupon = () => {
     if (!deal?.code) return;
@@ -113,6 +159,18 @@ function DealDetailPage() {
       setCopied(false);
     }, 2000);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#fbf7ec] flex items-center justify-center px-4">
+        <div className="bg-white rounded-3xl p-8 text-center shadow-md">
+          <h1 className="text-2xl font-black text-green-900">
+            Đang tải khuyến mãi...
+          </h1>
+        </div>
+      </div>
+    );
+  }
 
   if (!deal) {
     return (
@@ -185,6 +243,13 @@ function DealDetailPage() {
                 <CalendarDays className="w-5 h-5 text-[#f6d47a]" />
                 <span>{deal.time}</span>
               </div>
+              {deal.serviceText && (
+                <div className="flex items-center gap-3 mt-3 text-white/80">
+                  <Utensils className="w-5 h-5 text-[#f6d47a]" />
+                  <span>{deal.serviceText}</span>
+                </div>
+              )}
+
               {/* mã khuyến mãi */}
               {deal.code && (
                 <div className="mt-6 max-w-md bg-white/10 border border-white/20 rounded-2xl p-4">

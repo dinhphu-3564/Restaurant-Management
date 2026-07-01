@@ -7,47 +7,95 @@ import { Navigation, Pagination, Autoplay } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
-import {
-  Gift,
-  Cake,
-  CalendarDays,
-  Percent,
-  Star,
-  Users,
-  PhoneCall,
-  CheckCircle,
-  Utensils,
-  Flag,
-  MoonStar,
-  TreePine,
-  PartyPopper,
-} from "lucide-react";
+
+import { Gift, CalendarDays, Star, CheckCircle, Utensils } from "lucide-react";
 
 import goatIcon from "../assets/images/Icon_De.png";
-import familyComboImg from "../assets/images/Deals/family-combo.png";
-import birthdayImg from "../assets/images/Deals/birthday.png";
-import onlineOrderImg from "../assets/images/Deals/online-order.png";
 import comboCardImg from "../assets/images/Deals/combo-card.png";
-import birthdayCardImg from "../assets/images/Deals/birthday-card.png";
-import onlineCardImg from "../assets/images/Deals/online-card.png";
-import bookingCardImg from "../assets/images/Deals/booking-card.png";
 import restaurantSpace from "../assets/images/Deals/restaurant-space.png";
 import goatFood from "../assets/images/Deals/goat-food.png";
 
 function DealsPage() {
   const navigate = useNavigate();
 
-  const [activeDealType, setActiveDealType] = useState("all");
   const [currentBanner, setCurrentBanner] = useState(0);
-
   const [isAnimating, setIsAnimating] = useState(true);
+  const [adminDeals, setAdminDeals] = useState([]);
 
   useEffect(() => {
+    fetch("http://localhost:5001/api/deals")
+      .then((res) => res.json())
+      .then((data) => {
+        setAdminDeals(data.deals || []);
+      })
+      .catch((error) => {
+        console.error("Lỗi tải ưu đãi:", error);
+        setAdminDeals([]);
+      });
+  }, []);
+
+  const getDealUrl = (deal) => {
+    return `/deals/${deal.slug || deal.code || deal.id}`;
+  };
+
+  const getDealConditions = (deal) => {
+    const serviceTypes = Array.isArray(deal.serviceTypes)
+      ? deal.serviceTypes
+      : [];
+
+    const serviceConditionItems = deal.serviceConditionItems || {};
+
+    const serviceConditions = serviceTypes.flatMap(
+      (type) => serviceConditionItems[type] || [],
+    );
+
+    return [
+      deal.condition
+        ? `Áp dụng hóa đơn từ ${Number(deal.condition).toLocaleString(
+            "vi-VN",
+          )}đ`
+        : "",
+      ...(Array.isArray(deal.conditionItems) ? deal.conditionItems : []),
+      ...serviceConditions,
+    ].filter((item, index, array) => item && array.indexOf(item) === index);
+  };
+
+  const activeAdminDeals = adminDeals.filter(
+    (deal) => deal.status === "active",
+  );
+
+  const upcomingAdminDeals = adminDeals.filter(
+    (deal) => deal.status === "upcoming",
+  );
+
+  const heroDeals = activeAdminDeals
+    .filter((deal) => deal.bannerImage || deal.detailImage || deal.cardImage)
+    .map((deal) => ({
+      id: deal.slug || deal.code || deal.id,
+      image: deal.bannerImage || deal.detailImage || deal.cardImage,
+      label: deal.subtitle || deal.type || "Khuyến mãi",
+      scriptTitle: deal.name,
+      title: String(deal.discount || "").includes("%") ? "Giảm" : "Ưu đãi",
+      discount: deal.discount || "",
+      desc: deal.desc || deal.subtitle || "Chương trình khuyến mãi hấp dẫn.",
+      conditions: getDealConditions(deal).slice(0, 4),
+    }));
+
+  const banner =
+    heroDeals.length > 0 ? heroDeals[currentBanner % heroDeals.length] : null;
+
+  useEffect(() => {
+    setCurrentBanner(0);
+  }, [heroDeals.length]);
+
+  useEffect(() => {
+    if (heroDeals.length <= 1) return;
+
     const interval = setInterval(() => {
       setIsAnimating(false);
 
       setTimeout(() => {
-        setCurrentBanner((prev) => (prev + 1) % bannerDeals.length);
+        setCurrentBanner((prev) => (prev + 1) % heroDeals.length);
 
         setTimeout(() => {
           setIsAnimating(true);
@@ -56,451 +104,189 @@ function DealsPage() {
     }, 6000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [heroDeals.length]);
 
-  const deals = [
-    {
-      id: "family-combo",
-      type: "combo",
-      label: "Ưu đãi đặc biệt",
-      title: "Giảm ngay",
-      percent: 20,
-      name: "Combo gia đình",
-      desc: "Ưu đãi đặc biệt dành cho khách đi theo nhóm gia đình.",
-      condition: "Áp dụng cho hóa đơn từ 2.000.000đ",
-      route: "/menu",
-      button: "Đặt món ngay",
-    },
-    {
-      id: "birthday",
-      type: "birthday",
-      label: "Ưu đãi sinh nhật",
-      title: "Sinh nhật vui vẻ",
-      percent: 15,
-      name: "Ưu đãi hết ý",
-      desc: "Giảm ngay 15% tổng hóa đơn cho bàn tiệc sinh nhật.",
-      condition: "Áp dụng khi đặt bàn trước",
-      route: "/booking",
-      button: "Đặt bàn sinh nhật",
-    },
-    {
-      id: "online-order",
-      type: "food",
-      label: "Ưu đãi đặt online",
-      title: "Giảm ngay",
-      percent: 10,
-      name: "Khi đặt món online",
-      desc: "Tiện lợi, nhanh chóng, ưu đãi hơn khi đặt qua website.",
-      condition: "Áp dụng khi thanh toán online",
-      route: "/menu",
-      button: "Đặt online",
-    },
-  ];
-
-  const smallDeals = [
-    {
-      icon: <Percent />,
-      title: "Ưu đãi theo món",
-      desc: "Nhiều món ngon giá ưu đãi đặc biệt",
-      route: "/menu",
-    },
-    {
-      icon: <CalendarDays />,
-      title: "Ưu đãi đặt bàn",
-      desc: "Đặt bàn trước nhận ưu đãi hấp dẫn",
-      route: "/booking",
-    },
-    {
-      icon: <Gift />,
-      title: "Ưu đãi đặc biệt",
-      desc: "Chương trình đặc biệt trong tháng",
-      route: "/deals",
-    },
-  ];
-  const dealTabs = [
-    { key: "all", label: "Tất cả khuyến mãi" },
-    { key: "combo", label: "Ưu đãi Combo" },
-    { key: "food", label: "Ưu đãi theo món" },
-    { key: "booking", label: "Ưu đãi đặt bàn" },
-    { key: "birthday", label: "Ưu đãi sinh nhật" },
-    { key: "special", label: "Ưu đãi đặc biệt" },
-  ];
-
-  const filteredDeals =
-    activeDealType === "all"
-      ? deals
-      : deals.filter((deal) => deal.type === activeDealType);
-  // Chi tiết từng deal
-  const bannerDeals = [
-    {
-      id: "family-combo",
-      image: familyComboImg,
-      label: "Ưu đãi nổi bật",
-      scriptTitle: "Combo gia đình",
-      title: "Giảm",
-      discount: "20%",
-      desc: "Ưu đãi đặc biệt dành cho những bữa ăn sum vầy cùng gia đình và người thân.",
-      conditions: ["Áp dụng hóa đơn từ 2.000.000đ", "Sử dụng tại nhà hàng"],
-    },
-    {
-      id: "birthday",
-      image: birthdayImg,
-      label: "Ưu đãi sinh nhật",
-      scriptTitle: "Sinh nhật vui vẻ",
-      title: "Giảm",
-      discount: "15%",
-      desc: "Ưu đãi dành riêng cho bàn tiệc sinh nhật tại Dê Hương Sơn.",
-      conditions: [
-        "Áp dụng khi đặt bàn trước",
-        "Xuất trình giấy tờ tùy thân",
-        "Áp dụng quanh năm",
-      ],
-    },
-    {
-      id: "online-order",
-      image: onlineOrderImg,
-      label: "Ưu đãi đặt món online",
-      scriptTitle: "Đặt món online",
-      title: "Giảm",
-      discount: "10%",
-      desc: "Đặt món nhanh chóng qua website và nhận ưu đãi hấp dẫn.",
-      conditions: [
-        "Áp dụng khi đặt qua website",
-        "Thanh toán online",
-        "Không áp dụng kèm ưu đãi khác",
-      ],
-    },
-  ];
-  // Ưu đãi sắp tới
-  const upcomingDeals = [
-    {
-      id: "national-day",
-      icon: <Flag />,
-      title: "Quốc khánh 2/9",
-      date: "01/09 - 04/09",
-      desc: "Nhiều ưu đãi hấp dẫn đang chờ đón bạn!",
-    },
-    {
-      id: "mid-autumn",
-      icon: <MoonStar />,
-      title: "Tết Trung thu",
-      date: "14/08 - 17/08 ÂL",
-      desc: "Đón trăng rằm - Nhận ngàn ưu đãi",
-    },
-    {
-      id: "christmas",
-      icon: <TreePine />,
-      title: "Giáng sinh",
-      date: "24/12 - 25/12",
-      desc: "Mừng Giáng sinh - Rinh quà cực đỉnh",
-    },
-    {
-      id: "lunar-new-year",
-      icon: <PartyPopper />,
-      title: "Tết Nguyên Đán",
-      date: "10/01 - 15/01 ÂL",
-      desc: "Khai xuân rộn ràng - Ưu đãi ngập tràn",
-    },
-  ];
-  const banner = bannerDeals[currentBanner];
-  // Chức năng chuyển banner
   const handlePrevBanner = () => {
-    setCurrentBanner((prev) =>
-      prev === 0 ? bannerDeals.length - 1 : prev - 1,
-    );
+    if (heroDeals.length === 0) return;
+
+    setCurrentBanner((prev) => (prev === 0 ? heroDeals.length - 1 : prev - 1));
   };
 
   const handleNextBanner = () => {
-    setCurrentBanner((prev) => (prev + 1) % bannerDeals.length);
+    if (heroDeals.length === 0) return;
+
+    setCurrentBanner((prev) => (prev + 1) % heroDeals.length);
   };
+
   return (
     <div className="min-h-screen bg-[#fbf7ec] text-green-950">
       <main className="max-w-[1500px] mx-auto px-4 md:px-6 py-10">
         {/* HERO PROMO */}
-        <section
-          className={`relative h-[315px] sm:h-[380px] md:h-[500px] overflow-hidden rounded-[22px] md:rounded-[30px] shadow-xl transition-all duration-1000 ease-in-out ${
-            isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-[1.02]"
-          }`}
-        >
-          <img
-            src={banner.image}
-            alt={banner.scriptTitle}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-          {/* lớp phủ */}
-          <div
-            className="absolute inset-0 z-10"
-            style={{
-              background:
-                "linear-gradient(90deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.12) 35%, rgba(0,0,0,0) 65%)",
-            }}
-          ></div>
-          <div
-            key={banner.id}
-            className="relative z-20 h-full w-full max-w-[850px] px-7 sm:px-10 md:pl-28 lg:pl-36 md:pr-8 flex items-center"
+        {banner ? (
+          <section
+            className={`relative h-[315px] sm:h-[380px] md:h-[500px] overflow-hidden rounded-[22px] md:rounded-[30px] shadow-xl transition-all duration-1000 ease-in-out ${
+              isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-[1.02]"
+            }`}
           >
-            <div className="w-full">
-              <span className="w-fit inline-flex items-center gap-2 border border-[#d6a84f] text-[#f6d47a] px-4 py-2 rounded-lg text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-wide">
-                <Star className="w-4 h-4" />
-                {banner.label}
-              </span>
+            <img
+              src={banner.image}
+              alt={banner.scriptTitle}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
 
-              <p
-                className="mt-3 text-3xl sm:text-5xl md:text-6xl text-white leading-none"
-                style={{ fontFamily: "'Great Vibes', cursive" }}
-              >
-                {banner.scriptTitle}
-              </p>
+            <div
+              className="absolute inset-0 z-10"
+              style={{
+                background:
+                  "linear-gradient(90deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.08) 45%, rgba(0,0,0,0) 75%)",
+              }}
+            ></div>
 
-              <h1 className="mt-2 text-4xl sm:text-6xl md:text-7xl font-black uppercase leading-none text-white">
-                {banner.title}{" "}
-                <span className="text-[#f6d47a]">{banner.discount}</span>
-              </h1>
-
-              <p className="mt-5 text-sm sm:text-base md:text-lg text-white/90 leading-relaxed max-w-[680px]">
-                {banner.desc}
-              </p>
-
+            <div
+              key={banner.id}
+              className="relative z-20 h-full w-full px-5 sm:px-8 md:px-14 lg:px-20 flex items-center"
+            >
+              {/* Lớp phủ mờ: đậm bên trái, mờ dần ra giữa */}
               <div
-                className="hidden sm:grid gap-3 md:gap-5 mt-5 text-[11px] sm:text-xs md:text-sm text-white/90 max-w-[720px]"
+                className="absolute inset-y-0 left-0 w-[72%] z-[-1]"
                 style={{
-                  gridTemplateColumns: `repeat(${banner.conditions.length}, minmax(0, 1fr))`,
+                  background:
+                    "linear-gradient(90deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.52) 38%, rgba(0,0,0,0.22) 68%, rgba(0,0,0,0) 100%)",
                 }}
-              >
-                {banner.conditions.map((text, index) => (
-                  <div key={text} className="flex items-start gap-2">
-                    {index === 0 && (
-                      <CalendarDays className="w-5 h-5 text-[#f6d47a] shrink-0" />
-                    )}
-                    {index === 1 && (
-                      <Utensils className="w-5 h-5 text-[#f6d47a] shrink-0" />
-                    )}
-                    {index === 2 && (
-                      <Gift className="w-5 h-5 text-[#f6d47a] shrink-0" />
-                    )}
-                    <span className="leading-snug">{text}</span>
+              />
+
+              <div className="w-full max-w-[760px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.75)]">
+                <span className="w-fit inline-flex items-center gap-2 border border-[#d6a84f] text-[#f6d47a] px-4 py-2 rounded-lg text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-wide">
+                  <Star className="w-4 h-4" />
+                  {banner.label}
+                </span>
+
+                <p
+                  className="mt-3 text-3xl sm:text-5xl md:text-6xl text-white leading-none"
+                  style={{ fontFamily: "'Great Vibes', cursive" }}
+                >
+                  {banner.scriptTitle}
+                </p>
+
+                <h1 className="mt-2 text-4xl sm:text-6xl md:text-7xl font-black uppercase leading-none text-white">
+                  {banner.title}{" "}
+                  <span className="text-[#f6d47a]">{banner.discount}</span>
+                </h1>
+
+                <p className="mt-5 text-sm sm:text-base md:text-lg text-white/90 leading-relaxed max-w-[680px]">
+                  {banner.desc}
+                </p>
+
+                {banner.conditions.length > 0 && (
+                  <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-3 mt-5 max-w-[720px]">
+                    {banner.conditions.slice(0, 4).map((text, index) => (
+                      <div
+                        key={text}
+                        className="min-h-[72px] rounded-2xl border border-white/15 bg-white/10 px-3 py-3 flex items-start gap-2 text-white/90"
+                      >
+                        {index === 0 && (
+                          <CalendarDays className="w-4 h-4 text-[#f6d47a] shrink-0 mt-0.5" />
+                        )}
+
+                        {index === 1 && (
+                          <Utensils className="w-4 h-4 text-[#f6d47a] shrink-0 mt-0.5" />
+                        )}
+
+                        {index >= 2 && (
+                          <Gift className="w-4 h-4 text-[#f6d47a] shrink-0 mt-0.5" />
+                        )}
+
+                        <span className="text-xs md:text-[13px] leading-snug line-clamp-3">
+                          {text}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
+
+                <button
+                  onClick={() => navigate(`/deals/${banner.id}`)}
+                  className="mt-5 w-[190px] sm:w-[230px] md:w-[250px] h-11 sm:h-12 bg-[#f6c441] text-green-950 rounded-xl text-xs sm:text-sm md:text-base font-black hover:bg-[#d6a84f] hover:scale-105 transition"
+                >
+                  Xem chi tiết ưu đãi →
+                </button>
               </div>
-
-              <button
-                onClick={() => navigate(`/deals/${banner.id}`)}
-                className="mt-5 sm:mt-8 w-[190px] sm:w-[230px] md:w-[260px] h-11 sm:h-[52px] md:h-14 bg-[#f6c441] text-green-950 rounded-xl text-xs sm:text-sm md:text-base font-black hover:bg-[#d6a84f] hover:scale-105 transition"
-              >
-                Xem chi tiết ưu đãi →
-              </button>
             </div>
-          </div>
-          {/* // Nút điều hướng banner */}
-          <button
-            type="button"
-            onClick={handlePrevBanner}
-            className="hidden sm:flex absolute left-4 md:left-6 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-black/35 text-white items-center justify-center text-3xl font-bold hover:bg-black/55 transition"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            onClick={handleNextBanner}
-            className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-black/35 text-white flex items-center justify-center text-3xl font-bold hover:bg-black/55 transition"
-          >
-            ›
-          </button>
-          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex gap-2">
-            {bannerDeals.map((item, index) => (
-              <button
-                key={item.id}
-                onClick={() => setCurrentBanner(index)}
-                className={`h-2 rounded-full transition-all ${
-                  currentBanner === index
-                    ? "w-8 bg-[#f6c441]"
-                    : "w-2 bg-white/50"
-                }`}
-              ></button>
-            ))}
-          </div>
-        </section>
 
-        {/* ƯU ĐÃI ĐANG DIỄN RA */}
+            {heroDeals.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePrevBanner}
+                  className="hidden sm:flex absolute left-4 md:left-6 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-black/35 text-white items-center justify-center text-3xl font-bold hover:bg-black/55 transition"
+                >
+                  ‹
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleNextBanner}
+                  className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-black/35 text-white flex items-center justify-center text-3xl font-bold hover:bg-black/55 transition"
+                >
+                  ›
+                </button>
+
+                <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex gap-2">
+                  {heroDeals.map((item, index) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setCurrentBanner(index)}
+                      className={`h-2 rounded-full transition-all ${
+                        currentBanner === index
+                          ? "w-8 bg-[#f6c441]"
+                          : "w-2 bg-white/50"
+                      }`}
+                    ></button>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+        ) : (
+          <section className="relative h-[260px] sm:h-[320px] md:h-[420px] rounded-[22px] md:rounded-[30px] shadow-xl bg-white border border-[#eadfcd] flex items-center justify-center text-center px-6">
+            <div>
+              <p className="text-2xl md:text-4xl font-black text-green-900">
+                Chưa có khuyến mãi nổi bật
+              </p>
+
+              <p className="text-sm md:text-base text-gray-500 mt-3">
+                Các chương trình khuyến mãi sẽ được cập nhật sau.
+              </p>
+            </div>
+          </section>
+        )}
+
         <SectionTitle
           title="Ưu đãi đang diễn ra"
           subtitle="Nhiều chương trình hấp dẫn dành riêng cho bạn"
         />
 
-        <section className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
-          {[
-            {
-              id: "family-combo",
-              image: comboCardImg,
-              icon: <Users />,
-              title: "Combo gia đình",
-              discount: "20%",
-              desc: "Ưu đãi đặc biệt dành cho những bữa ăn sum vầy.",
-            },
-            {
-              id: "birthday",
-              image: birthdayCardImg,
-              icon: <Cake />,
-              title: "Sinh nhật vui vẻ",
-              discount: "15%",
-              desc: "Giảm ngay 15% tổng hóa đơn cho bàn tiệc sinh nhật.",
-            },
-            {
-              id: "online-order",
-              image: onlineCardImg,
-              icon: <PhoneCall />,
-              title: "Đặt món online",
-              discount: "10%",
-              desc: "Tiện lợi, nhanh chóng, ưu đãi hơn khi đặt qua website.",
-            },
-            {
-              id: "booking-special",
-              image: bookingCardImg,
-              icon: <CalendarDays />,
-              title: "Đặt bàn trước",
-              discount: "Ưu đãi đặc biệt",
-              desc: "Đặt bàn trước để nhận nhiều ưu đãi hấp dẫn.",
-            },
-          ].map((item) => (
-            <div
-              key={item.title}
-              className="relative h-[360px] sm:h-[460px] lg:h-[520px] rounded-3xl border border-[#eadfcd] shadow-sm overflow-hidden hover:-translate-y-1 hover:shadow-md transition group"
-            >
-              <img
-                src={item.image}
-                alt={item.title}
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-700"
-              />
-              {/* Lớp phủ */}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/10 to-transparent"></div>
-
-              <div className="relative z-10 h-full p-5 sm:p-6 flex flex-col">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/20 backdrop-blur text-[#f6d47a] flex items-center justify-center shrink-0">
-                    {item.icon}
-                  </div>
-
-                  <h3 className="font-black text-base text-white drop-shadow">
-                    {item.title}
-                  </h3>
-                </div>
-
-                <div className="h-[70px] sm:h-[90px] flex items-center">
-                  <h2
-                    className={`font-black uppercase leading-tight ${
-                      item.discount === "Ưu đãi đặc biệt"
-                        ? "text-2xl sm:text-3xl text-green-700"
-                        : "text-3xl sm:text-4xl text-green-700"
-                    }`}
-                  >
-                    {item.discount === "Ưu đãi đặc biệt" ? (
-                      item.discount
-                    ) : (
-                      <>
-                        Giảm{" "}
-                        <span className="text-4xl sm:text-5xl text-[#f6d47a]">
-                          {item.discount}
-                        </span>
-                      </>
-                    )}
-                  </h2>
-                </div>
-
-                <div className="w-8 h-[2px] bg-[#f6d47a] mt-0 mb-1"></div>
-
-                <p className="text-xs sm:text-sm text-white/90 leading-relaxed line-clamp-2">
-                  {item.desc}
-                </p>
-
-                <div className="mt-auto pt-6">
-                  <button
-                    onClick={() => navigate(`/deals/${item.id}`)}
-                    className="w-full h-10 sm:h-12 bg-black/25 border border-white/30 text-white px-4 rounded-xl font-bold text-xs sm:text-sm hover:bg-[#f6c441] hover:text-green-950 hover:border-[#f6c441] transition"
-                  >
-                    Xem chi tiết →
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </section>
-
-        {/* ĐIỀU KIỆN ÁP DỤNG */}
-        <SectionTitle title="Điều kiện áp dụng" />
-
-        <section className="bg-white border border-[#eadfcd] rounded-3xl shadow-sm p-4 sm:p-6 grid md:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
-          {[
-            {
-              icon: <Users />,
-              title: "Combo gia đình",
-              items: [
-                "Áp dụng cho hóa đơn từ 2.000.000đ",
-                "Không áp dụng kèm ưu đãi khác",
-                "Không áp dụng ngày lễ, Tết",
-              ],
-            },
-            {
-              icon: <PhoneCall />,
-              title: "Đặt món online",
-              items: [
-                "Áp dụng khi đặt qua website",
-                "Thanh toán online",
-                "Không áp dụng kèm ưu đãi khác",
-              ],
-            },
-            {
-              icon: <Cake />,
-              title: "Sinh nhật",
-              items: [
-                "Áp dụng khi đặt bàn trước",
-                "Xuất trình giấy tờ tùy thân",
-                "Không áp dụng kèm ưu đãi khác",
-              ],
-            },
-            {
-              icon: <CalendarDays />,
-              title: "Đặt bàn trước",
-              items: [
-                "Áp dụng cho nhóm từ 6 người trở lên",
-                "Đặt trước tối thiểu 2 giờ",
-                "Không áp dụng kèm ưu đãi khác",
-              ],
-            },
-          ].map((box) => (
-            <div key={box.title} className="flex gap-4">
-              <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-green-50 text-green-900 flex items-center justify-center shrink-0">
-                {box.icon}
-              </div>
-
-              <div>
-                <h3 className="font-black text-green-900 mb-3">{box.title}</h3>
-                <div className="space-y-2">
-                  {box.items.map((text) => (
-                    <p
-                      key={text}
-                      className="flex items-start gap-2 text-sm text-gray-600"
-                    >
-                      <CheckCircle className="w-4 h-4 text-[#d6a84f] shrink-0 mt-0.5" />
-                      {text}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </section>
-        {/* “Ưu đãi sắp diễn ra” */}
-        <SectionTitle title="Ưu đãi sắp diễn ra" />
-        <section className="relative mb-10">
+        <section className="mb-10">
           <Swiper
             modules={[Navigation, Pagination, Autoplay]}
-            spaceBetween={20}
             navigation
             pagination={{ clickable: true }}
-            autoplay={{
-              delay: 4000,
-              disableOnInteraction: false,
-            }}
+            loop={activeAdminDeals.length > 4}
+            loopAdditionalSlides={activeAdminDeals.length}
+            grabCursor={true}
+            allowTouchMove={true}
+            speed={1000}
+            autoplay={
+              activeAdminDeals.length > 4
+                ? {
+                    delay: 5000,
+                    disableOnInteraction: false,
+                    pauseOnMouseEnter: true,
+                    stopOnLastSlide: false,
+                  }
+                : false
+            }
             breakpoints={{
               0: {
                 slidesPerView: 1.1,
@@ -521,43 +307,216 @@ function DealsPage() {
             }}
             className="deal-swiper pb-10"
           >
-            {upcomingDeals.map((item) => (
-              <SwiperSlide key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/deals/${item.id}`)}
-                  className="w-full h-[150px] text-left bg-white border border-[#eadfcd] rounded-2xl p-5 shadow-sm flex items-center gap-4 hover:-translate-y-1 hover:shadow-md hover:border-[#d6a84f] transition group"
-                >
-                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-[#fbf0dc] text-green-900 flex items-center justify-center shrink-0 group-hover:bg-green-900 group-hover:text-[#f6d47a] transition">
-                    {item.icon}
+            {activeAdminDeals.length > 0 ? (
+              activeAdminDeals.map((item, index) => (
+                <SwiperSlide key={`${item.id || item.code}-${index}`}>
+                  <div className="relative h-[360px] sm:h-[460px] lg:h-[520px] rounded-3xl border border-[#eadfcd] shadow-sm overflow-hidden hover:-translate-y-1 hover:shadow-md transition group cursor-grab active:cursor-grabbing">
+                    <img
+                      src={item.cardImage || item.detailImage || comboCardImg}
+                      alt={item.name}
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-700"
+                    />
+
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/10 to-transparent"></div>
+
+                    <div className="relative z-10 h-full p-5 sm:p-6 flex flex-col">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/20 backdrop-blur text-[#f6d47a] flex items-center justify-center shrink-0">
+                          <Gift className="w-5 h-5" />
+                        </div>
+
+                        <h3 className="font-black text-base text-white drop-shadow">
+                          {item.name}
+                        </h3>
+                      </div>
+
+                      <div className="h-[70px] sm:h-[90px] flex items-center">
+                        <h2 className="font-black uppercase leading-tight text-3xl sm:text-4xl text-green-700">
+                          {String(item.discount || "").includes("%") ? (
+                            <>
+                              Giảm{" "}
+                              <span className="text-4xl sm:text-5xl text-[#f6d47a]">
+                                {item.discount}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-2xl sm:text-3xl text-green-700">
+                              {item.discount}
+                            </span>
+                          )}
+                        </h2>
+                      </div>
+
+                      <div className="w-8 h-[2px] bg-[#f6d47a] mt-0 mb-1"></div>
+
+                      <p className="text-xs sm:text-sm text-white/90 leading-relaxed line-clamp-2">
+                        {item.desc || item.subtitle}
+                      </p>
+
+                      {Number(item.condition || 0) > 0 && (
+                        <p className="mt-2 text-xs sm:text-sm text-[#f6d47a] font-bold">
+                          HĐ từ{" "}
+                          {Number(item.condition || 0).toLocaleString("vi-VN")}đ
+                        </p>
+                      )}
+
+                      <div className="mt-auto pt-6">
+                        <button
+                          onClick={() => navigate(getDealUrl(item))}
+                          className="w-full h-10 sm:h-12 bg-black/25 border border-white/30 text-white px-4 rounded-xl font-bold text-xs sm:text-sm hover:bg-[#f6c441] hover:text-green-950 hover:border-[#f6c441] transition"
+                        >
+                          Xem chi tiết →
+                        </button>
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="min-w-0">
-                    <h3 className="font-black text-green-900 group-hover:text-[#b88935] transition line-clamp-1">
-                      {item.title}
-                    </h3>
-
-                    <p className="text-sm font-bold text-gray-600 mt-1">
-                      {item.date}
+                </SwiperSlide>
+              ))
+            ) : (
+              <SwiperSlide>
+                <div className="h-[260px] rounded-3xl border border-[#eadfcd] bg-white flex items-center justify-center text-center p-6">
+                  <div>
+                    <p className="text-xl font-black text-green-900">
+                      Chưa có khuyến mãi đang diễn ra
                     </p>
-
-                    <p className="text-xs text-gray-500 mt-2 leading-relaxed line-clamp-2">
-                      {item.desc}
-                    </p>
-
-                    <p className="text-xs font-black text-green-900 mt-3 opacity-0 group-hover:opacity-100 transition">
-                      Xem chi tiết →
+                    <p className="text-sm text-gray-500 mt-2">
+                      Các chương trình khuyến mãi sẽ được cập nhật sau.
                     </p>
                   </div>
-                </button>
+                </div>
               </SwiperSlide>
-            ))}
+            )}
           </Swiper>
         </section>
 
-        {/* CTA */}
+        <SectionTitle title="Điều kiện áp dụng" />
+
+        <section className="bg-white border border-[#eadfcd] rounded-3xl shadow-sm p-4 sm:p-6 grid md:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+          {activeAdminDeals.length > 0 ? (
+            activeAdminDeals.slice(0, 4).map((deal) => {
+              const conditions = getDealConditions(deal);
+
+              return (
+                <div key={deal.id || deal.code} className="flex gap-4">
+                  <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-green-50 text-green-900 flex items-center justify-center shrink-0">
+                    <Gift />
+                  </div>
+
+                  <div>
+                    <h3 className="font-black text-green-900 mb-3">
+                      {deal.name}
+                    </h3>
+
+                    <div className="space-y-2">
+                      {(conditions.length > 0
+                        ? conditions
+                        : ["Không có điều kiện bổ sung"]
+                      ).map((text) => (
+                        <p
+                          key={text}
+                          className="flex items-start gap-2 text-sm text-gray-600"
+                        >
+                          <CheckCircle className="w-4 h-4 text-[#d6a84f] shrink-0 mt-0.5" />
+                          {text}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="lg:col-span-4 py-10 text-center text-gray-400 font-bold">
+              Chưa có điều kiện áp dụng từ chương trình khuyến mãi.
+            </div>
+          )}
+        </section>
+
+        <SectionTitle title="Ưu đãi sắp diễn ra" />
+
+        <section className="relative mb-10">
+          <Swiper
+            modules={[Navigation, Pagination, Autoplay]}
+            navigation={upcomingAdminDeals.length > 1}
+            pagination={{ clickable: true }}
+            loop={upcomingAdminDeals.length > 4}
+            loopAdditionalSlides={upcomingAdminDeals.length}
+            grabCursor={true}
+            allowTouchMove={true}
+            speed={1000}
+            autoplay={
+              upcomingAdminDeals.length > 4
+                ? {
+                    delay: 5000,
+                    disableOnInteraction: false,
+                    pauseOnMouseEnter: true,
+                  }
+                : false
+            }
+            breakpoints={{
+              0: {
+                slidesPerView: 1.1,
+                spaceBetween: 14,
+              },
+              640: {
+                slidesPerView: 2,
+                spaceBetween: 16,
+              },
+              1024: {
+                slidesPerView: 3,
+                spaceBetween: 20,
+              },
+              1280: {
+                slidesPerView: 4,
+                spaceBetween: 20,
+              },
+            }}
+            className="deal-swiper pb-10"
+          >
+            {upcomingAdminDeals.length > 0 ? (
+              upcomingAdminDeals.map((item) => (
+                <SwiperSlide key={item.id || item.code}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(getDealUrl(item))}
+                    className="w-full h-[150px] text-left bg-white border border-[#eadfcd] rounded-2xl p-5 shadow-sm flex items-center gap-4 hover:-translate-y-1 hover:shadow-md hover:border-[#d6a84f] transition group"
+                  >
+                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-[#fbf0dc] text-green-900 flex items-center justify-center shrink-0 group-hover:bg-green-900 group-hover:text-[#f6d47a] transition">
+                      <CalendarDays />
+                    </div>
+
+                    <div className="min-w-0">
+                      <h3 className="font-black text-green-900 group-hover:text-[#b88935] transition line-clamp-1">
+                        {item.name}
+                      </h3>
+
+                      <p className="text-sm font-bold text-gray-600 mt-1">
+                        {item.startDate || "Chưa có"} -{" "}
+                        {item.endDate || "Chưa có"}
+                      </p>
+
+                      <p className="text-xs text-gray-500 mt-2 leading-relaxed line-clamp-2">
+                        {item.desc || item.subtitle || "Ưu đãi sắp diễn ra."}
+                      </p>
+
+                      <p className="text-xs font-black text-green-900 mt-3 opacity-0 group-hover:opacity-100 transition">
+                        Xem chi tiết →
+                      </p>
+                    </div>
+                  </button>
+                </SwiperSlide>
+              ))
+            ) : (
+              <SwiperSlide>
+                <div className="h-[150px] bg-white border border-[#eadfcd] rounded-2xl p-5 flex items-center justify-center text-center text-gray-400 font-bold">
+                  Chưa có ưu đãi sắp diễn ra
+                </div>
+              </SwiperSlide>
+            )}
+          </Swiper>
+        </section>
+
         <section className="grid lg:grid-cols-2 gap-6">
-          {/* ĐẶT BÀN */}
           <div
             className="relative overflow-hidden rounded-3xl min-h-[230px] md:min-h-[300px] p-6 md:p-10 flex flex-col justify-center"
             style={{
@@ -566,7 +525,6 @@ function DealsPage() {
               backgroundPosition: "center",
             }}
           >
-            {/* Tiêu đề */}
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full border-2 border-[#f6c441] flex items-center justify-center">
                 <CalendarDays className="w-6 h-6 text-[#f6c441]" />
@@ -592,7 +550,6 @@ function DealsPage() {
             </button>
           </div>
 
-          {/* ĐẶT MÓN */}
           <div
             className="relative overflow-hidden rounded-3xl min-h-[300px] p-8 md:p-10 flex flex-col justify-center"
             style={{
@@ -601,7 +558,6 @@ function DealsPage() {
               backgroundPosition: "right center",
             }}
           >
-            {/* Tiêu đề */}
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full border-2 border-[#f6c441] flex items-center justify-center">
                 <Utensils className="w-6 h-6 text-[#f6c441]" />
@@ -631,7 +587,7 @@ function DealsPage() {
     </div>
   );
 }
-// COMPONENT SECTION TITLE
+
 function SectionTitle({ title, subtitle }) {
   return (
     <section className="text-center my-8">
@@ -655,4 +611,5 @@ function SectionTitle({ title, subtitle }) {
     </section>
   );
 }
+
 export default DealsPage;

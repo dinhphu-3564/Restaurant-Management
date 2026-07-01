@@ -43,6 +43,7 @@ const EMPTY_FORM = {
   desc: "",
   cardImage: "",
   detailImage: "",
+  bannerImage: "",
   serviceTypes: ["dinein", "delivery", "pickup"],
 };
 
@@ -1220,8 +1221,8 @@ function DealFormModal({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Ảnh không được vượt quá 5MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Ảnh không được vượt quá 10MB.");
       return;
     }
 
@@ -1503,6 +1504,17 @@ function DealFormModal({
             {/* RIGHT IMAGES */}
             <div className="space-y-6">
               <ImageUploadBox
+                title="Ảnh banner đầu trang (Deals Page)"
+                size="Kích thước: 2243×701px"
+                image={form.bannerImage}
+                fieldName="bannerImage"
+                previewClassName="w-full h-[170px]"
+                horizontal
+                onChange={handleImageChange}
+                onRemove={removeImage}
+              />
+
+              <ImageUploadBox
                 title="Ảnh hiển thị danh sách (Deals Page)"
                 size="Kích thước: 1023×1537px"
                 image={form.cardImage}
@@ -1647,7 +1659,7 @@ function ImageUploadBox({
           </span>
 
           <p className="text-xs text-gray-500 font-semibold mt-3">
-            JPG, PNG, WebP - Tối đa 5MB
+            JPG, PNG, WebP - Tối đa 10MB
           </p>
         </label>
       </div>
