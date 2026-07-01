@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
+import { showAdminToast } from "../../components/admin/AdminToast";
 import * as XLSX from "xlsx-js-style";
 import { saveAs } from "file-saver";
 import {
@@ -22,6 +23,21 @@ import {
 } from "lucide-react";
 
 const API_URL = "http://localhost:5001/api/orders";
+const getAuthToken = () => {
+  return (
+    localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+  );
+};
+
+const getAuthHeaders = () => {
+  const token = getAuthToken();
+
+  return token
+    ? {
+        Authorization: `Bearer ${token}`,
+      }
+    : {};
+};
 
 function AdminOrdersPage() {
   const {
@@ -50,7 +66,11 @@ function AdminOrdersPage() {
   });
 
   useEffect(() => {
-    fetch(API_URL)
+    fetch(API_URL, {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
@@ -432,8 +452,6 @@ function AdminOrdersPage() {
   };
   //Hàm xuất Excel theo năm
   const exportYearExcel = () => {
-    const year = Number(dateRange.startDate?.slice(0, 4));
-
     const workbook = XLSX.utils.book_new();
 
     // Tổng số đơn + Tổng tiền từng tháng
@@ -561,6 +579,10 @@ function AdminOrdersPage() {
     });
 
     saveAs(blob, getExcelFileName());
+    showAdminToast({
+      title: "Xuất Excel thành công",
+      message: `Đã xuất file ${getExcelFileName()}.`,
+    });
   };
   //xuất Excel
   const exportToExcel = () => {
@@ -660,6 +682,10 @@ function AdminOrdersPage() {
     });
 
     saveAs(blob, getExcelFileName());
+    showAdminToast({
+      title: "Xuất Excel thành công",
+      message: `Đã xuất file ${getExcelFileName()}.`,
+    });
   };
 
   useEffect(() => {
@@ -705,6 +731,7 @@ function AdminOrdersPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
+          ...getAuthHeaders(),
         },
         body: JSON.stringify({
           status,
@@ -730,6 +757,10 @@ function AdminOrdersPage() {
       setSelectedOrder((prev) =>
         prev && String(prev.id) === String(id) ? updatedOrder : prev,
       );
+      showAdminToast({
+        title: "Cập nhật trạng thái đơn hàng thành công",
+        message: `Đã chuyển đơn #${updatedOrder.id} sang "${getStatusText(status)}".`,
+      });
     } catch (error) {
       console.error(error);
       alert("Không kết nối được backend.");
@@ -755,6 +786,7 @@ function AdminOrdersPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
+          ...getAuthHeaders(),
         },
         body: JSON.stringify({
           status: editForm.status,
@@ -784,6 +816,10 @@ function AdminOrdersPage() {
           ? updatedOrder
           : prev,
       );
+      showAdminToast({
+        title: "Lưu thay đổi đơn hàng thành công",
+        message: `Đã cập nhật đơn #${updatedOrder.id}.`,
+      });
 
       setEditingOrder(null);
     } catch (error) {
@@ -844,6 +880,7 @@ function AdminOrdersPage() {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
+              ...getAuthHeaders(),
             },
             body: JSON.stringify({
               status,
@@ -877,6 +914,13 @@ function AdminOrdersPage() {
       setSelectedOrder((prev) =>
         prev ? updatedOrderMap[String(prev.id)] || prev : prev,
       );
+
+      showAdminToast({
+        title: "Cập nhật hàng loạt thành công",
+        message: `Đã chuyển ${selectedOrderIds.length} đơn hàng sang trạng thái "${getStatusText(
+          status,
+        )}".`,
+      });
 
       setSelectedOrderIds([]);
     } catch (error) {

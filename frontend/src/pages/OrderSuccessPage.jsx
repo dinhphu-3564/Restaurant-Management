@@ -14,11 +14,22 @@ function OrderSuccessPage() {
     momo: "MoMo",
   };
 
+  const orderStatusText = {
+    pending: "Chờ xác nhận",
+    confirmed: "Đã xác nhận",
+    preparing: "Đang chuẩn bị",
+    delivering: "Đang giao",
+    completed: "Hoàn thành",
+    cancelled: "Đã hủy",
+    canceled: "Đã hủy",
+  };
+
   const paymentStatusText = {
+    pending_payment: "Chờ chọn thanh toán",
     unpaid: "Chưa thanh toán",
     pending: "Chờ thanh toán",
     paid_pending_confirm: "Đã thanh toán",
-    paid: "Đã xác nhận thanh toán",
+    paid: "Đã thanh toán",
     failed: "Thanh toán thất bại",
     refunded: "Đã hoàn tiền",
   };
@@ -28,7 +39,7 @@ function OrderSuccessPage() {
     pending: "Đang chờ khách thực hiện thanh toán.",
     paid_pending_confirm:
       "Thanh toán đã ghi nhận, đơn hàng đang chờ nhà hàng xác nhận.",
-    paid: "Nhà hàng đã xác nhận thanh toán.",
+    paid: "Thanh toán đã được ghi nhận thành công.",
     failed: "Giao dịch không thành công.",
     refunded: "Giao dịch đã được hoàn tiền.",
   };
@@ -58,7 +69,12 @@ function OrderSuccessPage() {
             value={paymentText[order.paymentMethod] || "Chưa xác định"}
           />
 
-          <Info label="Trạng thái đơn" value={order.status || "Chờ xác nhận"} />
+          <Info
+            label="Trạng thái đơn"
+            value={
+              orderStatusText[order.status] || order.status || "Chờ xác nhận"
+            }
+          />
 
           <Info
             label="Trạng thái thanh toán"

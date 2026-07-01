@@ -1,5 +1,6 @@
 const express = require("express");
 const db = require("../config/db");
+const { requireAuth } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -40,6 +41,126 @@ function safeNumber(value, fallback = 0) {
   const number = Number(String(value || "").replace(/[^\d.-]/g, ""));
 
   return Number.isFinite(number) ? number : fallback;
+}
+//kiểm tra số lượt sử dụng mã
+function toJsonString(value, fallback) {
+  try {
+    return JSON.stringify(value ?? fallback);
+  } catch {
+    return JSON.stringify(fallback);
+  }
+}
+
+function formatDateOnly(value) {
+  const date = value ? new Date(value) : new Date();
+
+  if (Number.isNaN(date.getTime())) {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+async function consumeDealUsage(
+  connection,
+  appliedCoupon,
+  couponDiscountTotal,
+) {
+  const discountAmount = safeNumber(couponDiscountTotal);
+
+  if (!appliedCoupon?.code || discountAmount <= 0) {
+    return {
+      success: true,
+    };
+  }
+
+  const couponCode = String(appliedCoupon.code || "")
+    .trim()
+    .toUpperCase();
+
+  const [dealRows] = await connection.query(
+    `
+    SELECT
+      id,
+      code,
+      status,
+      usage_limit,
+      used_count,
+      total_discount,
+      usage_history
+    FROM deals
+    WHERE UPPER(code) = UPPER(?)
+    LIMIT 1
+    FOR UPDATE
+    `,
+    [couponCode],
+  );
+
+  if (dealRows.length === 0) {
+    return {
+      success: false,
+      status: 404,
+      message: "Mã ưu đãi không tồn tại.",
+    };
+  }
+
+  const deal = dealRows[0];
+
+  if (deal.status !== "active") {
+    return {
+      success: false,
+      status: 400,
+      message: "Mã ưu đãi hiện không còn hiệu lực.",
+    };
+  }
+
+  const usageLimit = Number(deal.usage_limit || 0);
+  const usedCount = Number(deal.used_count || 0);
+
+  if (usageLimit > 0 && usedCount >= usageLimit) {
+    return {
+      success: false,
+      status: 409,
+      message: "Mã ưu đãi đã hết lượt sử dụng.",
+    };
+  }
+
+  const today = formatDateOnly(new Date());
+  const usageHistory = parseJson(deal.usage_history, []);
+
+  const historyIndex = usageHistory.findIndex((item) => item.date === today);
+
+  if (historyIndex !== -1) {
+    usageHistory[historyIndex] = {
+      ...usageHistory[historyIndex],
+      count: Number(usageHistory[historyIndex].count || 0) + 1,
+      discountTotal:
+        Number(usageHistory[historyIndex].discountTotal || 0) + discountAmount,
+    };
+  } else {
+    usageHistory.push({
+      date: today,
+      count: 1,
+      discountTotal: discountAmount,
+    });
+  }
+
+  await connection.query(
+    `
+    UPDATE deals
+    SET
+      used_count = used_count + 1,
+      total_discount = COALESCE(total_discount, 0) + ?,
+      usage_history = ?,
+      updated_at = NOW()
+    WHERE id = ?
+    `,
+    [discountAmount, toJsonString(usageHistory, []), deal.id],
+  );
+
+  return {
+    success: true,
+  };
 }
 
 function mapOrder(row, items = []) {
@@ -186,6 +307,126 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Lấy lịch sử đơn hàng của tài khoản đang đăng nhập
+router.get("/me", requireAuth, async (req, res) => {
+  try {
+    const [allOrderRows] = await db.query(`
+      SELECT *
+      FROM orders
+      ORDER BY created_at DESC
+    `);
+
+    const orderRows = allOrderRows.filter((order) => {
+      const rawData = parseJson(order.raw_data, {});
+
+      const sameUserId =
+        rawData.userId && String(rawData.userId) === String(req.user.id);
+
+      const sameEmail =
+        order.email &&
+        req.user.email &&
+        String(order.email).toLowerCase() ===
+          String(req.user.email).toLowerCase();
+
+      const samePhone =
+        order.phone &&
+        req.user.phone &&
+        String(order.phone) === String(req.user.phone);
+
+      return sameUserId || sameEmail || samePhone;
+    });
+
+    const orderIds = orderRows.map((order) => order.id);
+
+    let itemRows = [];
+
+    if (orderIds.length > 0) {
+      const [rows] = await db.query(
+        `
+        SELECT *
+        FROM order_items
+        WHERE order_id IN (?)
+        ORDER BY id ASC
+        `,
+        [orderIds],
+      );
+
+      itemRows = rows;
+    }
+
+    const itemMap = itemRows.reduce((map, item) => {
+      if (!map[item.order_id]) map[item.order_id] = [];
+      map[item.order_id].push(item);
+      return map;
+    }, {});
+
+    const orders = orderRows.map((order) =>
+      mapOrder(order, itemMap[order.id] || []),
+    );
+
+    res.json({
+      success: true,
+      orders,
+    });
+  } catch (error) {
+    console.error("Lỗi lấy lịch sử đơn hàng của tôi:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi lấy lịch sử đơn hàng.",
+      error: error.message,
+    });
+  }
+});
+
+// Lấy chi tiết đơn hàng của tài khoản đang đăng nhập
+router.get("/me/:id", requireAuth, async (req, res) => {
+  try {
+    const order = await getOrderByCode(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy đơn hàng.",
+      });
+    }
+
+    const sameUserId =
+      order.userId && String(order.userId) === String(req.user.id);
+
+    const sameEmail =
+      order.email &&
+      req.user.email &&
+      String(order.email).toLowerCase() ===
+        String(req.user.email).toLowerCase();
+
+    const samePhone =
+      order.phone &&
+      req.user.phone &&
+      String(order.phone) === String(req.user.phone);
+
+    if (!sameUserId && !sameEmail && !samePhone) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền xem đơn hàng này.",
+      });
+    }
+
+    res.json({
+      success: true,
+      order,
+    });
+  } catch (error) {
+    console.error("Lỗi lấy chi tiết đơn hàng của tôi:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi lấy chi tiết đơn hàng.",
+      error: error.message,
+    });
+  }
+});
+
 // Lấy chi tiết đơn hàng
 router.get("/:id", async (req, res) => {
   try {
@@ -214,7 +455,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // Tạo đơn hàng
-router.post("/", async (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
   const connection = await db.getConnection();
 
   try {
@@ -238,6 +479,24 @@ router.post("/", async (req, res) => {
     const paymentMethod =
       body.paymentMethod ||
       (body.paymentStatus === "pending_payment" ? "bank" : "");
+
+    const appliedCoupon = body.appliedCoupon || null;
+    const couponDiscountTotal = safeNumber(body.couponDiscountTotal);
+
+    const dealUsageResult = await consumeDealUsage(
+      connection,
+      appliedCoupon,
+      couponDiscountTotal,
+    );
+
+    if (!dealUsageResult.success) {
+      await connection.rollback();
+
+      return res.status(dealUsageResult.status || 400).json({
+        success: false,
+        message: dealUsageResult.message || "Không thể sử dụng mã ưu đãi.",
+      });
+    }
 
     await connection.query(
       `
@@ -292,7 +551,7 @@ router.post("/", async (req, res) => {
         safeNumber(body.couponDiscountTotal),
         safeNumber(body.total || body.totalPrice),
 
-        JSON.stringify(body.appliedCoupon || null),
+        toJsonString(appliedCoupon, null),
         body.paymentContent || "",
         JSON.stringify(body.sepayTransaction || null),
         safeNumber(body.sepayAmount),

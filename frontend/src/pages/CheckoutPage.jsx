@@ -18,6 +18,11 @@ function CheckoutPage() {
   const [errors, setErrors] = useState({});
   const [showEmptyCartModal, setShowEmptyCartModal] = useState(false);
 
+  const [lockedAccountModal, setLockedAccountModal] = useState({
+    open: false,
+    message: "",
+  });
+
   const [toast, setToast] = useState({
     show: false,
     message: "",
@@ -257,6 +262,26 @@ function CheckoutPage() {
       time: "",
       guests: "",
       note: "",
+    });
+  };
+
+  const handleLockedAccount = (message) => {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("currentUser");
+    localStorage.removeItem("avatar");
+
+    sessionStorage.removeItem("authToken");
+    sessionStorage.removeItem("currentUser");
+    sessionStorage.removeItem("avatar");
+
+    window.dispatchEvent(new Event("authChanged"));
+    window.dispatchEvent(new Event("loginStatusChanged"));
+    window.dispatchEvent(new Event("avatarUpdated"));
+
+    setLockedAccountModal({
+      open: true,
+      message:
+        message || "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ nhà hàng.",
     });
   };
 
@@ -675,6 +700,14 @@ function CheckoutPage() {
 
                     const data = await res.json();
 
+                    if (
+                      data.code === "ACCOUNT_LOCKED" ||
+                      data.code === "ACCOUNT_INACTIVE"
+                    ) {
+                      handleLockedAccount(data.message);
+                      return;
+                    }
+
                     if (!res.ok || !data.success) {
                       alert(
                         data.message ||
@@ -741,15 +774,31 @@ function CheckoutPage() {
                     createdAt: new Date().toISOString(),
                   };
 
+                  const token = getAuthToken();
+
+                  if (!token) {
+                    navigate("/login");
+                    return;
+                  }
+
                   const res = await fetch(`${API_URL}/api/orders`, {
                     method: "POST",
                     headers: {
                       "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
                     },
                     body: JSON.stringify(finalOrderData),
                   });
 
                   const data = await res.json();
+
+                  if (
+                    data.code === "ACCOUNT_LOCKED" ||
+                    data.code === "ACCOUNT_INACTIVE"
+                  ) {
+                    handleLockedAccount(data.message);
+                    return;
+                  }
 
                   if (!res.ok || !data.success) {
                     alert(
@@ -768,19 +817,7 @@ function CheckoutPage() {
                     JSON.stringify(savedOrder),
                   );
 
-                  const oldOrders =
-                    JSON.parse(localStorage.getItem("orders")) || [];
-
-                  localStorage.setItem(
-                    "orders",
-                    JSON.stringify([savedOrder, ...oldOrders]),
-                  );
-
-                  window.dispatchEvent(
-                    new CustomEvent("ordersUpdated", {
-                      detail: [savedOrder, ...oldOrders],
-                    }),
-                  );
+                  window.dispatchEvent(new Event("ordersUpdated"));
 
                   navigate("/payment-qr");
                   return;
@@ -852,6 +889,52 @@ function CheckoutPage() {
           </div>
         </div>
       )}
+
+      {lockedAccountModal.open && (
+        <div className="fixed inset-0 z-[99999] bg-black/45 backdrop-blur-[2px] flex items-center justify-center px-4">
+          <div className="w-full max-w-[390px] overflow-hidden rounded-3xl bg-white border border-red-100 shadow-2xl">
+            <div className="px-6 pt-7 pb-5 text-center">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center text-3xl font-black">
+                !
+              </div>
+
+              <h2 className="mt-4 text-xl font-black text-green-950">
+                Tài khoản đã bị khóa
+              </h2>
+
+              <p className="mt-2 text-sm font-semibold text-gray-600 leading-relaxed">
+                {lockedAccountModal.message}
+              </p>
+            </div>
+
+            <div className="px-6 pb-6 grid grid-cols-1 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setLockedAccountModal({
+                    open: false,
+                    message: "",
+                  });
+
+                  navigate("/login");
+                }}
+                className="h-12 rounded-2xl bg-green-800 text-white font-black hover:bg-green-900 transition"
+              >
+                Tôi đã hiểu
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate("/home")}
+                className="h-11 rounded-2xl border border-[#eadfcd] text-green-900 font-black hover:bg-green-50 transition"
+              >
+                Về trang chủ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Component hiển thị thông báo khi xóa món ăn khỏi checkout */}
       {toast.show && (
         <div className="fixed top-20 right-5 z-[9999]">

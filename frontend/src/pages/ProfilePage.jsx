@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   User,
   Mail,
@@ -22,8 +21,34 @@ import goatIcon from "../assets/images/Icon_De.png";
 import hero3 from "../assets/images/Home/hero-3.png";
 import gtMonAn from "../assets/images/Contact/gt-mon-an.png";
 
+import { clearAuthSession } from "../utils/auth";
+import { getMe, updateMe } from "../services/userService";
+
+const API_URL = "http://localhost:5001";
+
+const getAuthToken = () => {
+  return (
+    localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+  );
+};
+
+const handleAuthApiError = (data, navigate) => {
+  if (
+    data?.code === "ACCOUNT_LOCKED" ||
+    data?.code === "ACCOUNT_INACTIVE" ||
+    data?.message === "Bạn chưa đăng nhập."
+  ) {
+    clearAuthSession();
+    navigate("/login");
+    return true;
+  }
+
+  return false;
+};
+
 function ProfilePage() {
   const navigate = useNavigate();
+
   const location = useLocation();
 
   const [user, setUser] = useState(null);
@@ -33,6 +58,7 @@ function ProfilePage() {
   const [showResetAvatar, setShowResetAvatar] = useState(false);
 
   const [tempAvatar, setTempAvatar] = useState(null);
+  const [avatarChanged, setAvatarChanged] = useState(false);
 
   const [activePage, setActivePage] = useState(
     location.state?.activeTab || "profile",
@@ -50,26 +76,54 @@ function ProfilePage() {
   }, [location.state]);
 
   useEffect(() => {
-    const currentUser =
-      JSON.parse(localStorage.getItem("currentUser")) ||
-      JSON.parse(sessionStorage.getItem("currentUser"));
+    const loadProfile = async () => {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
 
-    const isLoggedIn =
-      localStorage.getItem("isLoggedIn") === "true" ||
-      sessionStorage.getItem("isLoggedIn") === "true";
+      if (!token) {
+        navigate("/login");
+        return;
+      }
 
-    if (!isLoggedIn || !currentUser) {
-      navigate("/login");
-      return;
-    }
+      try {
+        const data = await getMe();
+        const currentUser = data.user;
 
-    setUser(currentUser);
-    setForm({
-      name: currentUser.name || "",
-      email: currentUser.email || "",
-      phone: currentUser.phone || "",
-      address: currentUser.address || "",
-    });
+        setUser(currentUser);
+        setForm({
+          name: currentUser.name || "",
+          email: currentUser.email || "",
+          phone: currentUser.phone || "",
+          address: currentUser.address || "",
+        });
+
+        setAvatar(currentUser.avatar || null);
+        setTempAvatar(null);
+        setAvatarChanged(false);
+
+        if (localStorage.getItem("currentUser")) {
+          localStorage.setItem("currentUser", JSON.stringify(currentUser));
+        } else {
+          sessionStorage.setItem("currentUser", JSON.stringify(currentUser));
+        }
+
+        if (currentUser.avatar) {
+          localStorage.setItem("avatar", currentUser.avatar);
+        } else {
+          localStorage.removeItem("avatar");
+        }
+
+        window.dispatchEvent(new Event("loginStatusChanged"));
+        window.dispatchEvent(new Event("avatarUpdated"));
+      } catch (error) {
+        console.error(error);
+        clearAuthSession();
+        navigate("/login");
+      }
+    };
+
+    loadProfile();
   }, [navigate]);
 
   const phoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
@@ -111,6 +165,7 @@ function ProfilePage() {
         const croppedImage = canvas.toDataURL("image/jpeg", 0.85);
 
         setTempAvatar(croppedImage);
+        setAvatarChanged(true);
       };
 
       img.src = reader.result;
@@ -119,11 +174,17 @@ function ProfilePage() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const newErrors = {};
 
-    if (!form.name.trim()) newErrors.name = "Vui lòng nhập họ tên";
-    if (!form.email.trim()) newErrors.email = "Vui lòng nhập email";
+    if (!form.name.trim()) {
+      newErrors.name = "Vui lòng nhập họ tên";
+    }
+
+    if (!form.email.trim()) {
+      newErrors.email = "Vui lòng nhập email";
+    }
+
     if (form.phone && !phoneRegex.test(form.phone)) {
       newErrors.phone = "Số điện thoại không hợp lệ";
     }
@@ -133,33 +194,55 @@ function ProfilePage() {
       return;
     }
 
-    const updatedUser = { ...user, ...form };
+    try {
+      const payload = {
+        name: form.name.trim(),
+        fullName: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        phone: form.phone.trim(),
+        address: form.address.trim(),
+      };
 
-    if (localStorage.getItem("currentUser")) {
-      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
-    } else {
-      sessionStorage.setItem("currentUser", JSON.stringify(updatedUser));
-    }
-    if (tempAvatar) {
-      localStorage.setItem("avatar", tempAvatar);
-      setAvatar(tempAvatar);
+      if (avatarChanged) {
+        payload.avatar = tempAvatar || null;
+      }
+
+      const data = await updateMe(payload);
+      const updatedUser = data.user;
+
+      if (localStorage.getItem("currentUser")) {
+        localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+      } else {
+        sessionStorage.setItem("currentUser", JSON.stringify(updatedUser));
+      }
+
+      if (updatedUser.avatar) {
+        localStorage.setItem("avatar", updatedUser.avatar);
+      } else {
+        localStorage.removeItem("avatar");
+      }
+
+      setUser(updatedUser);
+      setAvatar(updatedUser.avatar || null);
       setTempAvatar(null);
+      setAvatarChanged(false);
+      setErrors({});
 
+      setToast(true);
+
+      window.dispatchEvent(new Event("loginStatusChanged"));
       window.dispatchEvent(new Event("avatarUpdated"));
-    }
-    setUser(updatedUser);
-    setToast(true);
-    window.dispatchEvent(new Event("loginStatusChanged"));
 
-    setTimeout(() => setToast(false), 3000);
+      setTimeout(() => setToast(false), 3000);
+    } catch (error) {
+      console.error(error);
+
+      alert(error.message || "Không thể cập nhật thông tin.");
+    }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("currentUser");
-    sessionStorage.removeItem("isLoggedIn");
-    sessionStorage.removeItem("currentUser");
-    window.dispatchEvent(new Event("loginStatusChanged"));
+    clearAuthSession();
     navigate("/login");
   };
 
@@ -285,11 +368,9 @@ function ProfilePage() {
                     {avatar && (
                       <button
                         onClick={() => {
-                          localStorage.removeItem("avatar");
                           setAvatar(null);
                           setTempAvatar(null);
-
-                          window.dispatchEvent(new Event("avatarUpdated"));
+                          setAvatarChanged(true);
                         }}
                         className={`absolute inset-0 rounded-full bg-black/45 text-white flex items-center justify-center text-xs font-bold transition-all duration-300 ${showResetAvatar ? "opacity-100" : "opacity-0 pointer-events-none"}`}
                       >
@@ -319,7 +400,13 @@ function ProfilePage() {
                     </h2>
 
                     <p className="text-[#c99a45] font-black mt-1">
-                      Thành viên từ 06/2026
+                      Thành viên từ{" "}
+                      {user.createdAt
+                        ? new Date(user.createdAt).toLocaleDateString("vi-VN", {
+                            month: "2-digit",
+                            year: "numeric",
+                          })
+                        : "chưa rõ"}
                     </p>
 
                     <div className="mt-4 space-y-2 text-gray-600">
@@ -555,19 +642,60 @@ function QuickCard({ icon, title, text, button, onClick }) {
 }
 
 function OrderHistoryContent() {
+  const navigate = useNavigate();
+
   const [activeFilter, setActiveFilter] = useState("all");
   const [timeFilter, setTimeFilter] = useState("all");
-
   const [savedOrders, setSavedOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const loadMyOrders = async () => {
+    const token = getAuthToken();
+
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch(`${API_URL}/api/orders/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (handleAuthApiError(data, navigate)) {
+        return;
+      }
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Không thể tải lịch sử đơn hàng.");
+      }
+
+      setSavedOrders(data.orders || []);
+    } catch (error) {
+      console.error("Lỗi tải lịch sử đơn hàng:", error);
+      setError(error.message || "Không thể tải lịch sử đơn hàng.");
+      setSavedOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch("http://localhost:5001/api/orders")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setSavedOrders(data.orders);
-        }
-      });
+    loadMyOrders();
+
+    window.addEventListener("ordersUpdated", loadMyOrders);
+
+    return () => {
+      window.removeEventListener("ordersUpdated", loadMyOrders);
+    };
   }, []);
 
   const orders = savedOrders;
@@ -636,7 +764,6 @@ function OrderHistoryContent() {
       <div className="flex gap-6 border-b border-[#eadfcd] mb-5 overflow-x-auto">
         {[
           { key: "all", label: "Tất cả đơn hàng" },
-          { key: "dinein", label: "Ăn tại quán" },
           { key: "delivery", label: "Giao tận nơi" },
           { key: "pickup", label: "Đến lấy tại quán" },
         ].map((tab) => (
@@ -654,11 +781,25 @@ function OrderHistoryContent() {
         ))}
       </div>
 
-      {filteredOrders.length === 0 ? (
+      {loading && (
+        <div className="min-h-[220px] flex items-center justify-center text-green-800 font-black">
+          Đang tải lịch sử đơn hàng...
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-red-600 font-bold">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && filteredOrders.length === 0 ? (
         <div className="min-h-[260px] flex items-center justify-center text-gray-500 font-bold">
           Không có đơn hàng phù hợp.
         </div>
-      ) : (
+      ) : null}
+
+      {!loading && !error && filteredOrders.length > 0 && (
         <div
           className={`space-y-3 ${
             filteredOrders.length > 5
@@ -677,6 +818,14 @@ function OrderHistoryContent() {
 
 function OrderCard({ order }) {
   const navigate = useNavigate();
+
+  const [reviewItem, setReviewItem] = useState(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewedIds, setReviewedIds] = useState([]);
+  //mở popup danh sách món
+  const [isReviewListOpen, setIsReviewListOpen] = useState(false);
+
   const serviceLabel = {
     dinein: "Ăn tại quán",
     delivery: "Giao tận nơi",
@@ -801,6 +950,61 @@ function OrderCard({ order }) {
     0,
   );
 
+  //biến xử lý danh sách món đánh giá
+  const reviewItems = Array.isArray(order.cartItems) ? order.cartItems : [];
+  const visibleReviewItems = reviewItems.slice(0, 4);
+  const hiddenReviewCount = Math.max(
+    reviewItems.length - visibleReviewItems.length,
+    0,
+  );
+
+  const currentUser =
+    JSON.parse(localStorage.getItem("currentUser")) ||
+    JSON.parse(sessionStorage.getItem("currentUser")) ||
+    {};
+
+  const canReviewOrder = orderStatus === "Hoàn thành";
+
+  const submitFoodReview = async () => {
+    if (!reviewItem) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:5001/api/menu-items/${reviewItem.id}/reviews`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            orderId: order.id,
+            userEmail: currentUser.email,
+            userName: currentUser.name,
+            rating: reviewRating,
+            comment: reviewComment,
+          }),
+        },
+      );
+
+      const result = await res.json();
+
+      if (!result.success) {
+        alert(result.message || "Đánh giá thất bại");
+        return;
+      }
+
+      alert("Đánh giá món ăn thành công");
+
+      setReviewedIds((prev) => [...prev, reviewItem.id]);
+      setReviewItem(null);
+      setReviewRating(5);
+      setReviewComment("");
+    } catch (error) {
+      console.error("Lỗi gửi đánh giá:", error);
+      alert("Không thể kết nối backend");
+    }
+  };
+
   return (
     <div className="border border-[#eadfcd] rounded-3xl bg-white p-4 md:p-5 hover:shadow-md transition">
       {/* TOP */}
@@ -822,7 +1026,6 @@ function OrderCard({ order }) {
           {orderStatus}
         </span>
       </div>
-
       {/* BODY */}
       <div className="grid lg:grid-cols-[220px_1fr_210px_auto] gap-5 items-center pt-4">
         <div className="flex items-center">
@@ -907,6 +1110,208 @@ function OrderCard({ order }) {
           Chi tiết →
         </button>
       </div>
+      {/* Cụm ảnh món để mở popup đánh giá */}
+      {canReviewOrder && reviewItems.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setIsReviewListOpen(true)}
+          className="mt-4 w-full rounded-2xl border border-[#eadfcd] bg-[#fffdf8] px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 hover:bg-green-50/40 hover:border-green-100 transition text-left"
+        >
+          <div>
+            <p className="font-black text-green-900">
+              Đánh giá món trong đơn hàng
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              Nhấn để chọn món bạn muốn đánh giá.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex -space-x-2">
+              {visibleReviewItems.map((item, index) => (
+                <img
+                  key={`${item.id || item.name}-${index}`}
+                  src={item.image}
+                  alt={item.name}
+                  className="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-sm"
+                />
+              ))}
+            </div>
+
+            {hiddenReviewCount > 0 && (
+              <span className="w-10 h-10 rounded-full bg-[#fbf0dc] text-[#b88935] flex items-center justify-center text-sm font-black">
+                +{hiddenReviewCount}
+              </span>
+            )}
+          </div>
+        </button>
+      )}
+
+      {/* popup chọn món để đánh giá */}
+      {isReviewListOpen && (
+        <div
+          className="fixed inset-0 z-[9998] bg-black/50 flex items-center justify-center px-4"
+          onClick={() => setIsReviewListOpen(false)}
+        >
+          <div
+            className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-[#eadfcd] flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-2xl font-black text-green-900">
+                  Chọn món để đánh giá
+                </h3>
+                <p className="text-sm text-gray-500 font-bold mt-1">
+                  Đơn hàng #{order.id}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsReviewListOpen(false)}
+                className="w-9 h-9 rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-5 max-h-[65vh] overflow-y-auto">
+              <div className="grid md:grid-cols-2 gap-3">
+                {reviewItems.map((item, index) => {
+                  const itemId = item.id || item.code || item.name;
+                  const reviewed = reviewedIds.includes(itemId);
+
+                  return (
+                    <div
+                      key={`${itemId}-${index}`}
+                      className="rounded-2xl border border-[#eadfcd] p-3 flex items-center gap-3 bg-white hover:bg-[#fffaf0] transition"
+                    >
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-16 h-16 rounded-xl object-cover bg-gray-100"
+                      />
+
+                      <div className="flex-1 min-w-0">
+                        <p className="font-black text-green-900 line-clamp-1">
+                          {item.name}
+                        </p>
+
+                        <p className="text-sm text-gray-500 mt-1">
+                          Số lượng: {item.qty || 1}
+                        </p>
+                      </div>
+
+                      <button
+                        disabled={reviewed}
+                        onClick={() => {
+                          setReviewItem({
+                            id: item.id || item.code,
+                            name: item.name,
+                            image: item.image,
+                          });
+                          setReviewRating(5);
+                          setReviewComment("");
+                          setIsReviewListOpen(false);
+                        }}
+                        className={`h-10 px-4 rounded-xl text-sm font-black whitespace-nowrap ${
+                          reviewed
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                            : "bg-[#d6a84f] text-green-950 hover:bg-[#c99a45]"
+                        }`}
+                      >
+                        {reviewed ? "Đã đánh giá" : "Đánh giá"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* modal đánh giá */}
+      {reviewItem && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center px-4">
+          <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-5">
+            <div className="flex items-center justify-between gap-4 border-b border-[#eadfcd] pb-4">
+              <div className="flex items-center gap-3">
+                <img
+                  src={reviewItem.image}
+                  alt={reviewItem.name}
+                  className="w-14 h-14 rounded-xl object-cover bg-gray-100"
+                />
+
+                <div>
+                  <h3 className="text-2xl font-black text-green-900">
+                    Đánh giá món ăn
+                  </h3>
+                  <p className="text-sm text-gray-500 font-bold mt-1">
+                    {reviewItem.name}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setReviewItem(null)}
+                className="w-9 h-9 rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="py-5 space-y-4">
+              <div>
+                <p className="font-black text-green-900 mb-2">Số sao</p>
+
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewRating(star)}
+                      className={`text-3xl ${
+                        star <= reviewRating
+                          ? "text-[#d6a84f]"
+                          : "text-gray-300"
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <label>
+                <span className="font-black text-green-900">Nhận xét</span>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Món ăn như thế nào?"
+                  className="mt-2 w-full h-28 rounded-xl border border-[#eadfcd] px-4 py-3 outline-none resize-none"
+                />
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-[#eadfcd] pt-4">
+              <button
+                onClick={() => setReviewItem(null)}
+                className="h-11 px-5 rounded-xl bg-gray-100 text-gray-600 font-black"
+              >
+                Hủy
+              </button>
+
+              <button
+                onClick={submitFoodReview}
+                className="h-11 px-6 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+              >
+                Gửi đánh giá
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -943,9 +1348,111 @@ const getBookingStatusStyle = (status) => {
       return "bg-orange-50 text-orange-600";
   }
 };
+
 function BookingHistoryContent() {
   const navigate = useNavigate();
-  const bookings = JSON.parse(localStorage.getItem("bookings")) || [];
+
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const formatBookingDate = (value) => {
+    if (!value) return "Chưa có ngày";
+
+    const rawValue = String(value);
+
+    if (rawValue.includes("/")) {
+      return rawValue;
+    }
+
+    const datePart = rawValue.split("T")[0];
+    const [year, month, day] = datePart.split("-");
+
+    if (year && month && day) {
+      return `${day}/${month}/${year}`;
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return rawValue;
+    }
+
+    return date.toLocaleDateString("vi-VN");
+  };
+
+  const formatBookingTime = (value) => {
+    if (!value) return "Chưa có giờ";
+
+    const rawValue = String(value);
+
+    if (/^\d{2}:\d{2}:\d{2}/.test(rawValue)) {
+      return rawValue.slice(0, 8);
+    }
+
+    if (/^\d{2}:\d{2}/.test(rawValue)) {
+      return `${rawValue.slice(0, 5)}:00`;
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return rawValue;
+    }
+
+    return date.toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
+
+  const loadMyBookings = async () => {
+    const token = getAuthToken();
+
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch(`${API_URL}/api/bookings/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (handleAuthApiError(data, navigate)) {
+        return;
+      }
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Không thể tải lịch đặt bàn.");
+      }
+
+      setBookings(data.bookings || []);
+    } catch (error) {
+      console.error("Lỗi tải lịch đặt bàn:", error);
+      setError(error.message || "Không thể tải lịch đặt bàn.");
+      setBookings([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMyBookings();
+
+    window.addEventListener("bookingsUpdated", loadMyBookings);
+
+    return () => {
+      window.removeEventListener("bookingsUpdated", loadMyBookings);
+    };
+  }, []);
 
   return (
     <div className="bg-white border border-[#eadfcd] rounded-[26px] shadow-sm p-5 md:p-6">
@@ -957,7 +1464,19 @@ function BookingHistoryContent() {
         Theo dõi các bàn bạn đã đặt tại Dê Hương Sơn.
       </p>
 
-      {bookings.length === 0 ? (
+      {loading && (
+        <div className="min-h-[260px] flex items-center justify-center text-green-800 font-black">
+          Đang tải lịch đặt bàn...
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-red-600 font-bold">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && bookings.length === 0 ? (
         <div className="min-h-[330px] flex flex-col items-center justify-center text-center">
           <div className="w-20 h-20 rounded-full bg-[#fbf0dc] flex items-center justify-center mb-4">
             <CalendarDays className="w-10 h-10 text-[#c99a45]" />
@@ -971,7 +1490,9 @@ function BookingHistoryContent() {
             Khi bạn đặt bàn, thông tin sẽ hiển thị tại đây.
           </p>
         </div>
-      ) : (
+      ) : null}
+
+      {!loading && !error && bookings.length > 0 && (
         <div className="space-y-4">
           {bookings.map((booking) => (
             <div
@@ -985,12 +1506,13 @@ function BookingHistoryContent() {
                 </p>
 
                 <p className="text-sm text-gray-500 mt-2">
-                  {booking.date || "Chưa có ngày"} -{" "}
-                  {booking.time || "Chưa có giờ"}
+                  {formatBookingDate(booking.date)} -{" "}
+                  {formatBookingTime(booking.time)}
                 </p>
 
                 <p className="text-sm text-gray-500">
-                  Số khách: {booking.guests || "Chưa cập nhật"}
+                  Số khách:{" "}
+                  {booking.guests || booking.people || "Chưa cập nhật"}
                 </p>
               </div>
 

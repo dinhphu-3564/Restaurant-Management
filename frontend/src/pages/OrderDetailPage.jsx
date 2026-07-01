@@ -11,27 +11,103 @@ import {
   User,
 } from "lucide-react";
 
+const API_URL = "http://localhost:5001";
+
+const getAuthToken = () => {
+  return (
+    localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+  );
+};
+
+const clearUserSession = () => {
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("currentUser");
+  localStorage.removeItem("avatar");
+
+  sessionStorage.removeItem("authToken");
+  sessionStorage.removeItem("currentUser");
+  sessionStorage.removeItem("avatar");
+
+  window.dispatchEvent(new Event("authChanged"));
+  window.dispatchEvent(new Event("loginStatusChanged"));
+  window.dispatchEvent(new Event("avatarUpdated"));
+};
+
 function OrderDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    fetch(`http://localhost:5001/api/orders/${id}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setOrder(data.order);
+    const loadOrderDetail = async () => {
+      const token = getAuthToken();
+
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setErrorMessage("");
+
+        const res = await fetch(`${API_URL}/api/orders/me/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await res.json();
+
+        if (
+          data.code === "ACCOUNT_LOCKED" ||
+          data.code === "ACCOUNT_INACTIVE"
+        ) {
+          clearUserSession();
+          navigate("/login");
+          return;
         }
-      })
-      .catch((error) => {
-        console.error(error);
-      })
-      .finally(() => {
+
+        if (res.status === 401) {
+          clearUserSession();
+          navigate("/login");
+          return;
+        }
+
+        if (res.status === 403) {
+          setOrder(null);
+          setErrorMessage(
+            data.message || "Bạn không có quyền xem đơn hàng này.",
+          );
+          return;
+        }
+
+        if (res.status === 404) {
+          setOrder(null);
+          setErrorMessage(data.message || "Không tìm thấy đơn hàng.");
+          return;
+        }
+
+        if (!res.ok || !data.success) {
+          setOrder(null);
+          setErrorMessage(data.message || "Không thể tải chi tiết đơn hàng.");
+          return;
+        }
+
+        setOrder(data.order);
+      } catch (error) {
+        console.error("Lỗi tải chi tiết đơn hàng:", error);
+        setOrder(null);
+        setErrorMessage("Không thể kết nối backend. Vui lòng thử lại.");
+      } finally {
         setLoading(false);
-      });
-  }, [id]);
+      }
+    };
+
+    loadOrderDetail();
+  }, [id, navigate]);
 
   const formatPrice = (price) => {
     return Number(price || 0).toLocaleString("vi-VN") + "đ";
@@ -123,10 +199,28 @@ function OrderDetailPage() {
   };
 
   const paymentStatusLabel = {
+    pending_payment: "Chờ chọn thanh toán",
     unpaid: "Chưa thanh toán",
     pending: "Chờ thanh toán",
     paid_pending_confirm: "Đã thanh toán",
-    paid: "Đã xác nhận",
+    paid: "Đã thanh toán",
+  };
+
+  const getPaymentStatusText = (order) => {
+    return (
+      paymentStatusLabel[order.paymentStatus] ||
+      order.paymentStatus ||
+      (order.paymentMethod === "cash" ? "Chưa thanh toán" : "Chờ xác nhận")
+    );
+  };
+
+  const getPaymentStatusStyle = (paymentStatus) => {
+    const text = paymentStatusLabel[paymentStatus] || paymentStatus;
+
+    if (text === "Đã thanh toán") return "text-green-700";
+    if (text === "Chưa thanh toán") return "text-red-500";
+
+    return "text-orange-500";
   };
   if (loading) {
     return (
@@ -135,19 +229,29 @@ function OrderDetailPage() {
       </div>
     );
   }
+
   if (!order) {
     return (
       <div className="min-h-screen bg-[#fbf7ec] flex items-center justify-center px-4">
-        <div className="bg-white rounded-3xl border border-[#eadfcd] p-8 text-center shadow-xl">
-          <h1 className="text-2xl font-black text-green-900">
-            Không tìm thấy đơn hàng
+        <div className="bg-white rounded-3xl border border-[#eadfcd] p-8 text-center shadow-xl max-w-md">
+          <div className="w-20 h-20 rounded-full bg-[#fbf0dc] text-[#c99a45] flex items-center justify-center mx-auto">
+            <ReceiptText className="w-10 h-10" />
+          </div>
+
+          <h1 className="text-2xl font-black text-green-900 mt-5">
+            Không thể hiển thị đơn hàng
           </h1>
+
+          <p className="text-gray-500 text-sm mt-3 leading-relaxed">
+            {errorMessage ||
+              "Đơn hàng không tồn tại hoặc bạn không có quyền xem đơn hàng này."}
+          </p>
 
           <button
             onClick={() =>
               navigate("/profile", { state: { activeTab: "history" } })
             }
-            className="mt-5 h-12 px-6 rounded-xl bg-green-900 text-white font-black"
+            className="mt-6 h-12 px-6 rounded-xl bg-green-900 text-white font-black"
           >
             Quay lại lịch sử
           </button>
@@ -163,6 +267,8 @@ function OrderDetailPage() {
       (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1),
       0,
     );
+  const paymentStatusText = getPaymentStatusText(order);
+  const paymentStatusClass = getPaymentStatusStyle(order.paymentStatus);
 
   const getStatusText = (status) => {
     switch (status) {
@@ -356,12 +462,20 @@ function OrderDetailPage() {
                 <InfoBox title="Thông tin khách hàng" icon={<User />}>
                   <InfoLine
                     label="Khách hàng"
-                    value={order.name || "Chưa có"}
+                    value={
+                      order.customerName ||
+                      order.fullName ||
+                      order.name ||
+                      "Chưa có"
+                    }
                   />
                   <InfoLine
                     label="Số điện thoại"
                     value={order.phone || "Chưa có"}
                   />
+                  {order.email && (
+                    <InfoLine label="Email" value={order.email} />
+                  )}
 
                   {order.address && (
                     <InfoLine label="Địa chỉ" value={order.address} />
@@ -422,6 +536,8 @@ function OrderDetailPage() {
                     value={getPaymentMethodText(order)}
                   />
 
+                  <InfoLine label="Trạng thái" value={paymentStatusText} />
+
                   {order.paymentContent && (
                     <InfoLine
                       label="Nội dung CK"
@@ -460,6 +576,12 @@ function OrderDetailPage() {
                       {formatPrice(order.total)}
                     </span>
                   </div>
+
+                  <p
+                    className={`text-right text-sm font-black mt-2 ${paymentStatusClass}`}
+                  >
+                    {paymentStatusText}
+                  </p>
                 </div>
               </div>
 

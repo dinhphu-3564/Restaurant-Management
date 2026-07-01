@@ -14,6 +14,25 @@ import {
 } from "lucide-react";
 
 const API_URL = "http://localhost:5001";
+const getAuthToken = () => {
+  return (
+    localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+  );
+};
+
+const clearUserSession = () => {
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("currentUser");
+  localStorage.removeItem("avatar");
+
+  sessionStorage.removeItem("authToken");
+  sessionStorage.removeItem("currentUser");
+  sessionStorage.removeItem("avatar");
+
+  window.dispatchEvent(new Event("authChanged"));
+  window.dispatchEvent(new Event("loginStatusChanged"));
+  window.dispatchEvent(new Event("avatarUpdated"));
+};
 
 function PaymentQRPage() {
   const navigate = useNavigate();
@@ -63,21 +82,75 @@ function PaymentQRPage() {
   )}&des=${encodeURIComponent(paymentContent)}`;
 
   // hàm đổi phương thức thanh toán
-  const changePaymentMethod = (method) => {
-    setPaymentMethod(method);
+  const changePaymentMethod = async (method) => {
+    if (!currentOrder.id) return false;
 
-    const updatedOrder = {
-      ...currentOrder,
-      paymentMethod: method,
-      status:
-        method === "cash" ? "Chờ thanh toán khi nhận món" : "Chờ xác nhận",
-      paymentStatus: method === "cash" ? "unpaid" : "pending",
-    };
+    const token = getAuthToken();
 
-    setCurrentOrder(updatedOrder);
-    localStorage.setItem("currentOrder", JSON.stringify(updatedOrder));
+    if (!token) {
+      navigate("/login");
+      return false;
+    }
+
+    const nextPaymentStatus = method === "cash" ? "unpaid" : "pending";
+    const nextStatus = "pending";
+    const updatedAt = new Date().toISOString();
+
+    try {
+      const res = await fetch(`${API_URL}/api/orders/${currentOrder.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          paymentMethod: method,
+          paymentStatus: nextPaymentStatus,
+          status: nextStatus,
+          updatedAt,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.code === "ACCOUNT_LOCKED" || data.code === "ACCOUNT_INACTIVE") {
+        clearUserSession();
+        navigate("/login");
+        return false;
+      }
+
+      if (res.status === 401) {
+        clearUserSession();
+        navigate("/login");
+        return false;
+      }
+
+      if (!res.ok || !data.success) {
+        alert(data.message || "Không thể cập nhật phương thức thanh toán.");
+        return false;
+      }
+
+      const serverOrder = {
+        ...currentOrder,
+        ...data.order,
+        paymentMethod: method,
+        paymentStatus: nextPaymentStatus,
+        status: nextStatus,
+        updatedAt,
+      };
+
+      setPaymentMethod(method);
+      setCurrentOrder(serverOrder);
+      localStorage.setItem("currentOrder", JSON.stringify(serverOrder));
+      window.dispatchEvent(new Event("ordersUpdated"));
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      alert("Không kết nối được backend để cập nhật thanh toán.");
+      return false;
+    }
   };
-
   const copyText = async (text) => {
     try {
       await navigator.clipboard.writeText(String(text));
@@ -112,8 +185,36 @@ function PaymentQRPage() {
     if (!silent) setIsChecking(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/orders/${currentOrder.id}`);
+      const token = getAuthToken();
+
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/api/orders/me/${currentOrder.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await res.json();
+      if (data.code === "ACCOUNT_LOCKED" || data.code === "ACCOUNT_INACTIVE") {
+        clearUserSession();
+        navigate("/login");
+        return;
+      }
+
+      if (res.status === 401) {
+        clearUserSession();
+        navigate("/login");
+        return;
+      }
+
+      if (res.status === 403) {
+        if (!silent)
+          alert(data.message || "Bạn không có quyền xem đơn hàng này.");
+        return;
+      }
 
       if (!data.success) {
         if (!silent) alert("Chưa tìm thấy đơn hàng trên hệ thống.");
@@ -301,12 +402,19 @@ function PaymentQRPage() {
                   </p>
 
                   <button
-                    onClick={() => {
+                    onClick={async () => {
+                      const success = await changePaymentMethod("cash");
+
+                      if (!success) return;
+
                       localStorage.removeItem("cartItems");
                       localStorage.removeItem("checkoutSummary");
                       localStorage.removeItem("appliedCoupon");
                       localStorage.removeItem("checkoutForm");
+
                       window.dispatchEvent(new Event("cartUpdated"));
+                      window.dispatchEvent(new Event("ordersUpdated"));
+
                       navigate("/order-success");
                     }}
                     className="mt-8 h-14 px-10 rounded-2xl bg-green-800 text-white font-black hover:bg-green-900 transition"
