@@ -402,3 +402,25 @@ input[type="number"]::-webkit-inner-spin-button {
   background: #d6a84f;
   border-radius: 999px;
 }
+/* Admin toast */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toastBar {
+  from {
+    width: 100%;
+  }
+
+  to {
+    width: 0%;
+  }
+}

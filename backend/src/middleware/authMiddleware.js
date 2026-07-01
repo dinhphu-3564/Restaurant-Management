@@ -55,10 +55,19 @@ async function requireAuth(req, res, next) {
 
     const user = rows[0];
 
+    if (user.status === "locked") {
+      return res.status(403).json({
+        success: false,
+        code: "ACCOUNT_LOCKED",
+        message: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ nhà hàng.",
+      });
+    }
+
     if (user.status !== "active") {
       return res.status(403).json({
         success: false,
-        message: "Tài khoản đã bị khóa.",
+        code: "ACCOUNT_INACTIVE",
+        message: "Tài khoản không còn hoạt động.",
       });
     }
 
