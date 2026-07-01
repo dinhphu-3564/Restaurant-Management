@@ -60,7 +60,19 @@ function MainLayout({ children }) {
     "/profile": "profile",
   };
 
-  const currentPage = pathToPage[location.pathname] || "";
+  let currentPage = pathToPage[location.pathname] || "";
+
+  if (location.pathname.startsWith("/deals/")) {
+    currentPage = "deals";
+  }
+
+  if (location.pathname.startsWith("/profile")) {
+    currentPage = "profile";
+  }
+
+  if (location.pathname.startsWith("/booking")) {
+    currentPage = "booking";
+  }
 
   return (
     <>

@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
+import { showAdminToast } from "../../components/admin/AdminToast";
 import {
   Utensils,
   CheckCircle,
@@ -394,6 +395,15 @@ function AdminMenuPage() {
         setSelectedFood(result.data);
       }
 
+      showAdminToast({
+        title: editingFood
+          ? "Cập nhật món ăn thành công"
+          : "Thêm món ăn thành công",
+        message: editingFood
+          ? `Đã cập nhật món ${result.data?.name || editForm.name}.`
+          : `Đã thêm món ${result.data?.name || editForm.name}.`,
+      });
+
       setEditingFood(null);
       setIsAddFoodOpen(false);
       setEditForm(emptyFoodForm);
@@ -447,6 +457,14 @@ function AdminMenuPage() {
             }
           : prev,
       );
+
+      showAdminToast({
+        title: "Cập nhật trạng thái món thành công",
+        message:
+          nextStatus === "selling"
+            ? `Đã bán lại món ${food.name}.`
+            : `Đã ngừng bán món ${food.name}.`,
+      });
     } catch (error) {
       console.error("Lỗi cập nhật trạng thái:", error);
       alert("Không thể kết nối backend");
@@ -477,6 +495,10 @@ function AdminMenuPage() {
       if (selectedFood?.id === food.id) {
         setSelectedFood(null);
       }
+      showAdminToast({
+        title: "Xóa món ăn thành công",
+        message: `Đã xóa món ${food.name}.`,
+      });
     } catch (error) {
       console.error("Lỗi xóa món:", error);
       alert("Không thể kết nối backend");
@@ -543,6 +565,11 @@ function AdminMenuPage() {
         setSelectedFood(null);
       }
 
+      showAdminToast({
+        title: "Xóa hàng loạt thành công",
+        message: `Đã xóa ${selectedFoodIds.length} món đã chọn.`,
+      });
+
       setSelectedFoodIds([]);
     } catch (error) {
       console.error("Lỗi xóa nhiều món:", error);
@@ -595,6 +622,11 @@ function AdminMenuPage() {
             }
           : prev,
       );
+
+      showAdminToast({
+        title: "Ngừng bán hàng loạt thành công",
+        message: `Đã ngừng bán ${selectedFoodIds.length} món đã chọn.`,
+      });
 
       setSelectedFoodIds([]);
     } catch (error) {

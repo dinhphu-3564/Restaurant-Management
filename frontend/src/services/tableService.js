@@ -2,10 +2,14 @@ import { getAuthToken } from "../utils/auth";
 
 const API_URL = "http://localhost:5001/api/tables";
 
-const authHeaders = () => ({
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${getAuthToken()}`,
-});
+const authHeaders = () => {
+  const token = getAuthToken();
+
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
 
 async function handleResponse(res) {
   let data;

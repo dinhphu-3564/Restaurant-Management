@@ -508,7 +508,7 @@ function AboutPage() {
         <div className="grid md:grid-cols-3 gap-4 mt-7">
           <ImageCard
             image={tangTret}
-            title="Khu vực tầng trệt"
+            title="Khu vực tầng 1"
             text="Ấm cúng, phù hợp gia đình."
             onClick={() =>
               navigate("/home", { state: { openSpace: "ground" } })

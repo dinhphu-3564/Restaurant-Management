@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
+import { showAdminToast } from "../../components/admin/AdminToast";
 import {
   Gift,
   Eye,
@@ -334,6 +335,10 @@ function AdminDealsPage() {
         setSelectedDeal((prev) =>
           String(prev?.id) === String(editingDeal.id) ? data.deal : prev,
         );
+        showAdminToast({
+          title: "Cập nhật khuyến mãi thành công",
+          message: `Đã cập nhật khuyến mãi ${data.deal.code}.`,
+        });
       } else {
         const res = await fetch(API_URL, {
           method: "POST",
@@ -352,6 +357,10 @@ function AdminDealsPage() {
 
         setDeals((prev) => [data.deal, ...prev]);
         setSelectedDeal(data.deal);
+        showAdminToast({
+          title: "Thêm khuyến mãi thành công",
+          message: `Đã thêm khuyến mãi ${data.deal.code}.`,
+        });
       }
 
       setEditingDeal(null);
@@ -385,6 +394,10 @@ function AdminDealsPage() {
       if (selectedDeal?.id === deal.id) {
         setSelectedDeal(null);
       }
+      showAdminToast({
+        title: "Xóa khuyến mãi thành công",
+        message: `Đã xóa khuyến mãi ${deal.code}.`,
+      });
     } catch (error) {
       console.error("Lỗi xóa khuyến mãi:", error);
       alert("Không thể kết nối backend.");
@@ -422,6 +435,13 @@ function AdminDealsPage() {
       setSelectedDeal((prev) =>
         String(prev?.id) === String(deal.id) ? data.deal : prev,
       );
+      showAdminToast({
+        title: "Cập nhật trạng thái thành công",
+        message:
+          newStatus === "paused"
+            ? `Đã tạm dừng khuyến mãi ${deal.code}.`
+            : `Đã áp dụng lại khuyến mãi ${deal.code}.`,
+      });
     } catch (error) {
       console.error("Lỗi cập nhật trạng thái:", error);
       alert("Không thể kết nối backend.");
@@ -476,6 +496,13 @@ function AdminDealsPage() {
             });
 
             const data = await res.json();
+
+            if (!data.success) {
+              throw new Error(
+                data.message || "Cập nhật trạng thái khuyến mãi thất bại.",
+              );
+            }
+
             return data.deal;
           }),
       );
@@ -490,6 +517,13 @@ function AdminDealsPage() {
         }),
       );
 
+      showAdminToast({
+        title: "Cập nhật hàng loạt thành công",
+        message: `Đã chuyển ${selectedDealIds.length} khuyến mãi sang trạng thái "${getStatusText(
+          status,
+        )}".`,
+      });
+
       setSelectedDealIds([]);
     } catch (error) {
       console.error("Lỗi cập nhật hàng loạt:", error);
@@ -497,19 +531,43 @@ function AdminDealsPage() {
     }
   };
 
-  const bulkDeleteDeals = () => {
+  const bulkDeleteDeals = async () => {
     if (selectedDealIds.length === 0) return;
 
     if (!window.confirm(`Xóa ${selectedDealIds.length} khuyến mãi?`)) {
       return;
     }
 
-    setDeals((prev) =>
-      prev.filter((deal) => !selectedDealIds.includes(String(deal.id))),
-    );
+    try {
+      await Promise.all(
+        selectedDealIds.map(async (id) => {
+          const res = await fetch(`${API_URL}/${id}`, {
+            method: "DELETE",
+          });
 
-    setSelectedDealIds([]);
-    setSelectedDeal(null);
+          const data = await res.json();
+
+          if (!data.success) {
+            throw new Error(data.message || "Xóa khuyến mãi thất bại.");
+          }
+        }),
+      );
+
+      setDeals((prev) =>
+        prev.filter((deal) => !selectedDealIds.includes(String(deal.id))),
+      );
+
+      setSelectedDealIds([]);
+      setSelectedDeal(null);
+
+      showAdminToast({
+        title: "Xóa hàng loạt thành công",
+        message: `Đã xóa ${selectedDealIds.length} khuyến mãi đã chọn.`,
+      });
+    } catch (error) {
+      console.error("Lỗi xóa hàng loạt:", error);
+      alert(error.message || "Không thể xóa khuyến mãi đã chọn.");
+    }
   };
 
   const stats = [

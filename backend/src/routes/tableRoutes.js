@@ -480,6 +480,33 @@ router.patch("/:id", requireAuth, requireBackOffice, async (req, res) => {
       });
     }
 
+    if (["maintenance", "disabled", "serving"].includes(status)) {
+      const [bookingRows] = await db.query(
+        `
+    SELECT id
+    FROM bookings
+    WHERE selected_table = (
+      SELECT table_code
+      FROM restaurant_tables
+      WHERE id = ?
+      LIMIT 1
+    )
+      AND status IN ('pending', 'confirmed')
+      AND deleted_at IS NULL
+    LIMIT 1
+    `,
+        [tableId],
+      );
+
+      if (bookingRows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Không thể đổi trạng thái bàn vì bàn đang có lịch đặt chờ xác nhận hoặc đã xác nhận.",
+        });
+      }
+    }
+
     const [existedRows] = await db.query(
       `
       SELECT id
@@ -561,26 +588,68 @@ router.patch(
         });
       }
 
+      const [tableRows] = await db.query(
+        `
+        SELECT id, table_code
+        FROM restaurant_tables
+        WHERE id = ?
+          AND deleted_at IS NULL
+        LIMIT 1
+        `,
+        [tableId],
+      );
+
+      if (tableRows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy bàn.",
+        });
+      }
+
+      const table = tableRows[0];
+
+      if (["maintenance", "disabled", "serving"].includes(status)) {
+        const [bookingRows] = await db.query(
+          `
+          SELECT id
+          FROM bookings
+          WHERE selected_table = ?
+            AND status IN ('pending', 'confirmed')
+            AND deleted_at IS NULL
+          LIMIT 1
+          `,
+          [table.table_code],
+        );
+
+        if (bookingRows.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Không thể đổi trạng thái bàn vì bàn đang có lịch đặt chờ xác nhận hoặc đã xác nhận.",
+          });
+        }
+      }
+
       await db.query(
         `
-      UPDATE restaurant_tables
-      SET status = ?, updated_at = NOW()
-      WHERE id = ?
-        AND deleted_at IS NULL
-      `,
+        UPDATE restaurant_tables
+        SET status = ?, updated_at = NOW()
+        WHERE id = ?
+          AND deleted_at IS NULL
+        `,
         [status, tableId],
       );
 
       const [rows] = await db.query(
         `
-      SELECT
-        t.*,
-        a.name AS area_name
-      FROM restaurant_tables t
-      LEFT JOIN areas a ON a.id = t.area_id
-      WHERE t.id = ?
-      LIMIT 1
-      `,
+        SELECT
+          t.*,
+          a.name AS area_name
+        FROM restaurant_tables t
+        LEFT JOIN areas a ON a.id = t.area_id
+        WHERE t.id = ?
+        LIMIT 1
+        `,
         [tableId],
       );
 

@@ -58,7 +58,7 @@ import {
 const SPACE_TABS = [
   {
     key: "ground",
-    label: "Tầng trệt",
+    label: "Tầng một",
     images: [tangTret, tangTret1, tangTret2, tangTret3, tangTret4, tangTret5],
   },
   {
@@ -794,7 +794,7 @@ function Home() {
                 />
                 <div className="absolute inset-0 bg-black/25" />
                 <p className="absolute bottom-4 left-4 text-white font-black">
-                  Khu vực tầng trệt
+                  Khu vực tầng 1
                 </p>
               </button>
 

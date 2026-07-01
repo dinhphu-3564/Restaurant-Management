@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { showAdminToast } from "../../components/admin/AdminToast";
 import {
   ShieldCheck,
   Crown,
@@ -178,7 +179,6 @@ function AdminRolesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [roleToast, setRoleToast] = useState(false);
   const [actionUser, setActionUser] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [activityLogs, setActivityLogs] = useState([]);
@@ -222,14 +222,6 @@ function AdminRolesPage() {
   useEffect(() => {
     loadUsers();
   }, [roleFilter]);
-
-  const showToast = () => {
-    setRoleToast(true);
-
-    setTimeout(() => {
-      setRoleToast(false);
-    }, 3000);
-  };
 
   const formatDateTime = (value) => {
     if (!value) return "Chưa có";
@@ -446,7 +438,12 @@ function AdminRolesPage() {
         await loadAccountActivities(user.id);
       }
 
-      showToast();
+      showAdminToast({
+        title: "Cập nhật vai trò thành công",
+        message: `Đã chuyển tài khoản ${
+          user.name || user.fullName || user.email
+        } sang vai trò "${ROLE_TEXT[nextRole]}".`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể cập nhật vai trò.");
@@ -475,7 +472,13 @@ function AdminRolesPage() {
 
       await loadAccountActivities(user.id);
 
-      showToast();
+      showAdminToast({
+        title: "Cập nhật trạng thái tài khoản thành công",
+        message:
+          nextStatus === "locked"
+            ? `Đã khóa tài khoản ${user.name || user.fullName || user.email}.`
+            : `Đã mở khóa tài khoản ${user.name || user.fullName || user.email}.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể cập nhật trạng thái.");
@@ -488,23 +491,6 @@ function AdminRolesPage() {
 
   return (
     <div className="space-y-5">
-      {roleToast && (
-        <div className="fixed top-20 right-5 z-[9999] bg-white border border-green-100 shadow-xl rounded-2xl px-4 py-3 flex items-center gap-3 w-[340px]">
-          <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-700 font-black">
-            ✓
-          </div>
-
-          <div>
-            <p className="font-black text-green-900">
-              Cập nhật vai trò thành công
-            </p>
-            <p className="text-sm text-gray-600">
-              Tài khoản đã được cập nhật quyền.
-            </p>
-          </div>
-        </div>
-      )}
-
       {error && (
         <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-red-600 font-bold">
           {error}

@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
+import { showAdminToast } from "../../components/admin/AdminToast";
 import { tableService } from "../../services/tableService";
 import { bookingService } from "../../services/bookingService";
 import {
@@ -474,6 +475,10 @@ function AdminTablesPage() {
       });
 
       setIsAddingArea(false);
+      showAdminToast({
+        title: "Thêm khu vực thành công",
+        message: `Đã thêm khu vực ${savedArea.name}.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể thêm khu vực.");
@@ -549,6 +554,10 @@ function AdminTablesPage() {
       );
 
       setEditingArea(null);
+      showAdminToast({
+        title: "Cập nhật khu vực thành công",
+        message: `Đã cập nhật khu vực ${updatedArea.name}.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể cập nhật khu vực.");
@@ -608,6 +617,10 @@ function AdminTablesPage() {
       });
 
       setIsAddingTable(false);
+      showAdminToast({
+        title: "Thêm bàn thành công",
+        message: `Đã thêm bàn ${savedTable.code}.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể thêm bàn.");
@@ -650,6 +663,10 @@ function AdminTablesPage() {
 
       setSelectedTable(updatedTable);
       setEditingTable(null);
+      showAdminToast({
+        title: "Cập nhật bàn thành công",
+        message: `Đã cập nhật bàn ${updatedTable.code}.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể cập nhật bàn.");
@@ -672,6 +689,10 @@ function AdminTablesPage() {
       setSelectedTable((prev) =>
         prev && String(prev.id) === String(tableId) ? updatedTable : prev,
       );
+      showAdminToast({
+        title: "Cập nhật trạng thái bàn thành công",
+        message: `Đã chuyển bàn ${updatedTable.code} sang "${TABLE_STATUS[status]}".`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể cập nhật trạng thái bàn.");
@@ -712,6 +733,10 @@ function AdminTablesPage() {
             }
           : prev,
       );
+      showAdminToast({
+        title: "Hủy đặt bàn thành công",
+        message: `Đã hủy đặt bàn ${updatedBooking.bookingCode || `DB${updatedBooking.id}`}.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể hủy đặt bàn.");
@@ -796,6 +821,12 @@ function AdminTablesPage() {
       );
 
       setAssignBooking(null);
+      showAdminToast({
+        title: "Xếp bàn thành công",
+        message: `Đã xếp bàn ${assignForm.tableCode} cho ${
+          updatedBooking.bookingCode || `DB${updatedBooking.id}`
+        }.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể xếp bàn.");
@@ -838,6 +869,12 @@ function AdminTablesPage() {
         ...updatedTable,
         currentBooking: null,
       });
+      showAdminToast({
+        title: "Hoàn thành đặt bàn thành công",
+        message: `Đã hoàn thành đặt bàn ${
+          updatedBooking.bookingCode || `DB${updatedBooking.id}`
+        } và mở lại bàn ${updatedTable.code}.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể hoàn thành đặt bàn.");
@@ -869,6 +906,12 @@ function AdminTablesPage() {
             }
           : prev,
       );
+      showAdminToast({
+        title: "Xác nhận đặt bàn thành công",
+        message: `Đã xác nhận đặt bàn ${
+          updatedBooking.bookingCode || `DB${updatedBooking.id}`
+        }.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể xác nhận đặt bàn.");
@@ -1099,6 +1142,12 @@ function AdminTablesPage() {
         selectedTable: "",
         note: "",
         status: "pending",
+      });
+      showAdminToast({
+        title: "Tạo đặt bàn thành công",
+        message: `Đã tạo đặt bàn ${
+          savedBooking.bookingCode || `DB${savedBooking.id}`
+        }.`,
       });
     } catch (error) {
       console.error(error);

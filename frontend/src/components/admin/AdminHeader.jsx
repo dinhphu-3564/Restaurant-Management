@@ -36,6 +36,12 @@ function AdminHeader({
 
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
+  const ROLE_TEXT = {
+    admin: "Quản trị viên",
+    manager: "Quản lý",
+    staff: "Nhân viên",
+    user: "Khách hàng",
+  };
 
   const handleLogout = () => {
     clearAuthSession();
@@ -134,7 +140,7 @@ function AdminHeader({
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="hidden xl:flex h-11 w-[300px] items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 shadow-sm">
+        <div className="hidden xl:flex h-11 w-[220px] 2xl:w-[300px] items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 shadow-sm">
           <Search size={18} className="text-gray-400" />
 
           <input
@@ -341,7 +347,10 @@ function AdminHeader({
 
         <div className="hidden lg:flex items-center gap-2 bg-green-50 text-green-800 px-4 h-11 rounded-full font-bold">
           <ShieldCheck size={18} />
-          {currentUser?.name || "Admin"}
+          <span>{currentUser?.name || "Admin"}</span>
+          <span className="text-xs text-green-600 font-black">
+            ({ROLE_TEXT[currentUser?.role] || "Nhân viên"})
+          </span>
         </div>
 
         <button
@@ -350,7 +359,6 @@ function AdminHeader({
           className="h-11 px-4 rounded-full bg-red-50 text-red-600 font-black hover:bg-red-100 transition flex items-center gap-2"
         >
           <LogOut size={18} />
-          Đăng xuất
         </button>
       </div>
     </header>

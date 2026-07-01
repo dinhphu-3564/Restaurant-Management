@@ -8,6 +8,7 @@ import {
 } from "../../services/userService";
 import { updateUserRole } from "../../services/roleService";
 import { getCurrentUser } from "../../utils/auth";
+import { showAdminToast } from "../../components/admin/AdminToast";
 import {
   Users,
   UserPlus,
@@ -59,7 +60,6 @@ function AdminUsersPage() {
   const [roleModalUser, setRoleModalUser] = useState(null);
   const [roleValue, setRoleValue] = useState("staff");
   const [roleSubmitting, setRoleSubmitting] = useState(false);
-  const [roleToast, setRoleToast] = useState(false);
 
   const pageSize = 10;
 
@@ -214,6 +214,13 @@ function AdminUsersPage() {
           ? { ...prev, status: newStatus }
           : prev,
       );
+      showAdminToast({
+        title: "Cập nhật trạng thái khách hàng thành công",
+        message:
+          newStatus === "locked"
+            ? `Đã khóa khách hàng ${user.name || user.fullName || user.email}.`
+            : `Đã mở khóa khách hàng ${user.name || user.fullName || user.email}.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể cập nhật trạng thái khách hàng.");
@@ -233,6 +240,10 @@ function AdminUsersPage() {
       if (String(selectedUser?.id) === String(user.id)) {
         setSelectedUser(null);
       }
+      showAdminToast({
+        title: "Xóa khách hàng thành công",
+        message: `Đã xóa khách hàng ${user.name || user.fullName || user.email}.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể xóa khách hàng.");
@@ -275,11 +286,12 @@ function AdminUsersPage() {
 
       closeGrantRoleModal();
 
-      setRoleToast(true);
-
-      setTimeout(() => {
-        setRoleToast(false);
-      }, 3000);
+      showAdminToast({
+        title: "Cấp quyền thành công",
+        message: `Đã cấp quyền ${ROLE_TEXT[roleValue]} cho tài khoản ${
+          roleModalUser.name || roleModalUser.fullName || roleModalUser.email
+        }.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể cấp quyền tài khoản.");
@@ -334,6 +346,10 @@ function AdminUsersPage() {
 
       setSelectedIds([]);
       setSelectedUser(null);
+      showAdminToast({
+        title: "Xóa hàng loạt thành công",
+        message: `Đã xóa ${selectedIds.length} khách hàng đã chọn.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể xóa hàng loạt khách hàng.");
@@ -348,6 +364,13 @@ function AdminUsersPage() {
       await loadUsers();
 
       setSelectedIds([]);
+      showAdminToast({
+        title: "Cập nhật hàng loạt thành công",
+        message:
+          status === "locked"
+            ? `Đã khóa ${selectedIds.length} khách hàng đã chọn.`
+            : `Đã mở khóa ${selectedIds.length} khách hàng đã chọn.`,
+      });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể cập nhật hàng loạt.");
@@ -356,21 +379,6 @@ function AdminUsersPage() {
 
   return (
     <div className="space-y-5">
-      {roleToast && (
-        <div className="fixed top-20 right-5 z-[9999] bg-white border border-green-100 shadow-xl rounded-2xl px-4 py-3 flex items-center gap-3 w-[330px]">
-          <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-700 font-black">
-            ✓
-          </div>
-
-          <div>
-            <p className="font-black text-green-900">Cấp quyền thành công</p>
-            <p className="text-sm text-gray-600">
-              Tài khoản đã được cập nhật vai trò.
-            </p>
-          </div>
-        </div>
-      )}
-
       {error && (
         <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-red-600 font-bold">
           {error}
@@ -644,9 +652,9 @@ function AdminUsersPage() {
                             <IconButton
                               icon={
                                 status === "locked" ? (
-                                  <Unlock size={16} />
-                                ) : (
                                   <Lock size={16} />
+                                ) : (
+                                  <Unlock size={16} />
                                 )
                               }
                               color="orange"
