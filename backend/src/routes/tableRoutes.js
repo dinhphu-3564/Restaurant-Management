@@ -212,6 +212,22 @@ router.post("/areas", requireAuth, requireBackOffice, async (req, res) => {
       [result.insertId],
     );
 
+    // Auto-create a pending space linked to this new area
+    try {
+      const spaceKey = "area_" + result.insertId + "_" + Math.random().toString(36).substring(2, 6);
+      const [maxOrderRows] = await db.query("SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM restaurant_spaces");
+      const nextOrder = maxOrderRows[0]?.next_order || 1;
+
+      await db.query(
+        `INSERT INTO restaurant_spaces (space_key, label, description, detail_description, capacity, display_order, status)
+         VALUES (?, ?, ?, '', 0, ?, 'pending')`,
+        [spaceKey, name, description || "", nextOrder],
+      );
+    } catch (spaceErr) {
+      // Non-critical: log but don't fail the area creation
+      console.warn("Không thể tạo không gian pending cho khu vực mới:", spaceErr.message);
+    }
+
     res.status(201).json({
       success: true,
       message: "Thêm khu vực thành công.",
@@ -305,6 +321,10 @@ router.delete(
         });
       }
 
+      // Get area details first to get the name
+      const [areaRows] = await db.query("SELECT name FROM areas WHERE id = ?", [areaId]);
+      const areaName = areaRows[0]?.name;
+
       await db.query(
         `
       UPDATE areas
@@ -313,6 +333,14 @@ router.delete(
       `,
         [areaId],
       );
+
+      // Cascade delete the corresponding space in restaurant_spaces
+      if (areaName) {
+        await db.query(
+          "DELETE FROM restaurant_spaces WHERE label = ?",
+          [areaName]
+        );
+      }
 
       res.json({
         success: true,

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { spaceService } from "../services/spaceService";
 
 import LoginRequiredModal from "../components/LoginRequiredModal";
 
@@ -53,12 +54,13 @@ import {
   Users,
   Award,
   Truck,
+  ImageIcon,
 } from "lucide-react";
 
 const SPACE_TABS = [
   {
     key: "ground",
-    label: "Tầng một",
+    label: "Tầng 1",
     images: [tangTret, tangTret1, tangTret2, tangTret3, tangTret4, tangTret5],
   },
   {
@@ -120,8 +122,8 @@ function Home() {
 
     const newCart = existed
       ? cartItems.map((item) =>
-          item.id === cartDish.id ? { ...item, qty: item.qty + 1 } : item,
-        )
+        item.id === cartDish.id ? { ...item, qty: item.qty + 1 } : item,
+      )
       : [...cartItems, cartDish];
 
     setCartItems(newCart);
@@ -185,8 +187,48 @@ function Home() {
     };
   }, []);
 
+  const [spaceTabsData, setSpaceTabsData] = useState(SPACE_TABS);
+
+  const fetchActiveSpaces = async () => {
+    try {
+      const data = await spaceService.getActiveSpaces();
+      if (data && data.length > 0) {
+        setSpaceTabsData(data);
+      }
+    } catch (error) {
+      console.error("Lỗi khi fetch active spaces:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchActiveSpaces();
+
+    const handleUpdate = () => {
+      fetchActiveSpaces();
+    };
+    window.addEventListener("spaceImagesUpdated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("spaceImagesUpdated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
+
   const activeSpace =
-    SPACE_TABS.find((item) => item.key === activeSpaceTab) || SPACE_TABS[0];
+    spaceTabsData.find((item) => item.key === activeSpaceTab) || spaceTabsData[0] || SPACE_TABS[0];
+
+  const getImgUrl = (img) => {
+    if (!img) return "";
+    const url = typeof img === "string" ? img : img.url || img.image || "";
+    if (!url) return "";
+    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+      return url;
+    }
+    if (url.startsWith("/uploads/")) {
+      return `http://localhost:5001${url}`;
+    }
+    return url;
+  };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -208,7 +250,7 @@ function Home() {
           previewIndex === 0 ? activeSpace.images.length - 1 : previewIndex - 1;
 
         setPreviewIndex(newIndex);
-        setPreviewImage(activeSpace.images[newIndex]);
+        setPreviewImage(getImgUrl(activeSpace.images[newIndex]));
       }
 
       if (e.key === "ArrowRight") {
@@ -216,7 +258,7 @@ function Home() {
           previewIndex === activeSpace.images.length - 1 ? 0 : previewIndex + 1;
 
         setPreviewIndex(newIndex);
-        setPreviewImage(activeSpace.images[newIndex]);
+        setPreviewImage(getImgUrl(activeSpace.images[newIndex]));
       }
     };
 
@@ -403,11 +445,10 @@ function Home() {
             key={image}
             src={image}
             alt="Dê Hương Sơn"
-            className={`absolute inset-0 w-full h-full object-cover object-center transition-all duration-[2500ms] ease-in-out ${
-              index === currentHero
-                ? "opacity-100 scale-105"
-                : "opacity-0 scale-100"
-            }`}
+            className={`absolute inset-0 w-full h-full object-cover object-center transition-all duration-[2500ms] ease-in-out ${index === currentHero
+              ? "opacity-100 scale-105"
+              : "opacity-0 scale-100"
+              }`}
           />
         ))}
 
@@ -628,11 +669,10 @@ function Home() {
             <button
               key={index}
               onClick={() => setDishSlide(index)}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                dishSlide === index
-                  ? "w-8 bg-green-800"
-                  : "w-2 bg-gray-300 hover:bg-green-300"
-              }`}
+              className={`h-2 rounded-full transition-all duration-300 ${dishSlide === index
+                ? "w-8 bg-green-800"
+                : "w-2 bg-gray-300 hover:bg-green-300"
+                }`}
             />
           ))}
         </div>
@@ -779,61 +819,73 @@ function Home() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => {
-                  setActiveSpaceTab("ground");
-                  setShowSpaceModal(true);
-                }}
-                className="relative h-40 rounded-2xl overflow-hidden col-span-2 group"
-              >
-                <img
-                  src={tangTret}
-                  alt="Không gian nhà hàng"
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                />
-                <div className="absolute inset-0 bg-black/25" />
-                <p className="absolute bottom-4 left-4 text-white font-black">
-                  Khu vực tầng 1
-                </p>
-              </button>
+            {(() => {
+              const groundTab = spaceTabsData.find((t) => t.key === "ground") || spaceTabsData[0];
+              const floor2Tab = spaceTabsData.find((t) => t.key === "floor2") || spaceTabsData[1] || spaceTabsData[0];
+              const vipTab = spaceTabsData.find((t) => t.key === "vip") || spaceTabsData[2] || spaceTabsData[0];
 
-              <button
-                onClick={() => {
-                  setActiveSpaceTab("floor2");
-                  setShowSpaceModal(true);
-                }}
-                className="relative h-28 rounded-2xl overflow-hidden group"
-              >
-                <img
-                  src={tangHai}
-                  alt="Khu vực tầng 2"
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                />
-                <div className="absolute inset-0 bg-black/25" />
-                <p className="absolute bottom-3 left-3 text-white text-sm font-bold">
-                  Tầng 2
-                </p>
-              </button>
+              const groundCover = getImgUrl(groundTab?.images?.[0]) || tangTret;
+              const floor2Cover = getImgUrl(floor2Tab?.images?.[0]) || tangHai;
+              const vipCover = getImgUrl(vipTab?.images?.[0]) || phongVip;
 
-              <button
-                onClick={() => {
-                  setActiveSpaceTab("vip");
-                  setShowSpaceModal(true);
-                }}
-                className="relative h-28 rounded-2xl overflow-hidden group"
-              >
-                <img
-                  src={phongVip}
-                  alt="Phòng VIP"
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                />
-                <div className="absolute inset-0 bg-black/25" />
-                <p className="absolute bottom-3 left-3 text-white text-sm font-bold">
-                  Phòng VIP
-                </p>
-              </button>
-            </div>
+              return (
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => {
+                      setActiveSpaceTab(groundTab?.key || "ground");
+                      setShowSpaceModal(true);
+                    }}
+                    className="relative h-40 rounded-2xl overflow-hidden col-span-2 group"
+                  >
+                    <img
+                      src={groundCover}
+                      alt={groundTab?.label || "Khu vực tầng 1"}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                    />
+                    <div className="absolute inset-0 bg-black/25" />
+                    <p className="absolute bottom-4 left-4 text-white font-black">
+                      {groundTab?.label || "Khu vực tầng 1"}
+                    </p>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveSpaceTab(floor2Tab?.key || "floor2");
+                      setShowSpaceModal(true);
+                    }}
+                    className="relative h-28 rounded-2xl overflow-hidden group"
+                  >
+                    <img
+                      src={floor2Cover}
+                      alt={floor2Tab?.label || "Tầng 2"}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                    />
+                    <div className="absolute inset-0 bg-black/25" />
+                    <p className="absolute bottom-3 left-3 text-white text-sm font-bold">
+                      {floor2Tab?.label || "Tầng 2"}
+                    </p>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveSpaceTab(vipTab?.key || "vip");
+                      setShowSpaceModal(true);
+                    }}
+                    className="relative h-28 rounded-2xl overflow-hidden group"
+                  >
+                    <img
+                      src={vipCover}
+                      alt={vipTab?.label || "Phòng VIP"}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                    />
+                    <div className="absolute inset-0 bg-black/25" />
+                    <p className="absolute bottom-3 left-3 text-white text-sm font-bold">
+                      {vipTab?.label || "Phòng VIP"}
+                    </p>
+                  </button>
+                </div>
+              );
+            })()}
 
             <button
               onClick={() => {
@@ -899,7 +951,7 @@ function Home() {
           onClick={() => setShowSpaceModal(false)}
         >
           <div
-            className="relative w-full max-w-5xl bg-[#fffaf0] rounded-3xl shadow-2xl p-5 md:p-7"
+            className="relative w-full max-w-5xl h-[720px] max-h-[90vh] bg-[#fffaf0] rounded-3xl shadow-2xl p-5 md:p-7 flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -909,18 +961,18 @@ function Home() {
               <X className="w-5 h-5" />
             </button>
 
-            <h2 className="text-2xl md:text-3xl font-black text-green-900 uppercase text-center">
+            <h2 className="text-2xl md:text-3xl font-black text-green-900 uppercase text-center shrink-0">
               Không gian nhà hàng
             </h2>
 
-            <div className="flex items-center justify-center gap-3 mt-3 mb-6">
+            <div className="flex items-center justify-center gap-3 mt-3 mb-6 shrink-0">
               <div className="w-16 h-px bg-[#d6a84f]" />
               <img src={goatIcon} alt="" className="w-7 h-7 object-contain" />
               <div className="w-16 h-px bg-[#d6a84f]" />
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mb-5">
-              {SPACE_TABS.map((tab) => (
+            <div className="grid grid-cols-3 gap-3 mb-5 shrink-0">
+              {spaceTabsData.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveSpaceTab(tab.key)}
@@ -935,26 +987,53 @@ function Home() {
               ))}
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[430px] overflow-y-auto pr-1">
-              {activeSpace.images.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    setPreviewImage(image);
-                    setPreviewIndex(index);
-                  }}
-                  className="h-32 md:h-44 rounded-2xl overflow-hidden border border-[#eadfcd] group"
-                >
-                  <img
-                    src={image}
-                    alt={activeSpace.label}
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                  />
-                </button>
-              ))}
+            {/* Khung chứa ảnh cố định kích thước, hỗ trợ cuộn và hiển thị trạng thái rỗng */}
+            <div className="flex-1 overflow-y-auto pr-1 min-h-0 flex flex-col">
+              {(activeSpace?.images || []).length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {activeSpace.images.map((image, index) => {
+                    const imgUrl = getImgUrl(image);
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setPreviewImage(imgUrl);
+                          setPreviewIndex(index);
+                        }}
+                        className="h-32 md:h-44 rounded-2xl overflow-hidden border border-[#eadfcd] group relative bg-gray-100 shrink-0"
+                      >
+                        <img
+                          src={imgUrl}
+                          alt={activeSpace.label}
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                        />
+                        {typeof image !== "string" && image.title && (
+                          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-left">
+                            <p className="text-white text-xs font-bold truncate">
+                              {image.title}
+                            </p>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center py-10 text-gray-400">
+                  <div className="w-16 h-16 rounded-full bg-green-50/50 flex items-center justify-center text-green-800 mb-3 shadow-inner">
+                    <ImageIcon size={32} />
+                  </div>
+                  <p className="font-black text-sm text-green-900">
+                    Chưa có hình ảnh nào cho không gian này
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Hình ảnh không gian thực tế sẽ sớm được cập nhật
+                  </p>
+                </div>
+              )}
             </div>
 
-            <p className="text-center text-sm text-gray-500 mt-4">
+            <p className="text-center text-sm text-gray-500 mt-4 shrink-0">
               Nhấn vào ảnh để xem lớn hơn
             </p>
           </div>
@@ -979,7 +1058,7 @@ function Home() {
                   : previewIndex - 1;
 
               setPreviewIndex(newIndex);
-              setPreviewImage(activeSpace.images[newIndex]);
+              setPreviewImage(getImgUrl(activeSpace.images[newIndex]));
             }}
             className="absolute left-5 w-12 h-12 rounded-full bg-white/90 text-green-900 text-3xl flex items-center justify-center"
           >
@@ -987,7 +1066,7 @@ function Home() {
           </button>
 
           <img
-            src={previewImage}
+            src={getImgUrl(previewImage)}
             alt=""
             className="max-w-[90vw] max-h-[82vh] object-contain rounded-2xl shadow-2xl"
           />
@@ -1000,7 +1079,7 @@ function Home() {
                   : previewIndex + 1;
 
               setPreviewIndex(newIndex);
-              setPreviewImage(activeSpace.images[newIndex]);
+              setPreviewImage(getImgUrl(activeSpace.images[newIndex]));
             }}
             className="absolute right-5 w-12 h-12 rounded-full bg-white/90 text-green-900 text-3xl flex items-center justify-center"
           >

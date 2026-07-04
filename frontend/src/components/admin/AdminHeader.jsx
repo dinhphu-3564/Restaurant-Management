@@ -132,11 +132,10 @@ function AdminHeader({
   }, []);
 
   return (
-    <header className="h-[76px] bg-white border-b border-gray-100 flex items-center justify-between px-5">
-      <div>
-        <h1 className="text-2xl font-black text-green-950">{title}</h1>
-
-        <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+    <header className="h-[76px] bg-white border-b border-gray-100 flex items-center justify-between px-5 min-w-0">
+      <div className="shrink-0 min-w-0 mr-4">
+        <h1 className="text-xl sm:text-2xl font-black text-green-950 whitespace-nowrap">{title}</h1>
+        <p className="text-xs sm:text-sm text-gray-500 mt-1 truncate">{subtitle}</p>
       </div>
 
       <div className="flex items-center gap-4">
@@ -348,7 +347,7 @@ function AdminHeader({
         <div className="hidden lg:flex items-center gap-2 bg-green-50 text-green-800 px-4 h-11 rounded-full font-bold">
           <ShieldCheck size={18} />
           <span>{currentUser?.name || "Admin"}</span>
-          <span className="text-xs text-green-600 font-black">
+          <span className="text-xs text-green-600 font-black hidden 2xl:inline">
             ({ROLE_TEXT[currentUser?.role] || "Nhân viên"})
           </span>
         </div>

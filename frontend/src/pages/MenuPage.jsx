@@ -2,6 +2,7 @@ import { checkLogin } from "../utils/auth";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import RatingStars from "../components/RatingStars";
+import { removeVietnameseTones } from "../utils/string";
 
 import { categories, categoryIconMap } from "../data/menuCategories";
 import DishCard from "../components/DishCard";
@@ -175,19 +176,18 @@ function MenuPage() {
           otherChildren.includes(dish.category) ||
           otherChildren.includes(dish.subCategory)));
 
-    const keyword = searchTerm.toLowerCase().trim();
+    const rawKeyword = String(searchTerm || "").trim();
+    const keyword = removeVietnameseTones(rawKeyword);
+
+    const cleanName = removeVietnameseTones(dish.name);
+    const cleanDesc = removeVietnameseTones(dish.description);
+    const cleanShortDesc = removeVietnameseTones(dish.shortDescription);
 
     const matchSearch =
       !keyword ||
-      String(dish.name || "")
-        .toLowerCase()
-        .includes(keyword) ||
-      String(dish.description || "")
-        .toLowerCase()
-        .includes(keyword) ||
-      String(dish.shortDescription || "")
-        .toLowerCase()
-        .includes(keyword);
+      cleanName.includes(keyword) ||
+      cleanDesc.includes(keyword) ||
+      cleanShortDesc.includes(keyword);
 
     return matchCategory && matchSearch;
   });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { showAdminToast } from "../../components/admin/AdminToast";
+import { removeVietnameseTones } from "../../utils/string";
 import * as XLSX from "xlsx-js-style";
 import { saveAs } from "file-saver";
 import {
@@ -59,6 +60,10 @@ function AdminOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [editingOrder, setEditingOrder] = useState(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+
+  // State quản lý custom modal xác nhận cho Order
+  const [deleteConfirmOrder, setDeleteConfirmOrder] = useState(null); // { cancel: true, order } hoặc { bulkStatus: 'status_name' }
+
   const [editForm, setEditForm] = useState({
     status: "pending",
     paymentMethod: "",
@@ -99,17 +104,6 @@ function AdminOrdersPage() {
         minute: "2-digit",
       },
     )}`;
-  };
-
-  //Thêm hàm bỏ dấu
-  const removeVietnameseTones = (str = "") => {
-    return str
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/đ/g, "d")
-      .replace(/Đ/g, "D")
-      .toLowerCase()
-      .trim();
   };
 
   const hasVietnameseTone = (str = "") => {
@@ -827,16 +821,15 @@ function AdminOrdersPage() {
       alert("Không kết nối được backend.");
     }
   };
-  //hàm hủy đơn bằng nút thùng rác
-  const cancelOrderByTrash = (order) => {
-    const confirmCancel = window.confirm(
-      `Bạn có chắc muốn hủy đơn hàng #${order.id}?`,
-    );
-
-    if (!confirmCancel) return;
-
+  //hàm hủy đơn bằng nút thùng rác thực hiện
+  const executeCancelOrder = (order) => {
     updateOrderStatus(order.id, "cancelled");
   };
+
+  const cancelOrderByTrash = (order) => {
+    setDeleteConfirmOrder({ cancel: true, order });
+  };
+
   //hàm chọn checkbox
   const toggleSelectOrder = (orderId) => {
     setSelectedOrderIds((prev) =>
@@ -861,16 +854,9 @@ function AdminOrdersPage() {
       setSelectedOrderIds((prev) => [...new Set([...prev, ...currentIds])]);
     }
   };
-  //hàm xử lý hàng loạt
-  const updateSelectedOrdersStatus = async (status) => {
-    if (selectedOrderIds.length === 0) return;
 
-    const confirmUpdate = window.confirm(
-      `Bạn có chắc muốn chuyển ${selectedOrderIds.length} đơn hàng sang trạng thái "${getStatusText(status)}"?`,
-    );
-
-    if (!confirmUpdate) return;
-
+  //hàm xử lý hàng loạt thực hiện
+  const executeUpdateSelectedOrdersStatus = async (status) => {
     try {
       const updatedAt = new Date().toISOString();
 
@@ -895,7 +881,11 @@ function AdminOrdersPage() {
       const hasError = results.some((item) => !item.success);
 
       if (hasError) {
-        alert("Có đơn hàng cập nhật thất bại. Vui lòng tải lại danh sách.");
+        showAdminToast({
+          title: "Thất bại",
+          message: "Có đơn hàng cập nhật thất bại. Vui lòng tải lại danh sách.",
+          type: "error",
+        });
         return;
       }
 
@@ -925,8 +915,17 @@ function AdminOrdersPage() {
       setSelectedOrderIds([]);
     } catch (error) {
       console.error(error);
-      alert("Không thể cập nhật nhiều đơn hàng.");
+      showAdminToast({
+        title: "Thất bại",
+        message: "Không thể cập nhật nhiều đơn hàng.",
+        type: "error",
+      });
     }
+  };
+
+  const updateSelectedOrdersStatus = (status) => {
+    if (selectedOrderIds.length === 0) return;
+    setDeleteConfirmOrder({ bulkStatus: status });
   };
 
   return (
@@ -1519,6 +1518,57 @@ function AdminOrdersPage() {
                 className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
               >
                 Lưu thay đổi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Delete Confirmation Modal for Orders */}
+      {deleteConfirmOrder && (
+        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-2xl p-6 max-w-sm w-full text-center space-y-4 animate-[scaleIn_0.2s_ease-out]">
+            <div className="w-16 h-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto shadow-inner">
+              <Trash2 size={28} />
+            </div>
+            <div>
+              <h4 className="font-black text-gray-900 text-base">
+                {deleteConfirmOrder.bulkStatus
+                  ? "Xác nhận cập nhật trạng thái"
+                  : "Xác nhận hủy đơn hàng"}
+              </h4>
+              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                {deleteConfirmOrder.bulkStatus
+                  ? `Bạn có chắc chắn muốn cập nhật trạng thái cho ${selectedOrderIds.length} đơn hàng đã chọn?`
+                  : `Bạn có chắc chắn muốn hủy đơn hàng #${deleteConfirmOrder.order?.id}?`}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOrder(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = deleteConfirmOrder;
+                  setDeleteConfirmOrder(null);
+                  if (target.bulkStatus) {
+                    executeUpdateSelectedOrdersStatus(target.bulkStatus);
+                  } else {
+                    executeCancelOrder(target.order);
+                  }
+                }}
+                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition shadow-sm ${
+                  deleteConfirmOrder.bulkStatus
+                    ? "bg-green-700 hover:bg-green-800"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
+              >
+                {deleteConfirmOrder.bulkStatus ? "Xác nhận" : "Hủy đơn hàng"}
               </button>
             </div>
           </div>

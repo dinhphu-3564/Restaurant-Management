@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { showAdminToast } from "../../components/admin/AdminToast";
+import { removeVietnameseTones } from "../../utils/string";
 import {
   Gift,
   Eye,
@@ -67,6 +68,9 @@ function AdminDealsPage() {
   const [editForm, setEditForm] = useState(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState({});
 
+  // State quản lý custom modal xác nhận xóa khuyến mãi
+  const [deleteConfirmDeal, setDeleteConfirmDeal] = useState(null); // { deal } hoặc { bulk: true } hoặc { bulkStatus: 'status_name' }
+
   //hàm lấy khuyến mãi từ backend
   const fetchDeals = async () => {
     try {
@@ -124,15 +128,14 @@ function AdminDealsPage() {
 
   const filteredDeals = useMemo(() => {
     return deals.filter((deal) => {
-      const keyword = String(search || globalSearch || "")
-        .toLowerCase()
-        .trim();
+      const rawKeyword = String(search || globalSearch || "").trim();
+      const keyword = removeVietnameseTones(rawKeyword);
 
       const matchSearch =
         !keyword ||
-        String(deal.code).toLowerCase().includes(keyword) ||
-        String(deal.name).toLowerCase().includes(keyword) ||
-        String(deal.type).toLowerCase().includes(keyword);
+        removeVietnameseTones(deal.code).includes(keyword) ||
+        removeVietnameseTones(deal.name).includes(keyword) ||
+        removeVietnameseTones(deal.type).includes(keyword);
 
       const matchTab = activeTab === "all" || deal.status === activeTab;
       const matchType = typeFilter === "all" || deal.type === typeFilter;
@@ -372,11 +375,8 @@ function AdminDealsPage() {
     }
   };
 
-  const deleteDeal = async (deal) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa khuyến mãi ${deal.code}?`)) {
-      return;
-    }
-
+  //hàm xóa khuyến mãi thực hiện
+  const executeDeleteDeal = async (deal) => {
     try {
       const res = await fetch(`${API_URL}/${deal.id}`, {
         method: "DELETE",
@@ -385,7 +385,11 @@ function AdminDealsPage() {
       const data = await res.json();
 
       if (!data.success) {
-        alert(data.message || "Xóa khuyến mãi thất bại.");
+        showAdminToast({
+          title: "Thất bại",
+          message: data.message || "Xóa khuyến mãi thất bại.",
+          type: "error",
+        });
         return;
       }
 
@@ -400,8 +404,16 @@ function AdminDealsPage() {
       });
     } catch (error) {
       console.error("Lỗi xóa khuyến mãi:", error);
-      alert("Không thể kết nối backend.");
+      showAdminToast({
+        title: "Thất bại",
+        message: "Không thể kết nối backend.",
+        type: "error",
+      });
     }
+  };
+
+  const deleteDeal = (deal) => {
+    setDeleteConfirmDeal({ deal });
   };
 
   const togglePauseDeal = async (deal) => {
@@ -448,15 +460,17 @@ function AdminDealsPage() {
     }
   };
 
-  const toggleSelectDeal = (dealId) => {
-    const id = String(dealId);
-
+  // hàm cấp quyền hàng loạt / chọn khuyến mãi
+  const handleSelectDeal = (id) => {
+    const stringId = String(id);
     setSelectedDealIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+      prev.includes(stringId)
+        ? prev.filter((item) => item !== stringId)
+        : [...prev, stringId],
     );
   };
 
-  const toggleSelectAllCurrentPage = () => {
+  const toggleSelectAll = () => {
     const currentIds = paginatedDeals.map((deal) => String(deal.id));
 
     const isSelectedAll =
@@ -472,13 +486,8 @@ function AdminDealsPage() {
     }
   };
 
-  const bulkUpdateStatus = async (status) => {
-    if (selectedDealIds.length === 0) return;
-
-    if (!window.confirm(`Cập nhật ${selectedDealIds.length} khuyến mãi?`)) {
-      return;
-    }
-
+  //hàm xử lý trạng thái hàng loạt thực hiện
+  const executeBulkUpdateStatus = async (status) => {
     try {
       const updatedDeals = await Promise.all(
         deals
@@ -527,17 +536,21 @@ function AdminDealsPage() {
       setSelectedDealIds([]);
     } catch (error) {
       console.error("Lỗi cập nhật hàng loạt:", error);
-      alert("Không thể cập nhật trạng thái khuyến mãi.");
+      showAdminToast({
+        title: "Thất bại",
+        message: "Không thể cập nhật trạng thái khuyến mãi.",
+        type: "error",
+      });
     }
   };
 
-  const bulkDeleteDeals = async () => {
+  const bulkUpdateStatus = (status) => {
     if (selectedDealIds.length === 0) return;
+    setDeleteConfirmDeal({ bulkStatus: status });
+  };
 
-    if (!window.confirm(`Xóa ${selectedDealIds.length} khuyến mãi?`)) {
-      return;
-    }
-
+  //hàm xử lý xóa hàng loạt thực hiện
+  const executeBulkDeleteDeals = async () => {
     try {
       await Promise.all(
         selectedDealIds.map(async (id) => {
@@ -566,8 +579,17 @@ function AdminDealsPage() {
       });
     } catch (error) {
       console.error("Lỗi xóa hàng loạt:", error);
-      alert(error.message || "Không thể xóa khuyến mãi đã chọn.");
+      showAdminToast({
+        title: "Thất bại",
+        message: error.message || "Không thể xóa khuyến mãi đã chọn.",
+        type: "error",
+      });
     }
+  };
+
+  const bulkDeleteDeals = () => {
+    if (selectedDealIds.length === 0) return;
+    setDeleteConfirmDeal({ bulk: true });
   };
 
   const stats = [
@@ -794,7 +816,7 @@ function AdminDealsPage() {
                           selectedDealIds.includes(String(deal.id)),
                         )
                       }
-                      onChange={toggleSelectAllCurrentPage}
+                      onChange={toggleSelectAll}
                       className="w-4 h-4 accent-green-700"
                     />
                   </th>
@@ -829,7 +851,7 @@ function AdminDealsPage() {
                           type="checkbox"
                           checked={selectedDealIds.includes(String(deal.id))}
                           onClick={(e) => e.stopPropagation()}
-                          onChange={() => toggleSelectDeal(deal.id)}
+                          onChange={() => handleSelectDeal(deal.id)}
                           className="w-4 h-4 accent-green-700"
                         />
                       </td>
@@ -1028,6 +1050,63 @@ function AdminDealsPage() {
           }}
           onSave={saveDeal}
         />
+      )}
+
+      {/* Custom Delete Confirmation Modal for Deals */}
+      {deleteConfirmDeal && (
+        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-2xl p-6 max-w-sm w-full text-center space-y-4 animate-[scaleIn_0.2s_ease-out]">
+            <div className="w-16 h-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto shadow-inner">
+              <Trash2 size={28} />
+            </div>
+            <div>
+              <h4 className="font-black text-gray-900 text-base">
+                {deleteConfirmDeal.bulkStatus
+                  ? "Xác nhận cập nhật trạng thái"
+                  : deleteConfirmDeal.bulk
+                  ? "Xác nhận xóa hàng loạt"
+                  : "Xác nhận xóa khuyến mãi"}
+              </h4>
+              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                {deleteConfirmDeal.bulkStatus
+                  ? `Bạn có chắc chắn muốn cập nhật trạng thái cho ${selectedDealIds.length} khuyến mãi đã chọn?`
+                  : deleteConfirmDeal.bulk
+                  ? `Bạn có chắc chắn muốn xóa ${selectedDealIds.length} khuyến mãi đã chọn? Hành động này không thể khôi phục.`
+                  : `Bạn có chắc chắn muốn xóa chương trình khuyến mãi "${deleteConfirmDeal.deal?.code}"? Hành động này không thể khôi phục.`}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmDeal(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = deleteConfirmDeal;
+                  setDeleteConfirmDeal(null);
+                  if (target.bulkStatus) {
+                    executeBulkUpdateStatus(target.bulkStatus);
+                  } else if (target.bulk) {
+                    executeBulkDeleteDeals();
+                  } else {
+                    executeDeleteDeal(target.deal);
+                  }
+                }}
+                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition shadow-sm ${
+                  deleteConfirmDeal.bulkStatus
+                    ? "bg-green-700 hover:bg-green-800"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
+              >
+                {deleteConfirmDeal.bulkStatus ? "Xác nhận" : "Xác nhận xóa"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

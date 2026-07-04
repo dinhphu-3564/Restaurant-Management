@@ -42,6 +42,7 @@ import AdminDealsPage from "../pages/admin/AdminDealsPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 import AdminRevenuePage from "../pages/admin/AdminRevenuePage";
 import AdminTablesPage from "../pages/admin/AdminTablesPage";
+import AdminSpacesPage from "../pages/admin/AdminSpacesPage";
 import AdminRolesPage from "../pages/admin/AdminRolesPage";
 
 function MainLayout({ children }) {
@@ -246,6 +247,7 @@ function AppRoutes() {
           <Route path="orders" element={<AdminOrdersPage />} />
           <Route path="bookings" element={<AdminBookingsPage />} />
           <Route path="tables" element={<AdminTablesPage />} />
+          <Route path="spaces" element={<AdminSpacesPage />} />
           <Route path="menu" element={<AdminMenuPage />} />
           <Route path="deals" element={<AdminDealsPage />} />
           <Route path="users" element={<AdminUsersPage />} />

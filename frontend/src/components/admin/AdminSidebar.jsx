@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   ClipboardList,
   LogOut,
+  Image,
 } from "lucide-react";
 
 import { clearAuthSession, getCurrentUser } from "../../utils/auth";
@@ -72,6 +73,12 @@ function AdminSidebar() {
           path: "/admin/tables",
           icon: Store,
           roles: ["admin", "manager", "staff"],
+        },
+        {
+          name: "Không gian",
+          path: "/admin/spaces",
+          icon: Image,
+          roles: ["admin", "manager"],
         },
         {
           name: "Khách hàng",
@@ -135,7 +142,7 @@ function AdminSidebar() {
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
   return (
-    <aside className="w-[250px] shrink-0 min-h-screen bg-gradient-to-b from-green-950 to-emerald-950 text-white px-3 py-5 flex flex-col">
+    <aside className="w-[250px] shrink-0 h-screen overflow-y-auto bg-gradient-to-b from-green-950 to-emerald-950 text-white px-3 py-5 flex flex-col">
       <div className="px-3 mb-7">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center text-2xl">

@@ -9,6 +9,7 @@ import {
 import { updateUserRole } from "../../services/roleService";
 import { getCurrentUser } from "../../utils/auth";
 import { showAdminToast } from "../../components/admin/AdminToast";
+import { removeVietnameseTones } from "../../utils/string";
 import {
   Users,
   UserPlus,
@@ -53,6 +54,9 @@ function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
+
+  // State quản lý custom modal xác nhận xóa user
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState(null); // { user } hoặc { bulk: true }
 
   const currentUser = getCurrentUser();
   const canGrantRole = currentUser?.role === "admin";
@@ -156,17 +160,18 @@ function AdminUsersPage() {
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
-      const keyword = search.toLowerCase().trim();
+      const rawKeyword = String(search || "").trim();
+      const keyword = removeVietnameseTones(rawKeyword);
 
-      const name = String(user.name || user.fullName || "").toLowerCase();
-      const phone = String(user.phone || "");
-      const email = String(user.email || "").toLowerCase();
+      const cleanName = removeVietnameseTones(user.name || user.fullName);
+      const cleanPhone = removeVietnameseTones(user.phone);
+      const cleanEmail = removeVietnameseTones(user.email);
 
       const matchSearch =
         !keyword ||
-        name.includes(keyword) ||
-        phone.includes(keyword) ||
-        email.includes(keyword);
+        cleanName.includes(keyword) ||
+        cleanPhone.includes(keyword) ||
+        cleanEmail.includes(keyword);
 
       const matchStatus =
         statusFilter === "all" || getUserStatus(user) === statusFilter;
@@ -227,12 +232,8 @@ function AdminUsersPage() {
     }
   };
 
-  //hàm xóa user
-  const deleteUser = async (user) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa khách hàng ${user.name}?`)) {
-      return;
-    }
-
+  //hàm xóa user thực hiện
+  const executeDeleteUser = async (user) => {
     try {
       await deleteUserById(user.id);
       await loadUsers();
@@ -246,8 +247,16 @@ function AdminUsersPage() {
       });
     } catch (error) {
       console.error(error);
-      alert(error.message || "Không thể xóa khách hàng.");
+      showAdminToast({
+        title: "Thất bại",
+        message: error.message || "Không thể xóa khách hàng.",
+        type: "error",
+      });
     }
+  };
+
+  const deleteUser = (user) => {
+    setDeleteConfirmUser({ user });
   };
 
   //hàm cấp quyền
@@ -266,7 +275,11 @@ function AdminUsersPage() {
     if (!roleModalUser) return;
 
     if (!["staff", "manager", "admin"].includes(roleValue)) {
-      alert("Vai trò không hợp lệ.");
+      showAdminToast({
+        title: "Thất bại",
+        message: "Vai trò không hợp lệ.",
+        type: "error",
+      });
       return;
     }
 
@@ -294,7 +307,11 @@ function AdminUsersPage() {
       });
     } catch (error) {
       console.error(error);
-      alert(error.message || "Không thể cấp quyền tài khoản.");
+      showAdminToast({
+        title: "Thất bại",
+        message: error.message || "Không thể cấp quyền tài khoản.",
+        type: "error",
+      });
     } finally {
       setRoleSubmitting(false);
     }
@@ -330,16 +347,8 @@ function AdminUsersPage() {
     );
   };
 
-  //hàm xử lý hàng loạt
-  const bulkDeleteUsers = async () => {
-    if (selectedIds.length === 0) return;
-
-    if (
-      !window.confirm(`Bạn có chắc muốn xóa ${selectedIds.length} khách hàng?`)
-    ) {
-      return;
-    }
-
+  //hàm xử lý hàng loạt thực hiện
+  const executeBulkDeleteUsers = async () => {
     try {
       await bulkDeleteUsersApi(selectedIds);
       await loadUsers();
@@ -352,8 +361,17 @@ function AdminUsersPage() {
       });
     } catch (error) {
       console.error(error);
-      alert(error.message || "Không thể xóa hàng loạt khách hàng.");
+      showAdminToast({
+        title: "Thất bại",
+        message: error.message || "Không thể xóa hàng loạt khách hàng.",
+        type: "error",
+      });
     }
+  };
+
+  const bulkDeleteUsers = () => {
+    if (selectedIds.length === 0) return;
+    setDeleteConfirmUser({ bulk: true });
   };
 
   const bulkUpdateStatus = async (status) => {
@@ -744,6 +762,51 @@ function AdminUsersPage() {
             onClose={closeGrantRoleModal}
             onSubmit={grantUserRole}
           />
+        )}
+
+        {/* Custom Delete Confirmation Modal for Users */}
+        {deleteConfirmUser && (
+          <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl border border-gray-100 shadow-2xl p-6 max-w-sm w-full text-center space-y-4 animate-[scaleIn_0.2s_ease-out]">
+              <div className="w-16 h-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto shadow-inner">
+                <Trash2 size={28} />
+              </div>
+              <div>
+                <h4 className="font-black text-gray-900 text-base">
+                  {deleteConfirmUser.bulk ? "Xác nhận xóa hàng loạt" : "Xác nhận xóa khách hàng"}
+                </h4>
+                <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                  {deleteConfirmUser.bulk
+                    ? `Bạn có chắc chắn muốn xóa ${selectedIds.length} khách hàng đã chọn? Hành động này không thể khôi phục.`
+                    : `Bạn có chắc chắn muốn xóa khách hàng "${deleteConfirmUser.user?.name || "này"}"? Hành động này không thể khôi phục.`}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmUser(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = deleteConfirmUser;
+                    setDeleteConfirmUser(null);
+                    if (target.bulk) {
+                      executeBulkDeleteUsers();
+                    } else {
+                      executeDeleteUser(target.user);
+                    }
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition shadow-sm"
+                >
+                  Xác nhận xóa
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

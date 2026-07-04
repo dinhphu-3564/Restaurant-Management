@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { showAdminToast } from "../../components/admin/AdminToast";
+import { removeVietnameseTones } from "../../utils/string";
 import {
   Utensils,
   CheckCircle,
@@ -25,6 +26,9 @@ function AdminMenuPage() {
 
   //state sửa món
   const [editingFood, setEditingFood] = useState(null);
+
+  // State quản lý custom modal xác nhận xóa
+  const [deleteConfirmFood, setDeleteConfirmFood] = useState(null); // { food } hoặc { bulk: true }
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -112,16 +116,6 @@ function AdminMenuPage() {
     if (status === "selling") return "bg-green-50 text-green-700";
     if (status === "paused") return "bg-orange-50 text-orange-600";
     return "bg-red-50 text-red-600";
-  };
-
-  const removeVietnameseTones = (str = "") => {
-    return String(str)
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/đ/g, "d")
-      .replace(/Đ/g, "D")
-      .toLowerCase()
-      .trim();
   };
 
   const createSearchText = (food) => {
@@ -470,14 +464,8 @@ function AdminMenuPage() {
       alert("Không thể kết nối backend");
     }
   };
-  //hàm xóa món
-  const deleteFood = async (food) => {
-    const confirmDelete = window.confirm(
-      `Bạn có chắc muốn xóa món "${food.name}"?`,
-    );
-
-    if (!confirmDelete) return;
-
+  //hàm xóa món thực hiện
+  const executeDeleteFood = async (food) => {
     try {
       const res = await fetch(`${API_URL}/${food.id}`, {
         method: "DELETE",
@@ -486,7 +474,11 @@ function AdminMenuPage() {
       const result = await res.json();
 
       if (!result.success) {
-        alert(result.message || "Xóa món thất bại");
+        showAdminToast({
+          title: "Thất bại",
+          message: result.message || "Xóa món thất bại",
+          type: "error",
+        });
         return;
       }
 
@@ -501,8 +493,16 @@ function AdminMenuPage() {
       });
     } catch (error) {
       console.error("Lỗi xóa món:", error);
-      alert("Không thể kết nối backend");
+      showAdminToast({
+        title: "Thất bại",
+        message: "Không thể kết nối backend",
+        type: "error",
+      });
     }
+  };
+
+  const deleteFood = (food) => {
+    setDeleteConfirmFood({ food });
   };
 
   //hàm chọn nhiều món
@@ -529,16 +529,9 @@ function AdminMenuPage() {
       setSelectedFoodIds((prev) => [...new Set([...prev, ...currentIds])]);
     }
   };
-  // hàm xóa món
-  const deleteSelectedFoods = async () => {
-    if (selectedFoodIds.length === 0) return;
 
-    const confirmDelete = window.confirm(
-      `Bạn có chắc muốn xóa ${selectedFoodIds.length} món đã chọn?`,
-    );
-
-    if (!confirmDelete) return;
-
+  // hàm xóa món hàng loạt thực hiện
+  const executeDeleteSelectedFoods = async () => {
     try {
       const res = await fetch(`${API_URL}/bulk/delete`, {
         method: "PATCH",
@@ -553,7 +546,11 @@ function AdminMenuPage() {
       const result = await res.json();
 
       if (!result.success) {
-        alert(result.message || "Xóa món thất bại");
+        showAdminToast({
+          title: "Thất bại",
+          message: result.message || "Xóa món thất bại",
+          type: "error",
+        });
         return;
       }
 
@@ -573,8 +570,17 @@ function AdminMenuPage() {
       setSelectedFoodIds([]);
     } catch (error) {
       console.error("Lỗi xóa nhiều món:", error);
-      alert("Không thể kết nối backend");
+      showAdminToast({
+        title: "Thất bại",
+        message: "Không thể kết nối backend",
+        type: "error",
+      });
     }
+  };
+
+  const deleteSelectedFoods = () => {
+    if (selectedFoodIds.length === 0) return;
+    setDeleteConfirmFood({ bulk: true });
   };
 
   //hàm chọn ngừng bán
@@ -1571,6 +1577,51 @@ function AdminMenuPage() {
                 className="h-11 px-7 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
               >
                 {editingFood ? "Lưu thay đổi" : "Thêm món"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom centered Delete Confirmation Modal for Foods */}
+      {deleteConfirmFood && (
+        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-2xl p-6 max-w-sm w-full text-center space-y-4 animate-[scaleIn_0.2s_ease-out]">
+            <div className="w-16 h-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto shadow-inner">
+              <Trash2 size={28} />
+            </div>
+            <div>
+              <h4 className="font-black text-gray-900 text-base">
+                {deleteConfirmFood.bulk ? "Xác nhận xóa các món đã chọn" : "Xác nhận xóa món ăn"}
+              </h4>
+              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                {deleteConfirmFood.bulk
+                  ? `Bạn có chắc chắn muốn xóa ${selectedFoodIds.length} món ăn đã chọn? Hành động này không thể khôi phục.`
+                  : `Bạn có chắc chắn muốn xóa món ăn "${deleteConfirmFood.food?.name}"? Hành động này không thể khôi phục.`}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmFood(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = deleteConfirmFood;
+                  setDeleteConfirmFood(null);
+                  if (target.bulk) {
+                    executeDeleteSelectedFoods();
+                  } else {
+                    executeDeleteFood(target.food);
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition shadow-sm"
+              >
+                Xác nhận xóa
               </button>
             </div>
           </div>

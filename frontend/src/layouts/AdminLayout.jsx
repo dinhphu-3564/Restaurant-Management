@@ -41,6 +41,10 @@ function AdminLayout() {
       title: "Bàn & Khu vực",
       subtitle: "Quản lý khu vực và bàn ăn",
     },
+    "/admin/spaces": {
+      title: "Không gian nhà hàng",
+      subtitle: "Quản lý các khu vực và không gian",
+    },
     "/admin/users": {
       title: "Khách hàng",
       subtitle: "Thông tin khách hàng",
@@ -76,6 +80,7 @@ function AdminLayout() {
   const isMenuPage = location.pathname === "/admin/menu";
   const isBookingsPage = location.pathname === "/admin/bookings";
   const isTablesPage = location.pathname === "/admin/tables";
+  const isSpacesPage = location.pathname === "/admin/spaces";
   const isDealsPage = location.pathname === "/admin/deals";
 
   const pageAction = isOrdersPage ? (
@@ -116,6 +121,18 @@ function AdminLayout() {
       <Plus size={18} />
       Thêm đặt bàn
     </button>
+  ) : isSpacesPage ? (
+    <button
+      onClick={() => window.dispatchEvent(new Event("openAddSpaceModal"))}
+      className="
+      h-11 px-4 rounded-2xl bg-green-800 text-white text-sm font-black
+      inline-flex items-center justify-center gap-2 hover:bg-green-900
+      transition whitespace-nowrap shrink-0
+    "
+    >
+      <Plus size={18} />
+      Thêm không gian
+    </button>
   ) : isDealsPage ? (
     <button
       onClick={() => window.dispatchEvent(new Event("openAddDealModal"))}
@@ -131,10 +148,10 @@ function AdminLayout() {
   ) : null;
 
   return (
-    <div className="min-h-screen bg-[#f8faf8] flex">
+    <div className="h-screen bg-[#f8faf8] flex overflow-hidden">
       <AdminSidebar />
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden">
         <AdminHeader
           title={currentPage.title}
           subtitle={currentPage.subtitle}
@@ -149,7 +166,7 @@ function AdminLayout() {
           setDateLabel={setDateLabel}
         />
 
-        <main className="px-3 sm:px-4 lg:px-5 py-4 min-h-[calc(100vh-76px)] overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 lg:px-5 py-4">
           <Outlet
             context={{
               setExportExcelHandler,

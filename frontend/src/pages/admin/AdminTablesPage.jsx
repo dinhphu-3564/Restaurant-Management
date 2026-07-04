@@ -3,6 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { showAdminToast } from "../../components/admin/AdminToast";
 import { tableService } from "../../services/tableService";
 import { bookingService } from "../../services/bookingService";
+import { removeVietnameseTones } from "../../utils/string";
 import {
   Building2,
   LayoutGrid,
@@ -18,6 +19,7 @@ import {
   Plus,
   Lock,
   Unlock,
+  Trash2,
 } from "lucide-react";
 
 const TABLE_STATUS = {
@@ -48,15 +50,6 @@ const STATUS_DOT = {
 };
 
 //hàm sắp xếp khu vực
-const removeVietnameseTones = (str = "") =>
-  String(str)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .toLowerCase()
-    .trim();
-
 const getAreaPriority = (area) => {
   const name = removeVietnameseTones(area.name);
 
@@ -169,6 +162,7 @@ function AdminTablesPage() {
     name: "",
     description: "",
   });
+  const [deleteConfirmArea, setDeleteConfirmArea] = useState(null);
 
   const [isAddingTable, setIsAddingTable] = useState(false);
   const [tableForm, setTableForm] = useState({
@@ -244,9 +238,11 @@ function AdminTablesPage() {
     loadTableLayout();
 
     window.addEventListener("tablesUpdated", loadTableLayout);
+    window.addEventListener("areasUpdated", loadTableLayout);
 
     return () => {
       window.removeEventListener("tablesUpdated", loadTableLayout);
+      window.removeEventListener("areasUpdated", loadTableLayout);
     };
   }, []);
 
@@ -358,22 +354,19 @@ function AdminTablesPage() {
   const displayTables = tables.map(syncTableWithBooking);
 
   const filteredTables = useMemo(() => {
-    const keyword = String(globalSearch || search)
-      .toLowerCase()
-      .trim();
+    const rawKeyword = String(globalSearch || search).trim();
+    const keyword = removeVietnameseTones(rawKeyword);
 
     return displayTables.filter((table) => {
+      const cleanCode = removeVietnameseTones(table.code);
+      const cleanAreaName = removeVietnameseTones(table.areaName);
+      const cleanDesc = removeVietnameseTones(table.description);
+
       const matchSearch =
         !keyword ||
-        String(table.code || "")
-          .toLowerCase()
-          .includes(keyword) ||
-        String(table.areaName || "")
-          .toLowerCase()
-          .includes(keyword) ||
-        String(table.description || "")
-          .toLowerCase()
-          .includes(keyword);
+        cleanCode.includes(keyword) ||
+        cleanAreaName.includes(keyword) ||
+        cleanDesc.includes(keyword);
 
       const matchArea =
         areaFilter === "all" || String(table.areaId) === String(areaFilter);
@@ -479,6 +472,8 @@ function AdminTablesPage() {
         title: "Thêm khu vực thành công",
         message: `Đã thêm khu vực ${savedArea.name}.`,
       });
+      window.dispatchEvent(new Event("areasUpdated"));
+      window.dispatchEvent(new Event("tablesUpdated"));
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể thêm khu vực.");
@@ -558,9 +553,30 @@ function AdminTablesPage() {
         title: "Cập nhật khu vực thành công",
         message: `Đã cập nhật khu vực ${updatedArea.name}.`,
       });
+      window.dispatchEvent(new Event("areasUpdated"));
+      window.dispatchEvent(new Event("tablesUpdated"));
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể cập nhật khu vực.");
+    }
+  };
+
+  const handleDeleteArea = async (id, name) => {
+    try {
+      await tableService.deleteArea(id);
+      showAdminToast({
+        title: "Xóa khu vực thành công",
+        message: `Đã xóa khu vực ${name} và không gian tương ứng.`,
+      });
+      // reload lists
+      await loadTableLayout();
+      window.dispatchEvent(new Event("areasUpdated"));
+      window.dispatchEvent(new Event("tablesUpdated"));
+      setEditingArea(null);
+      setDeleteConfirmArea(null);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể xóa khu vực.");
     }
   };
 
@@ -621,6 +637,7 @@ function AdminTablesPage() {
         title: "Thêm bàn thành công",
         message: `Đã thêm bàn ${savedTable.code}.`,
       });
+      window.dispatchEvent(new Event("tablesUpdated"));
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể thêm bàn.");
@@ -667,6 +684,7 @@ function AdminTablesPage() {
         title: "Cập nhật bàn thành công",
         message: `Đã cập nhật bàn ${updatedTable.code}.`,
       });
+      window.dispatchEvent(new Event("tablesUpdated"));
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể cập nhật bàn.");
@@ -693,6 +711,7 @@ function AdminTablesPage() {
         title: "Cập nhật trạng thái bàn thành công",
         message: `Đã chuyển bàn ${updatedTable.code} sang "${TABLE_STATUS[status]}".`,
       });
+      window.dispatchEvent(new Event("tablesUpdated"));
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể cập nhật trạng thái bàn.");
@@ -2072,19 +2091,65 @@ function AdminTablesPage() {
               </div>
             </div>
 
-            <div className="px-6 py-5 border-t border-gray-100 flex justify-end gap-3">
+            <div className="px-6 py-5 border-t border-gray-100 flex items-center justify-between gap-2.5">
               <button
-                onClick={() => setEditingArea(null)}
-                className="h-11 px-5 rounded-xl bg-gray-100 text-gray-600 font-black hover:bg-gray-200"
+                type="button"
+                onClick={() => setDeleteConfirmArea(editingArea)}
+                className="h-10 px-3.5 rounded-xl bg-red-50 text-red-600 font-bold hover:bg-red-100 transition inline-flex items-center justify-center gap-1.5 text-xs whitespace-nowrap shrink-0"
               >
-                Đóng
+                <Trash2 size={14} />
+                Xóa khu vực
               </button>
 
+              <div className="flex gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setEditingArea(null)}
+                  className="h-10 px-4 rounded-xl bg-gray-100 text-gray-600 font-bold hover:bg-gray-200 text-xs whitespace-nowrap"
+                >
+                  Đóng
+                </button>
+
+                <button
+                  type="button"
+                  onClick={saveEditArea}
+                  className="h-10 px-4 rounded-xl bg-green-800 text-white font-bold hover:bg-green-900 text-xs whitespace-nowrap"
+                >
+                  Lưu thay đổi
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom centered Delete Confirmation Modal for Area */}
+      {deleteConfirmArea && (
+        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-2xl p-6 max-w-sm w-full text-center space-y-4 animate-[scaleIn_0.2s_ease-out]">
+            <div className="w-16 h-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto shadow-inner">
+              <Trash2 size={28} />
+            </div>
+            <div>
+              <h4 className="font-black text-gray-900 text-base">Xác nhận xóa khu vực</h4>
+              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                Bạn có chắc chắn muốn xóa khu vực <span className="font-bold text-gray-800">"{deleteConfirmArea.name}"</span>? Hành động này sẽ xóa đồng thời không gian tương ứng và không thể khôi phục.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
               <button
-                onClick={saveEditArea}
-                className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+                type="button"
+                onClick={() => setDeleteConfirmArea(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition"
               >
-                Lưu thay đổi
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteArea(deleteConfirmArea.id, deleteConfirmArea.name)}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition shadow-sm"
+              >
+                Xác nhận xóa
               </button>
             </div>
           </div>

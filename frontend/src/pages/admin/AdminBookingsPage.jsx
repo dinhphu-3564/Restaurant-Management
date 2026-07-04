@@ -3,6 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { tableService } from "../../services/tableService";
 import { bookingService } from "../../services/bookingService";
 import { showAdminToast } from "../../components/admin/AdminToast";
+import { removeVietnameseTones } from "../../utils/string";
 import {
   CalendarCheck,
   Clock3,
@@ -61,15 +62,6 @@ function AdminBookingsPage() {
     disabled: "Ngừng sử dụng",
   };
 
-  const removeVietnameseTones = (str = "") =>
-    String(str)
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/đ/g, "d")
-      .replace(/Đ/g, "D")
-      .toLowerCase()
-      .trim();
-
   const getAreaPriority = (area) => {
     const name = removeVietnameseTones(area.name || area.title || "");
 
@@ -117,6 +109,9 @@ function AdminBookingsPage() {
   const [editingBooking, setEditingBooking] = useState(null);
   const [selectedBookingIds, setSelectedBookingIds] = useState([]);
   const [isAddingBooking, setIsAddingBooking] = useState(false);
+
+  // State quản lý custom modal xác nhận cho Booking
+  const [deleteConfirmBooking, setDeleteConfirmBooking] = useState(null); // { booking } hoặc { bulk: true } hoặc { bulkStatus: 'status_name' }
 
   const [addForm, setAddForm] = useState({
     customerName: "",
@@ -322,6 +317,8 @@ function AdminBookingsPage() {
           updatedBooking.bookingCode || `DB${updatedBooking.id}`
         } sang "${getStatusText(status)}".`,
       });
+      window.dispatchEvent(new Event("bookingsUpdated"));
+      window.dispatchEvent(new Event("tablesUpdated"));
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể cập nhật trạng thái đặt bàn.");
@@ -554,6 +551,8 @@ function AdminBookingsPage() {
           updatedBooking.bookingCode || `DB${updatedBooking.id}`
         }.`,
       });
+      window.dispatchEvent(new Event("bookingsUpdated"));
+      window.dispatchEvent(new Event("tablesUpdated"));
 
       setEditingBooking(null);
     } catch (error) {
@@ -562,13 +561,8 @@ function AdminBookingsPage() {
     }
   };
 
-  const deleteBooking = async (id) => {
-    const confirmDelete = window.confirm(
-      `Bạn có chắc muốn xóa lịch đặt bàn DB${id}?`,
-    );
-
-    if (!confirmDelete) return;
-
+  //hàm xóa đặt bàn thực hiện
+  const executeDeleteBooking = async (id) => {
     try {
       await bookingService.deleteBooking(id);
 
@@ -587,10 +581,20 @@ function AdminBookingsPage() {
         title: "Xóa đặt bàn thành công",
         message: `Đã xóa đặt bàn DB${id}.`,
       });
+      window.dispatchEvent(new Event("bookingsUpdated"));
+      window.dispatchEvent(new Event("tablesUpdated"));
     } catch (error) {
       console.error(error);
-      alert(error.message || "Không thể xóa đặt bàn.");
+      showAdminToast({
+        title: "Thất bại",
+        message: error.message || "Không thể xóa đặt bàn.",
+        type: "error",
+      });
     }
+  };
+
+  const deleteBooking = (id) => {
+    setDeleteConfirmBooking({ bookingId: id });
   };
 
   //checkbox từng dòng
@@ -617,33 +621,29 @@ function AdminBookingsPage() {
       setSelectedBookingIds((prev) => [...new Set([...prev, ...currentIds])]);
     }
   };
-  //hàm cập nhật trạng thái nhiều
-  const updateSelectedBookingsStatus = async (status) => {
-    if (selectedBookingIds.length === 0) return;
+
+  //hàm cập nhật trạng thái nhiều thực hiện
+  const executeUpdateSelectedBookingsStatus = async (status) => {
     if (status === "confirmed") {
       const selectedBookings = bookings.filter((booking) =>
         selectedBookingIds.includes(String(booking.id)),
       );
 
       const bookingsWithoutTable = selectedBookings.filter(
-        (booking) => !booking.selectedTable,
+         (booking) => !booking.selectedTable,
       );
 
       if (bookingsWithoutTable.length > 0) {
-        alert(
-          `Có ${bookingsWithoutTable.length} đặt bàn chưa được chọn bàn. Vui lòng chọn bàn trước khi xác nhận.`,
-        );
+        showAdminToast({
+          title: "Thất bại",
+          message: `Có ${bookingsWithoutTable.length} đặt bàn chưa được chọn bàn. Vui lòng chọn bàn trước khi xác nhận.`,
+          type: "error",
+        });
         return;
       }
     }
 
     const statusText = getStatusText(status);
-
-    const confirmUpdate = window.confirm(
-      `Bạn có chắc muốn chuyển ${selectedBookingIds.length} đặt bàn sang trạng thái "${statusText}"?`,
-    );
-
-    if (!confirmUpdate) return;
 
     try {
       const updatedBookings = await Promise.all(
@@ -674,24 +674,27 @@ function AdminBookingsPage() {
         title: "Cập nhật hàng loạt thành công",
         message: `Đã chuyển ${selectedBookingIds.length} đặt bàn sang trạng thái "${statusText}".`,
       });
+      window.dispatchEvent(new Event("bookingsUpdated"));
+      window.dispatchEvent(new Event("tablesUpdated"));
 
       setSelectedBookingIds([]);
     } catch (error) {
       console.error(error);
-      alert(error.message || "Không thể cập nhật trạng thái hàng loạt.");
+      showAdminToast({
+        title: "Thất bại",
+        message: error.message || "Không thể cập nhật trạng thái hàng loạt.",
+        type: "error",
+      });
     }
   };
 
-  //hàm xóa nhiều
-  const deleteSelectedBookings = async () => {
+  const updateSelectedBookingsStatus = (status) => {
     if (selectedBookingIds.length === 0) return;
+    setDeleteConfirmBooking({ bulkStatus: status });
+  };
 
-    const confirmDelete = window.confirm(
-      `Bạn có chắc muốn xóa ${selectedBookingIds.length} đặt bàn đã chọn?`,
-    );
-
-    if (!confirmDelete) return;
-
+  //hàm xóa nhiều thực hiện
+  const executeDeleteSelectedBookings = async () => {
     try {
       await Promise.all(
         selectedBookingIds.map((id) => bookingService.deleteBooking(id)),
@@ -711,12 +714,23 @@ function AdminBookingsPage() {
         title: "Xóa hàng loạt thành công",
         message: `Đã xóa ${selectedBookingIds.length} đặt bàn đã chọn.`,
       });
+      window.dispatchEvent(new Event("bookingsUpdated"));
+      window.dispatchEvent(new Event("tablesUpdated"));
 
       setSelectedBookingIds([]);
     } catch (error) {
       console.error(error);
-      alert(error.message || "Không thể xóa các đặt bàn đã chọn.");
+      showAdminToast({
+        title: "Thất bại",
+        message: error.message || "Không thể xóa các đặt bàn đã chọn.",
+        type: "error",
+      });
     }
+  };
+
+  const deleteSelectedBookings = () => {
+    if (selectedBookingIds.length === 0) return;
+    setDeleteConfirmBooking({ bulk: true });
   };
 
   const todayString = new Date().toISOString().split("T")[0];
@@ -984,6 +998,8 @@ function AdminBookingsPage() {
           savedBooking.bookingCode || `DB${savedBooking.id}`
         }.`,
       });
+      window.dispatchEvent(new Event("bookingsUpdated"));
+      window.dispatchEvent(new Event("tablesUpdated"));
 
       setAddForm({
         customerName: "",
@@ -2061,6 +2077,63 @@ function AdminBookingsPage() {
                 className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
               >
                 Tạo đặt bàn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Delete Confirmation Modal for Bookings */}
+      {deleteConfirmBooking && (
+        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-2xl p-6 max-w-sm w-full text-center space-y-4 animate-[scaleIn_0.2s_ease-out]">
+            <div className="w-16 h-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto shadow-inner">
+              <Trash2 size={28} />
+            </div>
+            <div>
+              <h4 className="font-black text-gray-900 text-base">
+                {deleteConfirmBooking.bulkStatus
+                  ? "Xác nhận cập nhật trạng thái"
+                  : deleteConfirmBooking.bulk
+                  ? "Xác nhận xóa hàng loạt"
+                  : "Xác nhận xóa đặt bàn"}
+              </h4>
+              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                {deleteConfirmBooking.bulkStatus
+                  ? `Bạn có chắc chắn muốn cập nhật trạng thái cho ${selectedBookingIds.length} đặt bàn đã chọn?`
+                  : deleteConfirmBooking.bulk
+                  ? `Bạn có chắc chắn muốn xóa ${selectedBookingIds.length} đặt bàn đã chọn? Hành động này không thể khôi phục.`
+                  : `Bạn có chắc chắn muốn xóa lịch đặt bàn DB${deleteConfirmBooking.bookingId}? Hành động này không thể khôi phục.`}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmBooking(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = deleteConfirmBooking;
+                  setDeleteConfirmBooking(null);
+                  if (target.bulkStatus) {
+                    executeUpdateSelectedBookingsStatus(target.bulkStatus);
+                  } else if (target.bulk) {
+                    executeDeleteSelectedBookings();
+                  } else {
+                    executeDeleteBooking(target.bookingId);
+                  }
+                }}
+                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition shadow-sm ${
+                  deleteConfirmBooking.bulkStatus
+                    ? "bg-green-700 hover:bg-green-800"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
+              >
+                {deleteConfirmBooking.bulkStatus ? "Xác nhận" : "Xác nhận xóa"}
               </button>
             </div>
           </div>

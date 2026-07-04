@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { showAdminToast } from "../../components/admin/AdminToast";
+import { removeVietnameseTones } from "../../utils/string";
 import {
   ShieldCheck,
   Crown,
@@ -278,17 +279,18 @@ function AdminRolesPage() {
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
-      const keyword = search.trim().toLowerCase();
+      const rawKeyword = String(search || "").trim();
+      const keyword = removeVietnameseTones(rawKeyword);
 
-      const name = String(user.name || user.fullName || "").toLowerCase();
-      const email = String(user.email || "").toLowerCase();
-      const phone = String(user.phone || "");
+      const cleanName = removeVietnameseTones(user.name || user.fullName);
+      const cleanEmail = removeVietnameseTones(user.email);
+      const cleanPhone = removeVietnameseTones(user.phone);
 
       const matchSearch =
         !keyword ||
-        name.includes(keyword) ||
-        email.includes(keyword) ||
-        phone.includes(keyword);
+        cleanName.includes(keyword) ||
+        cleanEmail.includes(keyword) ||
+        cleanPhone.includes(keyword);
 
       const matchStatus =
         statusFilter === "all" || user.status === statusFilter;
