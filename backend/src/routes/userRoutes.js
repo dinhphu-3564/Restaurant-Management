@@ -1,6 +1,6 @@
 const express = require("express");
 const db = require("../config/db");
-const { requireAuth, requireAdmin } = require("../middleware/authMiddleware");
+const { requireAuth, requireAdmin, requireManagerOrAdmin } = require("../middleware/authMiddleware");
 const { createActivityLog } = require("../utils/activityLog");
 
 const router = express.Router();
@@ -313,7 +313,7 @@ router.patch("/me", requireAuth, async (req, res) => {
 });
 
 // GET /api/users
-router.get("/", requireAuth, requireAdmin, async (req, res) => {
+router.get("/", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const search = String(req.query.search || "").trim();
     const status = String(req.query.status || "all").trim();
@@ -362,7 +362,7 @@ router.get("/", requireAuth, requireAdmin, async (req, res) => {
 });
 
 // GET /api/users/:id
-router.get("/:id", requireAuth, requireAdmin, async (req, res) => {
+router.get("/:id", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const rows = await getUserRows();
 

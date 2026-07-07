@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { clearAuthSession, getCurrentUser } from "../../utils/auth";
+import { canAccessAdminRoute } from "../../utils/permissions";
 
 const ROLE_TEXT = {
   admin: "Quản trị viên",
@@ -24,7 +25,7 @@ const ROLE_TEXT = {
   user: "Khách hàng",
 };
 
-function AdminSidebar() {
+function AdminSidebar({ notifications = [] }) {
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
 
@@ -66,7 +67,7 @@ function AdminSidebar() {
           name: "Thực đơn",
           path: "/admin/menu",
           icon: Utensils,
-          roles: ["admin", "manager"],
+          roles: ["admin", "manager", "staff"],
         },
         {
           name: "Bàn & Khu vực",
@@ -126,6 +127,12 @@ function AdminSidebar() {
           icon: ShieldCheck,
           roles: ["admin"],
         },
+        {
+          name: "Nhật ký",
+          path: "/admin/logs",
+          icon: ClipboardList,
+          roles: ["admin"],
+        },
       ],
     },
   ];
@@ -133,7 +140,7 @@ function AdminSidebar() {
   const visibleMenus = menus
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => item.roles.includes(currentRole)),
+      items: group.items.filter((item) => canAccessAdminRoute(currentUser, item.path)),
     }))
     .filter((group) => group.items.length > 0);
 
@@ -170,6 +177,11 @@ function AdminSidebar() {
             <div className="space-y-1.5">
               {group.items.map((item) => {
                 const Icon = item.icon;
+                const count = item.path === "/admin/orders"
+                  ? notifications.filter(n => n.type === "order").length
+                  : item.path === "/admin/bookings"
+                    ? notifications.filter(n => n.type === "booking").length
+                    : 0;
 
                 return (
                   <NavLink
@@ -187,7 +199,12 @@ function AdminSidebar() {
                     }
                   >
                     <Icon size={18} />
-                    <span>{item.name}</span>
+                    <span className="flex-1">{item.name}</span>
+                    {count > 0 && (
+                      <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center animate-pulse">
+                        {count}
+                      </span>
+                    )}
                   </NavLink>
                 );
               })}

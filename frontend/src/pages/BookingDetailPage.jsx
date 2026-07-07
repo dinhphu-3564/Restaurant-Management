@@ -151,6 +151,9 @@ function BookingDetailPage() {
       case "confirmed":
         return "bg-blue-100 text-blue-700 border-blue-200";
 
+      case "serving":
+        return "bg-indigo-100 text-indigo-700 border-indigo-200";
+
       case "completed":
         return "bg-green-100 text-green-700 border-green-200";
 
@@ -168,6 +171,9 @@ function BookingDetailPage() {
     switch (status) {
       case "confirmed":
         return "Nhà hàng đã xác nhận đặt bàn";
+
+      case "serving":
+        return "Bàn của bạn đang được phục vụ tại nhà hàng";
 
       case "completed":
         return "Lịch đặt bàn đã hoàn thành";
@@ -189,6 +195,9 @@ function BookingDetailPage() {
     switch (status) {
       case "confirmed":
         return "Đã xác nhận";
+
+      case "serving":
+        return "Đang phục vụ";
 
       case "completed":
         return "Hoàn thành";

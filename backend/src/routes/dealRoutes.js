@@ -6,6 +6,7 @@ const fs = require("fs");
 const db = require("../config/db");
 
 const router = express.Router();
+const { requireAuth, requireManagerOrAdmin } = require("../middleware/authMiddleware");
 
 const DEFAULT_SERVICE_CONDITION_ITEMS = {
   dinein: [],
@@ -209,7 +210,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/deals/upload
-router.post("/upload", uploadDealImage.single("image"), (req, res) => {
+router.post("/upload", requireAuth, requireManagerOrAdmin, uploadDealImage.single("image"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({
       success: false,
@@ -226,7 +227,7 @@ router.post("/upload", uploadDealImage.single("image"), (req, res) => {
 });
 
 // POST /api/deals
-router.post("/", async (req, res) => {
+router.post("/", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const deal = normalizeDealPayload(req.body);
 
@@ -346,7 +347,7 @@ router.post("/", async (req, res) => {
 });
 
 // PATCH /api/deals/:id
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const deal = normalizeDealPayload(req.body);
@@ -468,7 +469,7 @@ router.patch("/:id", async (req, res) => {
 });
 
 // DELETE /api/deals/:id
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -502,7 +503,7 @@ router.delete("/:id", async (req, res) => {
 });
 
 // POST /api/deals/recalculate-stats
-router.post("/recalculate-stats", async (req, res) => {
+router.post("/recalculate-stats", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const [deals] = await db.query(`
       SELECT *

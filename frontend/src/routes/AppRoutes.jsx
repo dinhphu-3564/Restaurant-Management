@@ -44,6 +44,7 @@ import AdminRevenuePage from "../pages/admin/AdminRevenuePage";
 import AdminTablesPage from "../pages/admin/AdminTablesPage";
 import AdminSpacesPage from "../pages/admin/AdminSpacesPage";
 import AdminRolesPage from "../pages/admin/AdminRolesPage";
+import AdminActivityLogsPage from "../pages/admin/AdminActivityLogsPage";
 
 function MainLayout({ children }) {
   const location = useLocation();
@@ -253,6 +254,7 @@ function AppRoutes() {
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="revenue" element={<AdminRevenuePage />} />
           <Route path="roles" element={<AdminRolesPage />} />
+          <Route path="logs" element={<AdminActivityLogsPage />} />
         </Route>
         {/* 404 */}
         <Route

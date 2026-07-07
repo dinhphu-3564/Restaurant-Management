@@ -1320,6 +1320,9 @@ const getBookingStatusText = (status) => {
     case "confirmed":
       return "Đã xác nhận";
 
+    case "serving":
+      return "Đang phục vụ";
+
     case "completed":
       return "Hoàn thành";
 
@@ -1336,6 +1339,9 @@ const getBookingStatusStyle = (status) => {
   switch (status) {
     case "confirmed":
       return "bg-blue-50 text-blue-600";
+
+    case "serving":
+      return "bg-indigo-50 text-indigo-600";
 
     case "completed":
       return "bg-green-50 text-green-700";

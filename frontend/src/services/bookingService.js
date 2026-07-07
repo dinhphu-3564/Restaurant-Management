@@ -153,4 +153,32 @@ export const bookingService = {
 
     return data;
   },
+
+  async updateBookingItems(id, cartItems) {
+    const res = await fetch(`${API_URL}/admin/${id}/items`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify({ cartItems }),
+    });
+
+    const data = await handleResponse(res);
+
+    window.dispatchEvent(new Event("bookingsUpdated"));
+
+    return data.booking;
+  },
+
+  async confirmBookingPayment(id, paymentData) {
+    const res = await fetch(`${API_URL}/admin/${id}/payment`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify(paymentData),
+    });
+
+    const data = await handleResponse(res);
+
+    window.dispatchEvent(new Event("bookingsUpdated"));
+
+    return data.booking;
+  },
 };

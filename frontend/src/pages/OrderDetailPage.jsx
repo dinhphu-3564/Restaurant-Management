@@ -204,6 +204,7 @@ function OrderDetailPage() {
     pending: "Chờ thanh toán",
     paid_pending_confirm: "Đã thanh toán",
     paid: "Đã thanh toán",
+    partial: "Thanh toán một phần",
   };
 
   const getPaymentStatusText = (order) => {
@@ -219,6 +220,7 @@ function OrderDetailPage() {
 
     if (text === "Đã thanh toán") return "text-green-700";
     if (text === "Chưa thanh toán") return "text-red-500";
+    if (text === "Thanh toán một phần") return "text-orange-500";
 
     return "text-orange-500";
   };
@@ -582,6 +584,27 @@ function OrderDetailPage() {
                   >
                     {paymentStatusText}
                   </p>
+                  
+                  {order.remainingAmount > 0 && order.totalPaid > 0 && (
+                    <div className="mt-4 pt-4 border-t border-green-200 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-bold text-green-800">Đã thanh toán</span>
+                        <span className="font-black text-green-900">{formatPrice(order.totalPaid)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="font-bold text-red-600">Còn thiếu</span>
+                        <span className="font-black text-red-600">{formatPrice(order.remainingAmount)}</span>
+                      </div>
+                    </div>
+                  )}
+                  {order.remainingAmount > 0 && order.totalPaid === 0 && (
+                    <div className="mt-4 pt-4 border-t border-green-200 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-bold text-red-600">Còn thiếu</span>
+                        <span className="font-black text-red-600">{formatPrice(order.remainingAmount || order.total)}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

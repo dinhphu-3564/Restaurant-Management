@@ -1,8 +1,10 @@
 const express = require("express");
 const db = require("../config/db");
+const { getIO } = require("../config/socket");
 const {
   requireAuth,
   requireBackOffice,
+  requireManagerOrAdmin,
 } = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -60,6 +62,13 @@ const mapBooking = (row) => ({
   total: Number(row.total || 0),
   totalQty: Number(row.total_qty || 0),
 
+  paymentMethod: row.payment_method || null,
+  paymentStatus: row.payment_status || "unpaid",
+  paidAt: row.paid_at || null,
+
+  couponCode: row.coupon_code || null,
+  discountAmount: Number(row.discount_amount || 0),
+
   status: row.status,
 
   createdBy: row.created_by,
@@ -75,6 +84,7 @@ const hasTableConflict = async ({
   date,
   selectedTable,
   excludeBookingId = null,
+  conn = db
 }) => {
   if (!date || !selectedTable) return false;
 
@@ -86,7 +96,7 @@ const hasTableConflict = async ({
     params.push(excludeBookingId);
   }
 
-  const [rows] = await db.query(
+  const [rows] = await conn.query(
     `
     SELECT id
     FROM bookings
@@ -96,6 +106,7 @@ const hasTableConflict = async ({
       AND status IN ('pending', 'confirmed')
       ${excludeSql}
     LIMIT 1
+    FOR UPDATE
     `,
     params,
   );
@@ -104,7 +115,7 @@ const hasTableConflict = async ({
 };
 
 //hàm kiểm tra sức chứa bàn
-const validateTableCapacity = async ({ selectedTable, guests }) => {
+const validateTableCapacity = async ({ selectedTable, guests, conn = db }) => {
   if (!selectedTable) return null;
 
   const guestCount = Number(guests || 0);
@@ -115,7 +126,7 @@ const validateTableCapacity = async ({ selectedTable, guests }) => {
     throw error;
   }
 
-  const [rows] = await db.query(
+  const [rows] = await conn.query(
     `
     SELECT
       t.id,
@@ -129,6 +140,7 @@ const validateTableCapacity = async ({ selectedTable, guests }) => {
     WHERE t.table_code = ?
       AND t.deleted_at IS NULL
     LIMIT 1
+    FOR UPDATE
     `,
     [selectedTable],
   );
@@ -162,7 +174,10 @@ const validateTableCapacity = async ({ selectedTable, guests }) => {
 // POST /api/bookings
 // Người dùng tạo đặt bàn
 router.post("/", requireAuth, async (req, res) => {
+  const conn = await db.getConnection();
   try {
+    await conn.beginTransaction();
+
     const customerName = String(
       req.body.customerName || req.body.name || "",
     ).trim();
@@ -176,6 +191,7 @@ router.post("/", requireAuth, async (req, res) => {
     const selectedTable = String(req.body.selectedTable || "").trim();
 
     if (!customerName || !phone || !date || !time || !guests) {
+      await conn.rollback();
       return res.status(400).json({
         success: false,
         message:
@@ -187,14 +203,17 @@ router.post("/", requireAuth, async (req, res) => {
       await validateTableCapacity({
         selectedTable,
         guests,
+        conn,
       });
 
       const isConflict = await hasTableConflict({
         date,
         selectedTable,
+        conn,
       });
 
       if (isConflict) {
+        await conn.rollback();
         return res.status(409).json({
           success: false,
           message: "Bàn này đã có lịch đặt trong ngày đã chọn.",
@@ -202,7 +221,7 @@ router.post("/", requireAuth, async (req, res) => {
       }
     }
 
-    const [result] = await db.query(
+    const [result] = await conn.query(
       `
       INSERT INTO bookings (
         user_id,
@@ -255,7 +274,7 @@ router.post("/", requireAuth, async (req, res) => {
 
     const bookingCode = `DB${String(result.insertId).padStart(5, "0")}`;
 
-    await db.query(
+    await conn.query(
       `
       UPDATE bookings
       SET booking_code = ?
@@ -264,7 +283,7 @@ router.post("/", requireAuth, async (req, res) => {
       [bookingCode, result.insertId],
     );
 
-    const [rows] = await db.query(
+    const [rows] = await conn.query(
       `
       SELECT *
       FROM bookings
@@ -274,12 +293,17 @@ router.post("/", requireAuth, async (req, res) => {
       [result.insertId],
     );
 
+    await conn.commit();
+    try {
+      getIO().emit("table_updated", { source: "booking_created" });
+    } catch(err) { console.error("Emit error:", err); }
     res.status(201).json({
       success: true,
       message: "Đặt bàn thành công.",
       booking: mapBooking(rows[0]),
     });
   } catch (error) {
+    await conn.rollback();
     console.error("Lỗi tạo đặt bàn:", error);
 
     res.status(error.statusCode || 500).json({
@@ -287,6 +311,8 @@ router.post("/", requireAuth, async (req, res) => {
       message: error.statusCode ? error.message : "Lỗi server khi tạo đặt bàn.",
       error: error.message,
     });
+  } finally {
+    conn.release();
   }
 });
 
@@ -482,7 +508,10 @@ router.get("/admin", requireAuth, requireBackOffice, async (req, res) => {
 // POST /api/bookings/admin
 // Admin tạo đặt bàn
 router.post("/admin", requireAuth, requireBackOffice, async (req, res) => {
+  const conn = await db.getConnection();
   try {
+    await conn.beginTransaction();
+
     const customerName = String(req.body.customerName || "").trim();
     const phone = String(req.body.phone || "").trim();
     const date = String(req.body.date || "").trim();
@@ -491,6 +520,7 @@ router.post("/admin", requireAuth, requireBackOffice, async (req, res) => {
     const guests = Number(req.body.guests || 1);
 
     if (!customerName || !phone || !date || !time) {
+      await conn.rollback();
       return res.status(400).json({
         success: false,
         message: "Vui lòng nhập đủ tên, số điện thoại, ngày và giờ.",
@@ -505,14 +535,17 @@ router.post("/admin", requireAuth, requireBackOffice, async (req, res) => {
       await validateTableCapacity({
         selectedTable,
         guests,
+        conn,
       });
 
       const isConflict = await hasTableConflict({
         date,
         selectedTable,
+        conn,
       });
 
       if (isConflict) {
+        await conn.rollback();
         return res.status(409).json({
           success: false,
           message: "Bàn này đã có lịch đặt trong ngày đã chọn.",
@@ -520,7 +553,7 @@ router.post("/admin", requireAuth, requireBackOffice, async (req, res) => {
       }
     }
 
-    const [result] = await db.query(
+    const [result] = await conn.query(
       `
       INSERT INTO bookings (
         source,
@@ -549,25 +582,20 @@ router.post("/admin", requireAuth, requireBackOffice, async (req, res) => {
       [
         "admin_page",
         req.body.type || "table_only",
-
         customerName,
         phone,
         req.body.email || null,
-
         date,
         time,
         guests,
-
         req.body.selectedArea || null,
         req.body.selectedAreaTitle || null,
         selectedTable || null,
-
         req.body.note || null,
         toJsonString(req.body.cartItems || []),
         Number(req.body.subtotal || 0),
         Number(req.body.total || 0),
         Number(req.body.totalQty || 0),
-
         status,
         req.user.name || "admin",
         selectedTable ? new Date() : null,
@@ -576,7 +604,7 @@ router.post("/admin", requireAuth, requireBackOffice, async (req, res) => {
 
     const bookingCode = `DB${String(result.insertId).padStart(5, "0")}`;
 
-    await db.query(
+    await conn.query(
       `
       UPDATE bookings
       SET booking_code = ?
@@ -585,7 +613,7 @@ router.post("/admin", requireAuth, requireBackOffice, async (req, res) => {
       [bookingCode, result.insertId],
     );
 
-    const [rows] = await db.query(
+    const [rows] = await conn.query(
       `
       SELECT *
       FROM bookings
@@ -595,12 +623,17 @@ router.post("/admin", requireAuth, requireBackOffice, async (req, res) => {
       [result.insertId],
     );
 
+    await conn.commit();
+    try {
+      getIO().emit("table_updated", { source: "booking_admin_created" });
+    } catch(err) { console.error("Emit error:", err); }
     res.status(201).json({
       success: true,
       message: "Tạo đặt bàn thành công.",
       booking: mapBooking(rows[0]),
     });
   } catch (error) {
+    await conn.rollback();
     console.error("Lỗi admin tạo đặt bàn:", error);
 
     res.status(error.statusCode || 500).json({
@@ -608,27 +641,33 @@ router.post("/admin", requireAuth, requireBackOffice, async (req, res) => {
       message: error.statusCode ? error.message : "Lỗi server khi tạo đặt bàn.",
       error: error.message,
     });
+  } finally {
+    conn.release();
   }
 });
 
 // PATCH /api/bookings/admin/:id
 // Admin sửa đặt bàn
 router.patch("/admin/:id", requireAuth, requireBackOffice, async (req, res) => {
+  const conn = await db.getConnection();
   try {
+    await conn.beginTransaction();
     const bookingId = Number(req.params.id);
 
-    const [currentRows] = await db.query(
+    const [currentRows] = await conn.query(
       `
       SELECT *
       FROM bookings
       WHERE id = ?
         AND deleted_at IS NULL
       LIMIT 1
+      FOR UPDATE
       `,
       [bookingId],
     );
 
     if (currentRows.length === 0) {
+      await conn.rollback();
       return res.status(404).json({
         success: false,
         message: "Không tìm thấy đặt bàn.",
@@ -650,15 +689,18 @@ router.patch("/admin/:id", requireAuth, requireBackOffice, async (req, res) => {
       await validateTableCapacity({
         selectedTable: nextTable,
         guests: nextGuests,
+        conn,
       });
 
       const isConflict = await hasTableConflict({
         date: nextDate,
         selectedTable: nextTable,
         excludeBookingId: bookingId,
+        conn,
       });
 
       if (isConflict) {
+        await conn.rollback();
         return res.status(409).json({
           success: false,
           message: "Bàn này đã có lịch đặt trong ngày đã chọn.",
@@ -666,7 +708,7 @@ router.patch("/admin/:id", requireAuth, requireBackOffice, async (req, res) => {
       }
     }
 
-    await db.query(
+    await conn.query(
       `
       UPDATE bookings
       SET
@@ -698,7 +740,7 @@ router.patch("/admin/:id", requireAuth, requireBackOffice, async (req, res) => {
       ],
     );
 
-    const [rows] = await db.query(
+    const [rows] = await conn.query(
       `
       SELECT *
       FROM bookings
@@ -708,12 +750,17 @@ router.patch("/admin/:id", requireAuth, requireBackOffice, async (req, res) => {
       [bookingId],
     );
 
+    await conn.commit();
+    try {
+      getIO().emit("table_updated", { source: "booking_admin_updated" });
+    } catch(err) { console.error("Emit error:", err); }
     res.json({
       success: true,
       message: "Cập nhật đặt bàn thành công.",
       booking: mapBooking(rows[0]),
     });
   } catch (error) {
+    await conn.rollback();
     console.error("Lỗi cập nhật đặt bàn:", error);
 
     res.status(error.statusCode || 500).json({
@@ -723,6 +770,8 @@ router.patch("/admin/:id", requireAuth, requireBackOffice, async (req, res) => {
         : "Lỗi server khi cập nhật đặt bàn.",
       error: error.message,
     });
+  } finally {
+    conn.release();
   }
 });
 
@@ -733,29 +782,35 @@ router.patch(
   requireAuth,
   requireBackOffice,
   async (req, res) => {
+    const conn = await db.getConnection();
     try {
+      await conn.beginTransaction();
+
       const bookingId = Number(req.params.id);
       const status = String(req.body.status || "").trim();
 
       if (!ALLOWED_STATUSES.includes(status)) {
+        await conn.rollback();
         return res.status(400).json({
           success: false,
           message: "Trạng thái đặt bàn không hợp lệ.",
         });
       }
 
-      const [currentRows] = await db.query(
+      const [currentRows] = await conn.query(
         `
         SELECT *
         FROM bookings
         WHERE id = ?
           AND deleted_at IS NULL
         LIMIT 1
+        FOR UPDATE
         `,
         [bookingId],
       );
 
       if (currentRows.length === 0) {
+        await conn.rollback();
         return res.status(404).json({
           success: false,
           message: "Không tìm thấy đặt bàn.",
@@ -768,15 +823,18 @@ router.patch(
         await validateTableCapacity({
           selectedTable: current.selected_table,
           guests: current.guests,
+          conn,
         });
 
         const isConflict = await hasTableConflict({
           date: current.booking_date,
           selectedTable: current.selected_table,
           excludeBookingId: bookingId,
+          conn,
         });
 
         if (isConflict) {
+          await conn.rollback();
           return res.status(409).json({
             success: false,
             message: "Bàn này đã có lịch đặt trong ngày đã chọn.",
@@ -784,7 +842,7 @@ router.patch(
         }
       }
 
-      await db.query(
+      await conn.query(
         `
         UPDATE bookings
         SET status = ?, updated_at = NOW()
@@ -794,7 +852,7 @@ router.patch(
         [status, bookingId],
       );
 
-      const [rows] = await db.query(
+      const [rows] = await conn.query(
         `
         SELECT *
         FROM bookings
@@ -804,12 +862,17 @@ router.patch(
         [bookingId],
       );
 
+      await conn.commit();
+      try {
+        getIO().emit("table_updated", { source: "booking_status_updated" });
+      } catch(err) { console.error("Emit error:", err); }
       res.json({
         success: true,
         message: "Cập nhật trạng thái đặt bàn thành công.",
         booking: mapBooking(rows[0]),
       });
     } catch (error) {
+      await conn.rollback();
       console.error("Lỗi cập nhật trạng thái đặt bàn:", error);
 
       res.status(error.statusCode || 500).json({
@@ -819,6 +882,8 @@ router.patch(
           : "Lỗi server khi cập nhật trạng thái đặt bàn.",
         error: error.message,
       });
+    } finally {
+      conn.release();
     }
   },
 );
@@ -828,7 +893,7 @@ router.patch(
 router.delete(
   "/admin/:id",
   requireAuth,
-  requireBackOffice,
+  requireManagerOrAdmin,
   async (req, res) => {
     try {
       const bookingId = Number(req.params.id);
@@ -854,6 +919,141 @@ router.delete(
       res.status(500).json({
         success: false,
         message: "Lỗi server khi xóa đặt bàn.",
+        error: error.message,
+      });
+    }
+  },
+);
+
+// PATCH /api/bookings/admin/:id/items
+// Cập nhật danh sách món ăn đã đặt của đặt bàn
+router.patch(
+  "/admin/:id/items",
+  requireAuth,
+  requireBackOffice,
+  async (req, res) => {
+    try {
+      const bookingId = Number(req.params.id);
+      const cartItems = req.body.cartItems || [];
+
+      let totalQty = 0;
+      let subtotal = 0;
+      cartItems.forEach((item) => {
+        totalQty += Number(item.qty || 0);
+        subtotal += Number(item.price || 0) * Number(item.qty || 0);
+      });
+      const total = subtotal;
+
+      await db.query(
+        `
+        UPDATE bookings
+        SET
+          cart_items = ?,
+          subtotal = ?,
+          total = ?,
+          total_qty = ?,
+          updated_at = NOW()
+        WHERE id = ?
+          AND deleted_at IS NULL
+        `,
+        [JSON.stringify(cartItems), subtotal, total, totalQty, bookingId],
+      );
+
+      const [rows] = await db.query(
+        `
+        SELECT *
+        FROM bookings
+        WHERE id = ?
+          AND deleted_at IS NULL
+        LIMIT 1
+        `,
+        [bookingId],
+      );
+
+      if (rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy đặt bàn để cập nhật món ăn.",
+        });
+      }
+
+      res.json({
+        success: true,
+        booking: mapBooking(rows[0]),
+      });
+    } catch (error) {
+      console.error("Lỗi cập nhật món ăn đặt bàn:", error);
+      res.status(500).json({
+        success: false,
+        message: "Lỗi server khi cập nhật món ăn.",
+        error: error.message,
+      });
+    }
+  },
+);
+
+// PATCH /api/bookings/admin/:id/payment
+// Xác nhận thanh toán đặt bàn
+router.patch(
+  "/admin/:id/payment",
+  requireAuth,
+  requireBackOffice,
+  async (req, res) => {
+    try {
+      const bookingId = Number(req.params.id);
+      const { paymentMethod, paymentStatus, couponCode, discountAmount, total } = req.body;
+
+      await db.query(
+        `
+        UPDATE bookings
+        SET
+          payment_method = ?,
+          payment_status = ?,
+          paid_at = ?,
+          coupon_code = ?,
+          discount_amount = ?,
+          total = ?
+        WHERE id = ?
+          AND deleted_at IS NULL
+        `,
+        [
+          paymentMethod || null,
+          paymentStatus || "unpaid",
+          paymentStatus === "paid" ? new Date() : null,
+          couponCode || null,
+          Number(discountAmount || 0),
+          Number(total || 0),
+          bookingId,
+        ],
+      );
+
+      const [rows] = await db.query(
+        `
+        SELECT *
+        FROM bookings
+        WHERE id = ?
+          AND deleted_at IS NULL
+        LIMIT 1
+        `,
+        [bookingId],
+      );
+
+      if (rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy đặt bàn để cập nhật thanh toán.",
+        });
+      }
+
+      res.json({
+        success: true,
+        booking: mapBooking(rows[0]),
+      });
+    } catch (error) {
+      console.error("Lỗi xác nhận thanh toán:", error);
+      res.status(500).json({
+        success: false,
+        message: "Lỗi server khi xác nhận thanh toán.",
         error: error.message,
       });
     }

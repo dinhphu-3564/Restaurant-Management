@@ -665,9 +665,9 @@ function CheckoutPage() {
                       source: "checkout_page",
                       type: "table_with_order",
 
-                      customerName,
-                      name: customerName,
-                      phone,
+                      customerName: customerName || currentUser.name || currentUser.fullName || "",
+                      name: customerName || currentUser.name || currentUser.fullName || "",
+                      phone: phone || currentUser.phone || "",
                       email: currentUser.email || "",
 
                       date,
@@ -744,10 +744,9 @@ function CheckoutPage() {
                     id: orderId,
 
                     userId: currentUser.id || "",
-                    customerName:
-                      currentUser.name || currentUser.fullName || customerName,
+                    customerName: customerName || currentUser.name || currentUser.fullName || "",
                     email: currentUser.email || "",
-                    phone: currentUser.phone || phone,
+                    phone: phone || currentUser.phone || "",
 
                     cartItems: normalizedCartItems,
                     serviceType,

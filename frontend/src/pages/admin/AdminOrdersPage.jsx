@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import { showAdminToast } from "../../components/admin/AdminToast";
 import { removeVietnameseTones } from "../../utils/string";
+import { getCurrentUser, getAuthToken } from "../../utils/auth";
+import { socket } from "../../utils/socket";
 import * as XLSX from "xlsx-js-style";
 import { saveAs } from "file-saver";
 import {
@@ -24,12 +26,6 @@ import {
 } from "lucide-react";
 
 const API_URL = "http://localhost:5001/api/orders";
-const getAuthToken = () => {
-  return (
-    localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
-  );
-};
-
 const getAuthHeaders = () => {
   const token = getAuthToken();
 
@@ -41,6 +37,7 @@ const getAuthHeaders = () => {
 };
 
 function AdminOrdersPage() {
+  const currentUser = getCurrentUser();
   const {
     setExportExcelHandler,
     globalSearch,
@@ -49,14 +46,24 @@ function AdminOrdersPage() {
     dateLabel,
   } = useOutletContext();
 
+  const [searchParams] = useSearchParams();
+  const initialStatus = searchParams.get("status") || "all";
+
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [serviceType, setServiceType] = useState("all");
   const [paymentMethod, setPaymentMethod] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    const statusParam = searchParams.get("status");
+    if (statusParam) {
+      setStatusFilter(statusParam);
+    }
+  }, [searchParams]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [editingOrder, setEditingOrder] = useState(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
@@ -70,7 +77,7 @@ function AdminOrdersPage() {
     note: "",
   });
 
-  useEffect(() => {
+  const loadOrders = () => {
     fetch(API_URL, {
       headers: {
         ...getAuthHeaders(),
@@ -80,12 +87,57 @@ function AdminOrdersPage() {
       .then((data) => {
         if (data.success) {
           setOrders(data.orders);
+          const viewId = searchParams.get("view");
+          if (viewId) {
+            const orderToView = data.orders.find(
+              (o) => String(o.id) === String(viewId)
+            );
+            if (orderToView) {
+              setSelectedOrder(orderToView);
+            }
+          }
         }
       })
       .catch((error) => {
         console.error("Không lấy được đơn hàng:", error);
       });
-  }, []);
+  };
+
+  useEffect(() => {
+    loadOrders();
+    
+    const handleOrderChange = () => {
+      loadOrders();
+    };
+
+    window.addEventListener("ordersUpdated", handleOrderChange);
+    socket.on("new_order", handleOrderChange);
+    socket.on("order_updated", handleOrderChange);
+
+    return () => {
+      window.removeEventListener("ordersUpdated", handleOrderChange);
+      socket.off("new_order", handleOrderChange);
+      socket.off("order_updated", handleOrderChange);
+    };
+  }, [searchParams]);
+
+  // Tự động cập nhật selectedOrder khi danh sách orders có thay đổi (vd: nhận socket)
+  useEffect(() => {
+    if (selectedOrder) {
+      const updatedOrder = orders.find((o) => String(o.id) === String(selectedOrder.id));
+      // Chỉ cập nhật nếu dữ liệu có thay đổi (tránh render vô tận)
+      if (updatedOrder && JSON.stringify(updatedOrder) !== JSON.stringify(selectedOrder)) {
+        if (updatedOrder.totalPaid > (selectedOrder.totalPaid || 0)) {
+           showAdminToast({
+             title: "Thanh toán nhận được",
+             message: "Khách hàng vừa chuyển khoản cho đơn hàng này!",
+             type: "success"
+           });
+        }
+        setSelectedOrder(updatedOrder);
+      }
+    }
+  }, [orders, selectedOrder]);
 
   const formatPrice = (price) => {
     return Number(price || 0).toLocaleString("vi-VN") + "đ";
@@ -186,6 +238,23 @@ function AdminOrdersPage() {
         return "Sau bữa ăn";
       default:
         return "Chưa chọn";
+    }
+  };
+
+  const getPaymentStatusText = (status) => {
+    switch (status) {
+      case "paid":
+        return "Thành công";
+      case "partial":
+        return "Một phần";
+      case "pending":
+        return "Chờ thanh toán";
+      case "failed":
+        return "Thất bại";
+      case "refunded":
+        return "Đã hoàn tiền";
+      default:
+        return status || "Chưa xác định";
     }
   };
 
@@ -720,6 +789,18 @@ function AdminOrdersPage() {
 
   // hàm cập nhật trạng thái
   const updateOrderStatus = async (id, status) => {
+    if (status === "completed") {
+      const currentOrder = orders.find((o) => String(o.id) === String(id));
+      if (currentOrder && (currentOrder.remainingAmount > 0 || currentOrder.paymentStatus !== "paid")) {
+        showAdminToast({
+          title: "Không thể hoàn thành",
+          message: "Đơn hàng chưa thanh toán đủ số tiền. Vui lòng thanh toán phần còn thiếu trước khi hoàn thành.",
+          type: "error"
+        });
+        return;
+      }
+    }
+
     try {
       const res = await fetch(`${API_URL}/${id}`, {
         method: "PATCH",
@@ -736,7 +817,11 @@ function AdminOrdersPage() {
       const data = await res.json();
 
       if (!data.success) {
-        alert("Không thể cập nhật trạng thái đơn hàng.");
+        showAdminToast({
+          title: "Lỗi cập nhật",
+          message: data.message || "Không thể cập nhật trạng thái đơn hàng.",
+          type: "error"
+        });
         return;
       }
 
@@ -1311,15 +1396,17 @@ function AdminOrdersPage() {
                             <Pencil size={16} />
                           </button>
 
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              cancelOrderByTrash(order);
-                            }}
-                            className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 hover:scale-105 transition-all"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {currentUser?.role !== "staff" && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                cancelOrderByTrash(order);
+                              }}
+                              className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 hover:scale-105 transition-all"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1408,10 +1495,36 @@ function AdminOrdersPage() {
             getStatusStyle={getStatusStyle}
             getServiceText={getServiceText}
             getPaymentText={getPaymentText}
+            getPaymentStatusText={getPaymentStatusText}
             onClose={() => setSelectedOrder(null)}
             onChangeStatus={(status) =>
               updateOrderStatus(selectedOrder.id, status)
             }
+            onAddPayment={async (amount, method) => {
+              try {
+                const res = await fetch(
+                  `http://localhost:5001/api/orders/${selectedOrder.id}/payments`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${getAuthToken()}`,
+                    },
+                    body: JSON.stringify({ amount, paymentMethod: method }),
+                  }
+                );
+                const data = await res.json();
+                if (data.success) {
+                  showAdminToast({ title: "Thành công", description: "Đã thêm thanh toán.", type: "success" });
+                  setSelectedOrder(data.order);
+                  loadOrders();
+                } else {
+                  showAdminToast({ title: "Lỗi", description: data.message, type: "error" });
+                }
+              } catch (err) {
+                showAdminToast({ title: "Lỗi", description: "Lỗi kết nối", type: "error" });
+              }
+            }}
           />
         )}
       </div>
@@ -1662,10 +1775,38 @@ function OrderDetailPanel({
   getStatusStyle,
   getServiceText,
   getPaymentText,
+  getPaymentStatusText,
   onClose,
   onChangeStatus,
+  onAddPayment,
 }) {
   const foods = order.cartItems || order.items || [];
+  const [showPayForm, setShowPayForm] = useState(false);
+  const [payAmount, setPayAmount] = useState(order.remainingAmount || 0);
+  const [payMethod, setPayMethod] = useState("cash");
+  const [customerGivenStr, setCustomerGivenStr] = useState("");
+
+  // Reset states when order changes
+  useEffect(() => {
+    setPayAmount(order.remainingAmount || 0);
+    setShowPayForm(false);
+    setCustomerGivenStr("");
+  }, [order.id, order.remainingAmount]);
+
+  const handleCustomerGivenChange = (e) => {
+    // Chỉ lấy số
+    const val = e.target.value.replace(/\D/g, "");
+    if (!val) {
+      setCustomerGivenStr("");
+      return;
+    }
+    // Format dạng 1.000.000
+    setCustomerGivenStr(Number(val).toLocaleString("vi-VN"));
+  };
+
+  const customerGivenNumber = Number(customerGivenStr.replace(/\D/g, "")) || 0;
+  const changeAmount = Math.max(0, customerGivenNumber - (order.remainingAmount || 0));
+  const actualPayAmount = Math.min(customerGivenNumber, order.remainingAmount || 0);
 
   return (
     <aside className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden xl:sticky xl:top-4">
@@ -1752,6 +1893,119 @@ function OrderDetailPanel({
             </div>
           ) : (
             <p className="text-sm text-gray-400 font-bold">Chưa có món ăn.</p>
+          )}
+        </DetailBlock>
+
+        <DetailBlock title="Lịch sử thanh toán">
+          {order.payments && order.payments.length > 0 ? (
+            <div className="space-y-3">
+              {order.payments.map((p, idx) => (
+                <div key={p.id || idx} className="bg-gray-50 p-2 rounded text-sm flex justify-between items-center">
+                  <div>
+                    <p className="font-bold">{formatPrice(Number(p.amount))}</p>
+                    <p className="text-xs text-gray-500">{getPaymentText(p.payment_method)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-green-600 font-bold">{getPaymentStatusText(p.payment_status)}</p>
+                    <p className="text-xs text-gray-400">{formatDateTime(p.created_at)}</p>
+                  </div>
+                </div>
+              ))}
+              <div className="pt-2 border-t flex justify-between font-bold">
+                <span>Đã thanh toán:</span>
+                <span className="text-green-600">{formatPrice(order.totalPaid || 0)}</span>
+              </div>
+              <div className="flex justify-between font-bold">
+                <span>Còn lại:</span>
+                <span className="text-red-500">{formatPrice(order.remainingAmount || 0)}</span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 font-bold mb-2">Chưa có giao dịch thanh toán.</p>
+          )}
+
+          {order.remainingAmount > 0 && !showPayForm && (
+            <button
+              onClick={() => setShowPayForm(true)}
+              className="mt-2 w-full py-2 bg-indigo-50 text-indigo-700 font-bold rounded hover:bg-indigo-100 text-sm transition"
+            >
+              + Thêm thanh toán
+            </button>
+          )}
+
+          {showPayForm && (
+            <div className="mt-3 p-3 border border-indigo-100 rounded-lg bg-white space-y-3 shadow-sm">
+
+              <div>
+                <label className="text-xs font-bold text-gray-600 block mb-1">Phương thức</label>
+                <select
+                  value={payMethod}
+                  onChange={(e) => setPayMethod(e.target.value)}
+                  className="w-full border rounded p-1.5 text-sm"
+                >
+                  <option value="cash">Tiền mặt</option>
+                  <option value="bank">Chuyển khoản</option>
+                  <option value="momo">MoMo</option>
+                  <option value="vnpay">VNPay</option>
+                </select>
+              </div>
+
+              {payMethod === "cash" && (
+                <div className="space-y-3 mt-2 border-t pt-2">
+                  <div>
+                    <label className="text-xs font-bold text-gray-600 block mb-1">Khách đưa (VNĐ)</label>
+                    <input
+                      type="text"
+                      value={customerGivenStr}
+                      onChange={handleCustomerGivenChange}
+                      placeholder="VD: 500.000"
+                      className="w-full border rounded p-1.5 text-sm font-bold text-blue-600"
+                    />
+                  </div>
+                  {customerGivenStr && (
+                    <div className="flex justify-between font-bold text-sm bg-gray-50 p-2 rounded">
+                      <span className="text-gray-600">Tiền thừa trả khách:</span>
+                      <span className="text-orange-500">{formatPrice(changeAmount)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {payMethod === "bank" && (
+                <div className="flex flex-col items-center justify-center my-3 p-2 border border-gray-200 rounded-lg bg-gray-50">
+                  <p className="text-xs font-bold text-gray-600 mb-2">Quét mã QR để thanh toán phần còn thiếu</p>
+                  <img
+                    src={`https://qr.sepay.vn/img?bank=BIDV&acc=0000000002&template=compact&amount=${order.remainingAmount || 0}&des=${encodeURIComponent(order.paymentContent || (order.id ? `DH${String(order.id).replace(/\\D/g, "")}` : "DH1001"))}`}
+                    alt="Mã QR thanh toán"
+                    className="w-40 h-40 object-contain mix-blend-multiply"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-2 text-center">Hệ thống sẽ tự động xác nhận khi nhận được tiền chuyển khoản.</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 mt-2">
+                {payMethod === "cash" && (
+                  <button
+                    onClick={() => {
+                      if (customerGivenNumber <= 0) {
+                        alert("Vui lòng nhập số tiền khách đưa!");
+                        return;
+                      }
+                      onAddPayment(actualPayAmount, payMethod);
+                    }}
+                    className="flex-1 bg-indigo-600 text-white font-bold py-1.5 rounded text-sm hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    Xác nhận thu tiền
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowPayForm(false)}
+                  className="flex-1 bg-gray-100 text-gray-600 font-bold py-1.5 rounded text-sm hover:bg-gray-200"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
           )}
         </DetailBlock>
 

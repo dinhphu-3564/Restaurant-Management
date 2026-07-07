@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { showAdminToast } from "../../components/admin/AdminToast";
 import { removeVietnameseTones } from "../../utils/string";
+import { getCurrentUser, getAuthToken } from "../../utils/auth";
+import { canUseAction } from "../../utils/permissions";
 import {
   Gift,
   Eye,
@@ -51,9 +53,17 @@ const EMPTY_FORM = {
 
 const API_URL = "http://localhost:5001/api/deals";
 
+const authHeaders = (contentType = "application/json") => {
+  const token = getAuthToken();
+  return {
+    ...(contentType ? { "Content-Type": contentType } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
 function AdminDealsPage() {
   const { globalSearch, dateRange } = useOutletContext();
-
+  const currentUser = getCurrentUser();
   const [deals, setDeals] = useState([]);
 
   const [activeTab, setActiveTab] = useState("all");
@@ -316,9 +326,7 @@ function AdminDealsPage() {
       if (editingDeal) {
         const res = await fetch(`${API_URL}/${editingDeal.id}`, {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: authHeaders(),
           body: JSON.stringify(savedDeal),
         });
 
@@ -345,9 +353,7 @@ function AdminDealsPage() {
       } else {
         const res = await fetch(API_URL, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: authHeaders(),
           body: JSON.stringify(savedDeal),
         });
 
@@ -380,6 +386,7 @@ function AdminDealsPage() {
     try {
       const res = await fetch(`${API_URL}/${deal.id}`, {
         method: "DELETE",
+        headers: authHeaders(null),
       });
 
       const data = await res.json();
@@ -422,9 +429,7 @@ function AdminDealsPage() {
     try {
       const res = await fetch(`${API_URL}/${deal.id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: authHeaders(),
         body: JSON.stringify({
           ...deal,
           status: newStatus,
@@ -495,9 +500,7 @@ function AdminDealsPage() {
           .map(async (deal) => {
             const res = await fetch(`${API_URL}/${deal.id}`, {
               method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-              },
+              headers: authHeaders(),
               body: JSON.stringify({
                 ...deal,
                 status,
@@ -556,6 +559,7 @@ function AdminDealsPage() {
         selectedDealIds.map(async (id) => {
           const res = await fetch(`${API_URL}/${id}`, {
             method: "DELETE",
+            headers: authHeaders(null),
           });
 
           const data = await res.json();
@@ -920,6 +924,8 @@ function AdminDealsPage() {
                           <IconButton
                             icon={<Pencil size={16} />}
                             color="emerald"
+                            disabled={!canUseAction(currentUser, "promotions:update")}
+                            title={!canUseAction(currentUser, "promotions:update") ? "Bạn không có quyền thực hiện thao tác này." : ""}
                             onClick={(e) => {
                               e.stopPropagation();
                               openEditModal(deal);
@@ -935,6 +941,8 @@ function AdminDealsPage() {
                               )
                             }
                             color="orange"
+                            disabled={!canUseAction(currentUser, "promotions:update")}
+                            title={!canUseAction(currentUser, "promotions:update") ? "Bạn không có quyền thực hiện thao tác này." : ""}
                             onClick={(e) => {
                               e.stopPropagation();
                               togglePauseDeal(deal);
@@ -944,6 +952,8 @@ function AdminDealsPage() {
                           <IconButton
                             icon={<Trash2 size={16} />}
                             color="red"
+                            disabled={!canUseAction(currentUser, "promotions:delete")}
+                            title={!canUseAction(currentUser, "promotions:delete") ? "Bạn không có quyền thực hiện thao tác này." : ""}
                             onClick={(e) => {
                               e.stopPropagation();
                               deleteDeal(deal);
@@ -1369,6 +1379,7 @@ function DealFormModal({
 
       const res = await fetch(`${API_URL}/upload`, {
         method: "POST",
+        headers: authHeaders(null),
         body: formData,
       });
 
@@ -1865,7 +1876,7 @@ function SelectBox({ label, value, onChange, children, compact = false }) {
   );
 }
 
-function IconButton({ icon, color, onClick }) {
+function IconButton({ icon, color, onClick, disabled = false, title = "" }) {
   const colors = {
     green: "bg-green-50 text-green-700 hover:bg-green-100",
     emerald: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
@@ -1876,7 +1887,11 @@ function IconButton({ icon, color, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`w-8 h-8 rounded-lg flex items-center justify-center hover:scale-105 transition-all ${colors[color]}`}
+      disabled={disabled}
+      title={title}
+      className={`w-8 h-8 rounded-lg flex items-center justify-center hover:scale-105 transition-all ${
+        disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed opacity-50" : colors[color]
+      }`}
     >
       {icon}
     </button>

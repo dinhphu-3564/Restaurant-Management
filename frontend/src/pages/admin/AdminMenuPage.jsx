@@ -1,7 +1,9 @@
 import { useMemo, useState, useEffect } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import { showAdminToast } from "../../components/admin/AdminToast";
 import { removeVietnameseTones } from "../../utils/string";
+import { getCurrentUser, getAuthToken } from "../../utils/auth";
+import { canUseAction } from "../../utils/permissions";
 import {
   Utensils,
   CheckCircle,
@@ -16,8 +18,19 @@ import {
   Star,
 } from "lucide-react";
 
+const formatDateTime = (value) => {
+  if (!value) return "Chưa cập nhật";
+  // Nếu đã là chuỗi dd/mm/yyyy thì trả về nguyên
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(String(value))) return value;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return `${date.toLocaleDateString("vi-VN")} ${date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
+};
+
 function AdminMenuPage() {
   const { globalSearch, setHeaderAction } = useOutletContext();
+  const [searchParams] = useSearchParams();
+  const currentUser = getCurrentUser();
   const [selectedFood, setSelectedFood] = useState(null);
 
   const [addFormTab, setAddFormTab] = useState("description");
@@ -69,7 +82,12 @@ function AdminMenuPage() {
     try {
       setIsLoading(true);
 
-      const res = await fetch(API_URL);
+      const token = getAuthToken();
+      const res = await fetch(API_URL, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
       const result = await res.json();
 
       if (!result.success) {
@@ -77,7 +95,16 @@ function AdminMenuPage() {
         return;
       }
 
-      setFoods(result.data || []);
+      const foodData = result.data || [];
+      setFoods(foodData);
+
+      const viewId = searchParams.get("view");
+      if (viewId) {
+        const foodToView = foodData.find((f) => String(f.id) === String(viewId));
+        if (foodToView) {
+          setSelectedFood(foodToView);
+        }
+      }
     } catch (error) {
       console.error("Lỗi lấy danh sách món ăn:", error);
       alert("Không thể kết nối backend");
@@ -89,6 +116,16 @@ function AdminMenuPage() {
   useEffect(() => {
     fetchFoods();
   }, []);
+
+  useEffect(() => {
+    const viewId = searchParams.get("view");
+    if (viewId && foods.length > 0) {
+      const foodToView = foods.find((f) => String(f.id) === String(viewId));
+      if (foodToView) {
+        setSelectedFood(foodToView);
+      }
+    }
+  }, [searchParams, foods]);
 
   const formatPrice = (price) =>
     Number(price || 0).toLocaleString("vi-VN") + "đ";
@@ -269,8 +306,12 @@ function AdminMenuPage() {
         formData.append("images", file);
       });
 
+      const token = getAuthToken();
       const res = await fetch(`${API_URL}/upload`, {
         method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
         body: formData,
       });
 
@@ -367,6 +408,7 @@ function AdminMenuPage() {
           method: editingFood ? "PUT" : "POST",
           headers: {
             "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAuthToken()}`,
           },
           body: JSON.stringify(payload),
         },
@@ -413,10 +455,12 @@ function AdminMenuPage() {
     const nextStatus = food.status === "stopped" ? "selling" : "stopped";
 
     try {
+      const token = getAuthToken();
       const res = await fetch(`${API_URL}/${food.id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
           status: nextStatus,
@@ -467,8 +511,12 @@ function AdminMenuPage() {
   //hàm xóa món thực hiện
   const executeDeleteFood = async (food) => {
     try {
+      const token = getAuthToken();
       const res = await fetch(`${API_URL}/${food.id}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
       });
 
       const result = await res.json();
@@ -533,10 +581,12 @@ function AdminMenuPage() {
   // hàm xóa món hàng loạt thực hiện
   const executeDeleteSelectedFoods = async () => {
     try {
+      const token = getAuthToken();
       const res = await fetch(`${API_URL}/bulk/delete`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
           ids: selectedFoodIds,
@@ -590,10 +640,12 @@ function AdminMenuPage() {
     const updatedAt = new Date().toLocaleDateString("vi-VN");
 
     try {
+      const token = getAuthToken();
       const res = await fetch(`${API_URL}/bulk/stop`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
           ids: selectedFoodIds,
@@ -643,20 +695,22 @@ function AdminMenuPage() {
 
   //hàm thêm món ăn
   useEffect(() => {
-    setHeaderAction({
-      label: "Thêm món ăn",
-      onClick: () => {
-        setEditForm(emptyFoodForm);
-        setAddFormTab("description");
-        setShowOtherCategories(false);
-        setIsAddFoodOpen(true);
-      },
-    });
+    if (canUseAction(currentUser, "menu:create")) {
+      setHeaderAction({
+        label: "Thêm món ăn",
+        onClick: () => {
+          setEditForm(emptyFoodForm);
+          setAddFormTab("description");
+          setShowOtherCategories(false);
+          setIsAddFoodOpen(true);
+        },
+      });
+    }
 
     return () => {
       setHeaderAction(null);
     };
-  }, [setHeaderAction]);
+  }, [setHeaderAction, currentUser?.role]);
 
   return (
     <div className="space-y-5">
@@ -793,15 +847,27 @@ function AdminMenuPage() {
 
               <div className="flex items-center gap-2">
                 <button
+                  disabled={!canUseAction(currentUser, "menu:update")}
                   onClick={stopSelectedFoods}
-                  className="h-10 px-4 rounded-xl bg-orange-50 text-orange-600 border border-orange-100 text-sm font-black hover:bg-orange-100 transition"
+                  className={`h-10 px-4 rounded-xl text-sm font-black transition ${
+                    !canUseAction(currentUser, "menu:update")
+                      ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      : "bg-orange-50 text-orange-600 border border-orange-100 hover:bg-orange-100"
+                  }`}
+                  title={!canUseAction(currentUser, "menu:update") ? "Bạn không có quyền chỉnh sửa món ăn." : ""}
                 >
                   Ngừng bán
                 </button>
 
                 <button
+                  disabled={!canUseAction(currentUser, "menu:delete")}
                   onClick={deleteSelectedFoods}
-                  className="h-10 px-4 rounded-xl bg-red-50 text-red-600 border border-red-100 text-sm font-black hover:bg-red-100 transition"
+                  className={`h-10 px-4 rounded-xl text-sm font-black transition ${
+                    !canUseAction(currentUser, "menu:delete")
+                      ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      : "bg-red-50 text-red-600 border-red-100 hover:bg-red-100"
+                  }`}
+                  title={!canUseAction(currentUser, "menu:delete") ? "Bạn không có quyền xóa món ăn." : ""}
                 >
                   Xóa món
                 </button>
@@ -946,7 +1012,7 @@ function AdminMenuPage() {
                     <td
                       className={`px-4 py-3 font-semibold text-center text-gray-600`}
                     >
-                      {food.updatedAt}
+                      {formatDateTime(food.updatedAt)}
                     </td>
 
                     <td className="px-4 py-3 sticky right-0 bg-white z-20 shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.25)]">
@@ -963,6 +1029,8 @@ function AdminMenuPage() {
                         <ActionButton
                           icon={<Pencil size={16} />}
                           color="emerald"
+                          disabled={!canUseAction(currentUser, "menu:update")}
+                          title={!canUseAction(currentUser, "menu:update") ? "Bạn không có quyền thực hiện thao tác này." : ""}
                           onClick={(e) => {
                             e.stopPropagation();
                             openEditFoodModal(food);
@@ -972,6 +1040,8 @@ function AdminMenuPage() {
                         <ActionButton
                           icon={<Trash2 size={16} />}
                           color="red"
+                          disabled={!canUseAction(currentUser, "menu:delete")}
+                          title={!canUseAction(currentUser, "menu:delete") ? "Bạn không có quyền thực hiện thao tác này." : ""}
                           onClick={(e) => {
                             e.stopPropagation();
                             deleteFood(food);
@@ -1075,7 +1145,7 @@ function AdminMenuPage() {
                   label="Đánh giá"
                   value={`${selectedFood.rating} (${selectedFood.reviews} đánh giá)`}
                 />
-                <DetailRow label="Cập nhật" value={selectedFood.updatedAt} />
+                <DetailRow label="Cập nhật" value={formatDateTime(selectedFood.updatedAt)} />
               </DetailBlock>
 
               <DetailBlock title="Mô tả ngắn">
@@ -1084,19 +1154,29 @@ function AdminMenuPage() {
 
               <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
                 <button
+                  disabled={!canUseAction(currentUser, "menu:update")}
                   onClick={() => openEditFoodModal(selectedFood)}
-                  className="h-11 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 text-sm font-black hover:bg-blue-100 transition w-full"
+                  className={`h-11 rounded-xl border text-sm font-black transition w-full ${
+                    !canUseAction(currentUser, "menu:update")
+                      ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      : "bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100"
+                  }`}
+                  title={!canUseAction(currentUser, "menu:update") ? "Bạn không có quyền chỉnh sửa món ăn." : ""}
                 >
                   Chỉnh sửa
                 </button>
 
                 <button
+                  disabled={!canUseAction(currentUser, "menu:update")}
                   onClick={() => toggleFoodStatus(selectedFood)}
                   className={`h-11 rounded-xl text-sm font-black border transition ${
-                    selectedFood.status === "stopped"
+                    !canUseAction(currentUser, "menu:update")
+                      ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      : selectedFood.status === "stopped"
                       ? "bg-green-50 text-green-700 border-green-100 hover:bg-green-100"
                       : "bg-red-50 text-red-600 border-red-100 hover:bg-red-100"
                   }`}
+                  title={!canUseAction(currentUser, "menu:update") ? "Bạn không có quyền thay đổi trạng thái món ăn." : ""}
                 >
                   {selectedFood.status === "stopped" ? "Bán lại" : "Ngừng bán"}
                 </button>
@@ -1670,7 +1750,7 @@ function SelectBox({ label, value, onChange, children }) {
   );
 }
 
-function ActionButton({ icon, color, onClick }) {
+function ActionButton({ icon, color, onClick, disabled = false, title = "" }) {
   const colors = {
     green: "bg-green-50 text-green-700 hover:bg-green-100",
     emerald: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
@@ -1681,7 +1761,11 @@ function ActionButton({ icon, color, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${colors[color]}`}
+      disabled={disabled}
+      title={title}
+      className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${
+        disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed opacity-50" : colors[color]
+      }`}
     >
       {icon}
     </button>

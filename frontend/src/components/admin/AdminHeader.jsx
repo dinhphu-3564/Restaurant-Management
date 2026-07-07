@@ -25,10 +25,13 @@ function AdminHeader({
   setDateMode,
   dateLabel = "",
   setDateLabel,
+  notifications = [],
 }) {
   const [isDateOpen, setIsDateOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   const popupRef = useRef(null);
+  const notificationsPopupRef = useRef(null);
 
   const formatDateInput = (date) => {
     return date.toISOString().split("T")[0];
@@ -121,6 +124,9 @@ function AdminHeader({
     const handleClickOutside = (event) => {
       if (popupRef.current && !popupRef.current.contains(event.target)) {
         setIsDateOpen(false);
+      }
+      if (notificationsPopupRef.current && !notificationsPopupRef.current.contains(event.target)) {
+        setIsNotificationsOpen(false);
       }
     };
 
@@ -336,13 +342,81 @@ function AdminHeader({
         </div>
 
         {action}
-        <button className="relative w-11 h-11 rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-600">
-          <Bell size={20} />
+        <div ref={notificationsPopupRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+            className="relative w-11 h-11 rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-600 hover:bg-green-50/50 transition"
+          >
+            <Bell size={20} />
 
-          <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center">
-            6
-          </span>
-        </button>
+            {notifications.length > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center animate-pulse">
+                {notifications.length}
+              </span>
+            )}
+          </button>
+
+          {isNotificationsOpen && (
+            <div className="absolute right-0 top-14 z-50 w-[320px] sm:w-[360px] rounded-2xl border border-gray-100 bg-white shadow-xl py-2 animate-[scaleIn_0.2s_ease-out]">
+              <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+                <span className="text-sm font-black text-gray-800">Thông báo mới</span>
+                {notifications.length > 0 && (
+                  <span className="text-[10px] font-black bg-red-50 text-red-500 px-2 py-0.5 rounded-full">
+                    {notifications.length} cần xử lý
+                  </span>
+                )}
+              </div>
+
+              {notifications.length === 0 ? (
+                <div className="py-8 text-center text-gray-400 font-bold text-xs">
+                  Không có thông báo mới
+                </div>
+              ) : (
+                <div className="max-h-[320px] overflow-y-auto divide-y divide-gray-100">
+                  {notifications.map((n) => {
+                    const isOrder = n.type === 'order';
+                    const d = n.details || {};
+                    const infoLine = isOrder
+                      ? `#${d.orderCode} · ${d.customerName} · ${Number(d.total || 0).toLocaleString('vi-VN')}đ`
+                      : `${d.bookingCode} · ${d.customerName} · ${d.time}${d.date ? ', ' + d.date : ''}`;
+                    return (
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => {
+                          navigate(n.link);
+                          setIsNotificationsOpen(false);
+                        }}
+                        className={`w-full px-3 py-2.5 hover:brightness-95 transition text-left border-l-[3px] ${
+                          isOrder
+                            ? 'bg-amber-50/50 border-l-amber-400 hover:bg-amber-50'
+                            : 'bg-blue-50/50 border-l-blue-400 hover:bg-blue-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                            isOrder ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {isOrder ? '🛒' : '📅'} {n.title}
+                          </span>
+                          <span className="text-[10px] text-gray-400 font-semibold shrink-0">
+                            {new Date(n.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className={`text-[11px] font-semibold truncate ${
+                          isOrder ? 'text-amber-900' : 'text-blue-900'
+                        }`}>
+                          {infoLine}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="hidden lg:flex items-center gap-2 bg-green-50 text-green-800 px-4 h-11 rounded-full font-bold">
           <ShieldCheck size={18} />

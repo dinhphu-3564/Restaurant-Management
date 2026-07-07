@@ -8,6 +8,7 @@ import {
 } from "../../services/userService";
 import { updateUserRole } from "../../services/roleService";
 import { getCurrentUser } from "../../utils/auth";
+import { canUseAction } from "../../utils/permissions";
 import { showAdminToast } from "../../components/admin/AdminToast";
 import { removeVietnameseTones } from "../../utils/string";
 import {
@@ -656,7 +657,7 @@ function AdminUsersPage() {
                               }}
                             />
 
-                            {canGrantRole && (
+                            {canUseAction(currentUser, 'roles:update') && user.role !== "admin" && (
                               <IconButton
                                 icon={<Pencil size={16} />}
                                 color="green"
@@ -676,6 +677,8 @@ function AdminUsersPage() {
                                 )
                               }
                               color="orange"
+                              disabled={!canUseAction(currentUser, 'customers:lock')}
+                              title={!canUseAction(currentUser, 'customers:lock') ? "Bạn không có quyền thực hiện thao tác này." : ""}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 toggleUserStatus(user);
@@ -684,6 +687,8 @@ function AdminUsersPage() {
                             <IconButton
                               icon={<Trash2 size={16} />}
                               color="red"
+                              disabled={!canUseAction(currentUser, 'customers:lock')}
+                              title={!canUseAction(currentUser, 'customers:lock') ? "Bạn không có quyền thực hiện thao tác này." : ""}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 deleteUser(user);

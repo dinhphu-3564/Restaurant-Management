@@ -6,6 +6,7 @@ const multer = require("multer");
 const {
   requireAuth,
   requireBackOffice,
+  requireManagerOrAdmin,
 } = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -103,8 +104,8 @@ router.get("/admin-list", requireAuth, requireBackOffice, async (req, res) => {
   }
 });
 
-// 3. POST /api/admin/spaces (Admin only) - Create blank space
-router.post("/", requireAuth, requireBackOffice, async (req, res) => {
+// 3. POST /api/spaces
+router.post("/", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const { key, label, description, detailDescription, capacity, order, status } = req.body;
     const randomKey = key || "space_" + Math.random().toString(36).substring(2, 9);
@@ -156,8 +157,8 @@ router.post("/", requireAuth, requireBackOffice, async (req, res) => {
   }
 });
 
-// 4. PUT /api/admin/spaces/:key (Admin only) - Update space & its images array
-router.put("/:key", requireAuth, requireBackOffice, async (req, res) => {
+// 4. PUT /api/spaces/:key
+router.put("/:key", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const { key } = req.params;
     const { label, description, detailDescription, capacity, order, status, images } = req.body;
@@ -215,8 +216,8 @@ router.put("/:key", requireAuth, requireBackOffice, async (req, res) => {
   }
 });
 
-// 5. DELETE /api/admin/spaces/:key (Admin only)
-router.delete("/:key", requireAuth, requireBackOffice, async (req, res) => {
+// 5. DELETE /api/spaces/:key
+router.delete("/:key", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const { key } = req.params;
     const [result] = await db.query("DELETE FROM restaurant_spaces WHERE space_key = ?", [key]);
@@ -230,8 +231,8 @@ router.delete("/:key", requireAuth, requireBackOffice, async (req, res) => {
   }
 });
 
-// 6. POST /api/admin/spaces/upload (Admin only) - Upload single image file
-router.post("/upload", requireAuth, requireBackOffice, uploadSpaceImages.single("image"), (req, res) => {
+// 6. POST /api/spaces/upload
+router.post("/upload", requireAuth, requireManagerOrAdmin, uploadSpaceImages.single("image"), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "Vui lòng chọn ảnh để tải lên" });

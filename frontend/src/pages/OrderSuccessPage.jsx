@@ -30,6 +30,7 @@ function OrderSuccessPage() {
     pending: "Chờ thanh toán",
     paid_pending_confirm: "Đã thanh toán",
     paid: "Đã thanh toán",
+    partial: "Thanh toán một phần",
     failed: "Thanh toán thất bại",
     refunded: "Đã hoàn tiền",
   };
@@ -40,6 +41,7 @@ function OrderSuccessPage() {
     paid_pending_confirm:
       "Thanh toán đã ghi nhận, đơn hàng đang chờ nhà hàng xác nhận.",
     paid: "Thanh toán đã được ghi nhận thành công.",
+    partial: "Đã ghi nhận thanh toán một phần. Bạn sẽ thanh toán phần còn lại khi nhận món/tại quán.",
     failed: "Giao dịch không thành công.",
     refunded: "Giao dịch đã được hoàn tiền.",
   };

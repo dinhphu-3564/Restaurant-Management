@@ -2,8 +2,11 @@ import { useMemo, useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { showAdminToast } from "../../components/admin/AdminToast";
 import { tableService } from "../../services/tableService";
+import { socket } from "../../utils/socket";
 import { bookingService } from "../../services/bookingService";
 import { removeVietnameseTones } from "../../utils/string";
+import { getCurrentUser, getAuthToken } from "../../utils/auth";
+import { canUseAction } from "../../utils/permissions";
 import {
   Building2,
   LayoutGrid,
@@ -20,6 +23,11 @@ import {
   Lock,
   Unlock,
   Trash2,
+  Printer,
+  Minus,
+  Wallet,
+  AlertTriangle,
+  HelpCircle,
 } from "lucide-react";
 
 const TABLE_STATUS = {
@@ -99,6 +107,7 @@ const TABLE_DOT_STYLE = {
 
 function AdminTablesPage() {
   const { globalSearch } = useOutletContext();
+  const currentUser = getCurrentUser();
 
   const [assignBooking, setAssignBooking] = useState(null);
   const [assignForm, setAssignForm] = useState({
@@ -132,6 +141,19 @@ function AdminTablesPage() {
   const [selectedArea, setSelectedArea] = useState("");
   const [selectedTable, setSelectedTable] = useState(null);
 
+  // Trạng thái phục vụ tại bàn
+  const [activeAddItemsBooking, setActiveAddItemsBooking] = useState(null);
+  const [activeBillingBooking, setActiveBillingBooking] = useState(null);
+  const [cartToAdd, setCartToAdd] = useState([]);
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [itemSearch, setItemSearch] = useState("");
+  const [itemCategory, setItemCategory] = useState("all");
+  const [couponCodeInput, setCouponCodeInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponMsg, setCouponMsg] = useState("");
+  const [simulatedPaid, setSimulatedPaid] = useState(false);
+  const [cashReceived, setCashReceived] = useState("");
+
   const [viewDate, setViewDate] = useState(today);
 
   const [search, setSearch] = useState("");
@@ -163,6 +185,18 @@ function AdminTablesPage() {
     description: "",
   });
   const [deleteConfirmArea, setDeleteConfirmArea] = useState(null);
+
+  // Custom Confirmation Dialog State & Helper
+  const [confirmDialog, setConfirmDialog] = useState(null);
+  const showConfirm = (options) => {
+    return new Promise((resolve) => {
+      setConfirmDialog({
+        ...options,
+        onConfirm: () => resolve(true),
+        onCancel: () => resolve(false),
+      });
+    });
+  };
 
   const [isAddingTable, setIsAddingTable] = useState(false);
   const [tableForm, setTableForm] = useState({
@@ -239,10 +273,12 @@ function AdminTablesPage() {
 
     window.addEventListener("tablesUpdated", loadTableLayout);
     window.addEventListener("areasUpdated", loadTableLayout);
+    socket.on("table_updated", loadTableLayout);
 
     return () => {
       window.removeEventListener("tablesUpdated", loadTableLayout);
       window.removeEventListener("areasUpdated", loadTableLayout);
+      socket.off("table_updated", loadTableLayout);
     };
   }, []);
 
@@ -278,6 +314,35 @@ function AdminTablesPage() {
     };
   }, []);
 
+  const [menuItems, setMenuItems] = useState([]);
+  const [menuLoading, setMenuLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeAddItemsBooking) {
+      setMenuLoading(true);
+      fetch("http://localhost:5001/api/menu-items")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setMenuItems(data.data || []);
+          }
+        })
+        .catch(console.error)
+        .finally(() => setMenuLoading(false));
+    }
+  }, [activeAddItemsBooking]);
+
+  const filteredMenuItems = useMemo(() => {
+    return menuItems.filter((item) => {
+      const matchSearch = removeVietnameseTones(item.name || "")
+        .toLowerCase()
+        .includes(removeVietnameseTones(itemSearch || "").toLowerCase());
+      const matchCategory =
+        itemCategory === "all" || item.category === itemCategory;
+      return matchSearch && matchCategory && item.status !== "stopped";
+    });
+  }, [menuItems, itemSearch, itemCategory]);
+
   const formatDate = (value) => {
     if (!value) return "Chưa có";
 
@@ -290,6 +355,12 @@ function AdminTablesPage() {
     const year = date.getFullYear();
 
     return `${day}/${month}/${year}`;
+  };
+
+  const parsePriceNumber = (val) => {
+    if (typeof val === "number") return val;
+    const cleaned = String(val || "").replace(/[^0-9]/g, "");
+    return parseFloat(cleaned) || 0;
   };
 
   const formatDateTime = (value) => {
@@ -316,9 +387,17 @@ function AdminTablesPage() {
   };
 
   const getBookingByTable = (tableCode) => {
+    // Ưu tiên: tìm booking đang SERVING của bàn này (bất kể ngày, để sau reload vẫn hiển thị)
+    const servingBooking = bookings.find(
+      (booking) =>
+        String(booking.selectedTable) === String(tableCode) &&
+        booking.status === "serving"
+    );
+    if (servingBooking) return servingBooking;
+
+    // Còn lại: tìm booking pending/confirmed đúng ngày đang xem
     return bookings.find((booking) => {
       const status = booking.status;
-
       const isActive =
         status === "pending" ||
         status === "confirmed" ||
@@ -341,9 +420,18 @@ function AdminTablesPage() {
       table.status !== "maintenance" &&
       table.status !== "disabled"
     ) {
+      let syncStatus = table.status;
+      if (booking.status === "confirmed") {
+        syncStatus = "booked";
+      } else if (booking.status === "serving") {
+        syncStatus = "serving";
+      } else if (booking.status === "pending") {
+        syncStatus = "holding";
+      }
+
       return {
         ...table,
-        status: booking.status === "confirmed" ? "booked" : "holding",
+        status: syncStatus,
         currentBooking: booking,
       };
     }
@@ -514,9 +602,9 @@ function AdminTablesPage() {
         prev.map((table) =>
           String(table.areaId) === String(editingArea.id)
             ? {
-                ...table,
-                areaName: updatedArea.name,
-              }
+              ...table,
+              areaName: updatedArea.name,
+            }
             : table,
         ),
       );
@@ -524,27 +612,27 @@ function AdminTablesPage() {
       setSelectedTable((prev) =>
         prev && String(prev.areaId) === String(editingArea.id)
           ? {
-              ...prev,
-              areaName: updatedArea.name,
-            }
+            ...prev,
+            areaName: updatedArea.name,
+          }
           : prev,
       );
 
       setAddForm((prev) =>
         String(prev.selectedArea) === String(editingArea.id)
           ? {
-              ...prev,
-              selectedAreaTitle: updatedArea.name,
-            }
+            ...prev,
+            selectedAreaTitle: updatedArea.name,
+          }
           : prev,
       );
 
       setAssignForm((prev) =>
         String(prev.areaId) === String(editingArea.id)
           ? {
-              ...prev,
-              areaId: updatedArea.id,
-            }
+            ...prev,
+            areaId: updatedArea.id,
+          }
           : prev,
       );
 
@@ -725,9 +813,14 @@ function AdminTablesPage() {
   const cancelCurrentBooking = async (booking) => {
     if (!booking) return;
 
-    const confirmCancel = window.confirm(
-      `Bạn có chắc muốn hủy đặt bàn ${booking.bookingCode || `DB${booking.id}`}?`,
-    );
+    const confirmCancel = await showConfirm({
+      title: "Hủy đặt bàn",
+      message: `Bạn có chắc muốn hủy đặt bàn ${booking.bookingCode || `DB${booking.id}`}?`,
+      icon: <AlertTriangle size={28} />,
+      iconBg: "bg-red-50 text-red-600",
+      confirmStyle: "bg-red-600 hover:bg-red-700",
+      confirmText: "Hủy đặt bàn",
+    });
 
     if (!confirmCancel) return;
 
@@ -746,10 +839,10 @@ function AdminTablesPage() {
       setSelectedTable((prev) =>
         prev
           ? {
-              ...prev,
-              status: "available",
-              currentBooking: null,
-            }
+            ...prev,
+            status: "available",
+            currentBooking: null,
+          }
           : prev,
       );
       showAdminToast({
@@ -832,19 +925,18 @@ function AdminTablesPage() {
       setSelectedTable((prev) =>
         prev
           ? {
-              ...prev,
-              status: "booked",
-              currentBooking: updatedBooking,
-            }
+            ...prev,
+            status: "booked",
+            currentBooking: updatedBooking,
+          }
           : prev,
       );
 
       setAssignBooking(null);
       showAdminToast({
         title: "Xếp bàn thành công",
-        message: `Đã xếp bàn ${assignForm.tableCode} cho ${
-          updatedBooking.bookingCode || `DB${updatedBooking.id}`
-        }.`,
+        message: `Đã xếp bàn ${assignForm.tableCode} cho ${updatedBooking.bookingCode || `DB${updatedBooking.id}`
+          }.`,
       });
     } catch (error) {
       console.error(error);
@@ -855,9 +947,34 @@ function AdminTablesPage() {
   const completeCurrentBooking = async (booking, table) => {
     if (!booking || !table) return;
 
-    const confirmComplete = window.confirm(
-      `Bạn có chắc muốn hoàn thành đặt bàn ${booking.bookingCode || `DB${booking.id}`} và mở lại bàn ${table.code}?`,
-    );
+    if (booking.paymentStatus !== "paid") {
+      const isPrivileged = ["admin", "manager"].includes(currentUser?.role);
+      if (isPrivileged) {
+        const bypass = await showConfirm({
+          title: "Cảnh báo thanh toán",
+          message: `Lịch đặt bàn DB${booking.id} chưa được thanh toán!\n\nBạn là Quản lý/Admin, bạn có chắc chắn muốn bỏ qua thanh toán để HOÀN THÀNH phục vụ và giải phóng bàn ${table.code} không?`,
+          icon: <AlertTriangle size={28} />,
+          iconBg: "bg-red-50 text-red-600",
+          confirmStyle: "bg-red-600 hover:bg-red-700",
+          confirmText: "Bỏ qua & Hoàn thành",
+        });
+        if (!bypass) return;
+      } else {
+        alert(
+          "Không thể hoàn thành dịch vụ: Bàn này chưa thanh toán hóa đơn! Vui lòng thực hiện thanh toán trước."
+        );
+        return;
+      }
+    }
+
+    const confirmComplete = await showConfirm({
+      title: "Xác nhận hoàn thành",
+      message: `Bạn có chắc muốn hoàn thành đặt bàn ${booking.bookingCode || `DB${booking.id}`} và mở lại bàn ${table.code}?`,
+      icon: <CheckCircle size={28} />,
+      iconBg: "bg-green-50 text-green-600",
+      confirmStyle: "bg-green-600 hover:bg-green-700",
+      confirmText: "OK",
+    });
 
     if (!confirmComplete) return;
 
@@ -890,13 +1007,391 @@ function AdminTablesPage() {
       });
       showAdminToast({
         title: "Hoàn thành đặt bàn thành công",
-        message: `Đã hoàn thành đặt bàn ${
-          updatedBooking.bookingCode || `DB${updatedBooking.id}`
-        } và mở lại bàn ${updatedTable.code}.`,
+        message: `Đã hoàn thành đặt bàn ${updatedBooking.bookingCode || `DB${updatedBooking.id}`
+          } và mở lại bàn ${updatedTable.code}.`,
       });
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể hoàn thành đặt bàn.");
+    }
+  };
+
+  const startServingBooking = async (booking, table) => {
+    if (!booking || !table) return;
+    try {
+      const updatedTable = await tableService.updateTableStatus(table.id, "serving");
+
+      setTables((prev) =>
+        prev.map((item) =>
+          String(item.id) === String(table.id) ? updatedTable : item
+        )
+      );
+
+      setSelectedTable({
+        ...updatedTable,
+        currentBooking: booking,
+      });
+
+      showAdminToast({
+        title: "Nhận bàn thành công",
+        message: `Đã chuyển bàn ${table.code} sang trạng thái phục vụ.`,
+      });
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể nhận bàn.");
+    }
+  };
+
+  const handleAddItemToTempCart = (food) => {
+    const rawPrice = parsePriceNumber(food.price);
+
+    setCartToAdd((prev) => {
+      const existing = prev.find((item) => String(item.id) === String(food.id));
+      if (existing) {
+        return prev.map((item) =>
+          String(item.id) === String(food.id)
+            ? { ...item, qty: item.qty + 1 }
+            : item
+        );
+      }
+      return [
+        ...prev,
+        {
+          id: food.id,
+          name: food.name,
+          price: rawPrice,
+          qty: 1,
+          image: food.image,
+        },
+      ];
+    });
+  };
+
+  const handleUpdateTempCartQty = (id, delta) => {
+    setCartToAdd((prev) =>
+      prev
+        .map((item) =>
+          String(item.id) === String(id)
+            ? { ...item, qty: Math.max(1, item.qty + delta) }
+            : item
+        )
+        .filter((item) => item.qty > 0)
+    );
+  };
+
+  const saveAddedItems = async () => {
+    if (!activeAddItemsBooking) return;
+    try {
+      const mergedCart = [...(activeAddItemsBooking.cartItems || [])];
+      cartToAdd.forEach((toAdd) => {
+        const existing = mergedCart.find(
+          (item) => String(item.id) === String(toAdd.id)
+        );
+        if (existing) {
+          existing.qty = Number(existing.qty || 0) + Number(toAdd.qty || 0);
+        } else {
+          mergedCart.push({ ...toAdd });
+        }
+      });
+
+      const sanitizedCart = mergedCart.map((item) => ({
+        ...item,
+        price: parsePriceNumber(item.price),
+      }));
+
+      const updatedBooking = await bookingService.updateBookingItems(
+        activeAddItemsBooking.id,
+        sanitizedCart
+      );
+
+      setBookings((prev) =>
+        prev.map((b) =>
+          String(b.id) === String(activeAddItemsBooking.id)
+            ? updatedBooking
+            : b
+        )
+      );
+
+      if (selectedTable && String(selectedTable.currentBooking?.id) === String(activeAddItemsBooking.id)) {
+        setSelectedTable((prev) => ({
+          ...prev,
+          currentBooking: updatedBooking,
+        }));
+      }
+
+      showAdminToast({
+        title: "Gọi thêm món thành công",
+        message: `Đã lưu danh sách món gọi thêm cho lịch đặt DB${activeAddItemsBooking.id}.`,
+      });
+
+      setActiveAddItemsBooking(null);
+      setCartToAdd([]);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể gọi thêm món.");
+    }
+  };
+
+  useEffect(() => {
+    if (activeBillingBooking) {
+      setCouponCodeInput(activeBillingBooking.couponCode || "");
+      if (activeBillingBooking.couponCode) {
+        setAppliedCoupon({
+          code: activeBillingBooking.couponCode,
+          discountAmount: activeBillingBooking.discountAmount || 0,
+        });
+      } else {
+        setAppliedCoupon(null);
+      }
+      setCouponMsg("");
+    }
+    setSimulatedPaid(false);
+    setCashReceived("");
+  }, [activeBillingBooking, paymentMethod]);
+
+  // Polling tự động phát hiện SePay webhook thanh toán thành công
+  useEffect(() => {
+    if (!activeBillingBooking || activeBillingBooking.paymentStatus === "paid") return;
+
+    const interval = setInterval(async () => {
+      try {
+        const apiBookings = await bookingService.getBookings();
+        const currentDbBooking = apiBookings.find(
+          (b) => String(b.id) === String(activeBillingBooking.id)
+        );
+
+        if (currentDbBooking && currentDbBooking.paymentStatus === "paid") {
+          // Phát âm báo bíp bíp
+          try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // Nốt D5
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.12);
+            setTimeout(() => {
+              const osc2 = audioCtx.createOscillator();
+              osc2.connect(gain);
+              osc2.frequency.setValueAtTime(880, audioCtx.currentTime); // Nốt A5
+              osc2.start();
+              osc2.stop(audioCtx.currentTime + 0.25);
+            }, 120);
+          } catch (e) {
+            console.log("Không phát được âm thanh:", e);
+          }
+
+          showAdminToast({
+            title: "Thanh toán thành công (SePay)",
+            message: `Bàn đã tự động nhận thanh toán thành công số tiền ${Number(currentDbBooking.total || 0).toLocaleString("vi-VN")}đ cho đơn DB${currentDbBooking.id}.`,
+          });
+
+          setBookings(apiBookings);
+          setActiveBillingBooking(currentDbBooking);
+
+          if (selectedTable && String(selectedTable.currentBooking?.id) === String(activeBillingBooking.id)) {
+            setSelectedTable((prev) => ({
+              ...prev,
+              currentBooking: currentDbBooking,
+            }));
+          }
+        }
+      } catch (err) {
+        console.error("Lỗi đồng bộ hóa hóa đơn tự động:", err);
+      }
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [activeBillingBooking, bookings, selectedTable]);
+
+  const handleSimulatePayment = async () => {
+    if (!activeBillingBooking) return;
+    const billSubtotal = activeBillingBooking.subtotal || activeBillingBooking.total || 0;
+    const billDiscount = appliedCoupon ? (appliedCoupon.discountAmount || 0) : 0;
+    const billTotal = Math.max(0, billSubtotal - billDiscount);
+
+    try {
+      const res = await fetch("http://localhost:5001/api/sepay/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          gateway: "MB",
+          transactionDate: new Date().toISOString(),
+          accountNumber: "SBSEPAYYQMNFSKB9F1C",
+          transferType: "in",
+          transferAmount: billTotal,
+          content: `DB${activeBillingBooking.id}`,
+          description: `DB${activeBillingBooking.id}`,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Gửi webhook giả lập thất bại.");
+      }
+
+      setSimulatedPaid(true);
+      showAdminToast({
+        title: "Giao dịch thành công",
+        message: `Hệ thống SePay đã ghi nhận thành công giao dịch chuyển khoản cho đơn hàng DB${activeBillingBooking.id}.`,
+      });
+
+      // Cập nhật lại danh sách đặt bàn để đồng bộ giao diện
+      const apiBookings = await bookingService.getBookings();
+      setBookings(apiBookings);
+
+      const updatedBooking = apiBookings.find(
+        (b) => String(b.id) === String(activeBillingBooking.id),
+      );
+      if (updatedBooking) {
+        setActiveBillingBooking(updatedBooking);
+
+        if (
+          selectedTable &&
+          String(selectedTable.currentBooking?.id) ===
+          String(activeBillingBooking.id)
+        ) {
+          setSelectedTable((prev) => ({
+            ...prev,
+            currentBooking: updatedBooking,
+          }));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Không thể giả lập thanh toán SePay: " + err.message);
+    }
+  };
+
+  const handleCashReceivedChange = (val) => {
+    const numericValue = val.replace(/\D/g, "");
+    if (numericValue === "") {
+      setCashReceived("");
+    } else {
+      setCashReceived(Number(numericValue).toLocaleString("vi-VN"));
+    }
+  };
+
+  const applyCouponCode = async () => {
+    const code = couponCodeInput.trim().toUpperCase();
+    if (!code) {
+      setAppliedCoupon(null);
+      setCouponMsg("Vui lòng nhập mã.");
+      return;
+    }
+
+    try {
+      const res = await fetch("http://localhost:5001/api/deals");
+      const data = await res.json();
+      if (!data.success) {
+        setCouponMsg("Không thể tải danh sách khuyến mãi.");
+        return;
+      }
+
+      const deals = data.deals || [];
+      const deal = deals.find((d) => String(d.code).toUpperCase() === code);
+
+      if (!deal) {
+        setAppliedCoupon(null);
+        setCouponMsg("Mã khuyến mãi không tồn tại.");
+        return;
+      }
+
+      if (deal.status !== "active") {
+        setAppliedCoupon(null);
+        setCouponMsg("Mã khuyến mãi hiện không hoạt động.");
+        return;
+      }
+
+      const subtotal = activeBillingBooking.subtotal || activeBillingBooking.total || 0;
+      const minOrder = Number(deal.condition_amount || 0);
+      if (subtotal < minOrder) {
+        setAppliedCoupon(null);
+        setCouponMsg(`Yêu cầu đơn hàng tối thiểu ${minOrder.toLocaleString("vi-VN")}đ để dùng mã này.`);
+        return;
+      }
+
+      const discountText = String(deal.discount || "").trim();
+      const isPercent = discountText.includes("%");
+      const discountVal = isPercent
+        ? Number(discountText.replace(/[^0-9]/g, ""))
+        : parseFloat(discountText.replace(/[^0-9]/g, "")) || 0;
+
+      let discountAmount = 0;
+      if (isPercent) {
+        discountAmount = (subtotal * discountVal) / 100;
+      } else {
+        discountAmount = discountVal;
+      }
+
+      setAppliedCoupon({
+        code: deal.code,
+        name: deal.name,
+        discountType: isPercent ? "percent" : "fixed",
+        percent: isPercent ? discountVal : 0,
+        amount: isPercent ? 0 : discountVal,
+        discountAmount: discountAmount,
+      });
+      setCouponMsg("");
+    } catch (err) {
+      console.error(err);
+      setCouponMsg("Lỗi khi áp dụng mã.");
+    }
+  };
+
+  const confirmPayment = async () => {
+    if (!activeBillingBooking) return;
+    try {
+      const subtotal = activeBillingBooking.subtotal || activeBillingBooking.total || 0;
+      const discountVal = appliedCoupon ? (appliedCoupon.discountAmount || 0) : 0;
+      const finalTotal = Math.max(0, subtotal - discountVal);
+
+      const updatedBooking = await bookingService.confirmBookingPayment(
+        activeBillingBooking.id,
+        {
+          paymentMethod,
+          paymentStatus: "paid",
+          couponCode: appliedCoupon ? appliedCoupon.code : null,
+          discountAmount: discountVal,
+          total: finalTotal,
+        }
+      );
+
+      setBookings((prev) =>
+        prev.map((b) =>
+          String(b.id) === String(activeBillingBooking.id) ? updatedBooking : b
+        )
+      );
+
+      if (selectedTable && String(selectedTable.currentBooking?.id) === String(activeBillingBooking.id)) {
+        setSelectedTable((prev) => ({
+          ...prev,
+          currentBooking: updatedBooking,
+        }));
+      }
+
+      showAdminToast({
+        title: "Thanh toán thành công",
+        message: `Đã thanh toán hóa đơn lịch đặt DB${activeBillingBooking.id} bằng ${paymentMethod === "cash"
+            ? "Tiền mặt"
+            : paymentMethod === "bank"
+              ? "Chuyển khoản"
+              : "Ví điện tử"
+          }.`,
+      });
+
+      setActiveBillingBooking(null);
+      setPaymentMethod("cash");
+      setCouponCodeInput("");
+      setAppliedCoupon(null);
+      setCouponMsg("");
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Không thể thanh toán.");
     }
   };
 
@@ -919,17 +1414,16 @@ function AdminTablesPage() {
       setSelectedTable((prev) =>
         prev
           ? {
-              ...prev,
-              status: "booked",
-              currentBooking: updatedBooking,
-            }
+            ...prev,
+            status: "booked",
+            currentBooking: updatedBooking,
+          }
           : prev,
       );
       showAdminToast({
         title: "Xác nhận đặt bàn thành công",
-        message: `Đã xác nhận đặt bàn ${
-          updatedBooking.bookingCode || `DB${updatedBooking.id}`
-        }.`,
+        message: `Đã xác nhận đặt bàn ${updatedBooking.bookingCode || `DB${updatedBooking.id}`
+          }.`,
       });
     } catch (error) {
       console.error(error);
@@ -984,7 +1478,7 @@ function AdminTablesPage() {
     );
   };
 
-  const handleSelectTableForAddBooking = (table, status) => {
+  const handleSelectTableForAddBooking = async (table, status) => {
     const disabled = status !== "available";
 
     if (disabled) return;
@@ -996,9 +1490,14 @@ function AdminTablesPage() {
       const suggestedTable = findBestTableForAddBooking();
 
       if (suggestedTable) {
-        const shouldSwitch = window.confirm(
-          `Bàn ${table.code} chỉ chứa tối đa ${tableCapacity} người, nhưng lịch đặt này có ${guestCount} khách.\n\nBạn có muốn chuyển sang bàn ${suggestedTable.code} (${suggestedTable.capacity} người) không?`,
-        );
+        const shouldSwitch = await showConfirm({
+          title: "Gợi ý chuyển bàn",
+          message: `Bàn ${table.code} chỉ chứa tối đa ${tableCapacity} người, nhưng lịch đặt này có ${guestCount} khách.\n\nBạn có muốn chuyển sang bàn ${suggestedTable.code} (${suggestedTable.capacity} người) không?`,
+          icon: <HelpCircle size={28} />,
+          iconBg: "bg-blue-50 text-blue-600",
+          confirmStyle: "bg-green-600 hover:bg-green-700",
+          confirmText: "Chuyển bàn",
+        });
 
         if (shouldSwitch) {
           setAddForm((prev) => ({
@@ -1103,9 +1602,14 @@ function AdminTablesPage() {
       const suggestedTable = findBestTableForAddBooking();
 
       if (suggestedTable) {
-        const shouldSwitch = window.confirm(
-          `Bàn ${selectedTableData.code} chỉ chứa tối đa ${selectedTableData.capacity} người, nhưng lịch đặt này có ${addForm.guests} khách.\n\nBạn có muốn chuyển sang bàn ${suggestedTable.code} (${suggestedTable.capacity} người) không?`,
-        );
+        const shouldSwitch = await showConfirm({
+          title: "Gợi ý chuyển bàn",
+          message: `Bàn ${selectedTableData.code} chỉ chứa tối đa ${selectedTableData.capacity} người, nhưng lịch đặt này có ${addForm.guests} khách.\n\nBạn có muốn chuyển sang bàn ${suggestedTable.code} (${suggestedTable.capacity} người) không?`,
+          icon: <HelpCircle size={28} />,
+          iconBg: "bg-blue-50 text-blue-600",
+          confirmStyle: "bg-green-600 hover:bg-green-700",
+          confirmText: "Chuyển bàn",
+        });
 
         if (shouldSwitch) {
           setAddForm((prev) => ({
@@ -1164,9 +1668,8 @@ function AdminTablesPage() {
       });
       showAdminToast({
         title: "Tạo đặt bàn thành công",
-        message: `Đã tạo đặt bàn ${
-          savedBooking.bookingCode || `DB${savedBooking.id}`
-        }.`,
+        message: `Đã tạo đặt bàn ${savedBooking.bookingCode || `DB${savedBooking.id}`
+          }.`,
       });
     } catch (error) {
       console.error(error);
@@ -1233,11 +1736,10 @@ function AdminTablesPage() {
         </div>
       )}
       <div
-        className={`grid grid-cols-1 gap-4 items-start ${
-          selectedTable
+        className={`grid grid-cols-1 gap-4 items-start ${selectedTable
             ? "xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_360px]"
             : ""
-        }`}
+          }`}
       >
         <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden min-w-0">
           <div className="px-5 border-b border-gray-100">
@@ -1285,13 +1787,15 @@ function AdminTablesPage() {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-black text-green-950">Khu vực</h3>
 
-                    <button
-                      onClick={openAddArea}
-                      title="Thêm khu vực"
-                      className="w-9 h-9 rounded-xl border border-gray-100 flex items-center justify-center text-green-700 hover:bg-green-50"
-                    >
-                      <Plus size={18} />
-                    </button>
+                    {canUseAction(currentUser, "tables:create") && (
+                      <button
+                        onClick={openAddArea}
+                        title="Thêm khu vực"
+                        className="w-9 h-9 rounded-xl border border-gray-100 flex items-center justify-center text-green-700 hover:bg-green-50"
+                      >
+                        <Plus size={18} />
+                      </button>
+                    )}
                   </div>
 
                   <div className="space-y-3">
@@ -1305,11 +1809,10 @@ function AdminTablesPage() {
                       return (
                         <div
                           key={area.id}
-                          className={`group w-full rounded-xl border p-3 sm:p-4 transition flex items-start justify-between gap-3 ${
-                            isActive
+                          className={`group w-full rounded-xl border p-3 sm:p-4 transition flex items-start justify-between gap-3 ${isActive
                               ? "bg-green-50 border-green-200 text-green-900"
                               : "bg-white border-gray-100 text-gray-600 hover:bg-green-50/50"
-                          }`}
+                            }`}
                         >
                           <button
                             type="button"
@@ -1325,17 +1828,19 @@ function AdminTablesPage() {
                             </p>
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditArea(area);
-                            }}
-                            title="Chỉnh sửa khu vực"
-                            className="w-8 h-8 rounded-lg bg-white border border-gray-100 text-emerald-700 flex items-center justify-center opacity-100 lg:opacity-0 group-hover:opacity-100 hover:bg-emerald-50 transition"
-                          >
-                            <Pencil size={15} />
-                          </button>
+                          {canUseAction(currentUser, "tables:update") && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditArea(area);
+                              }}
+                              title="Chỉnh sửa khu vực"
+                              className="w-8 h-8 rounded-lg bg-white border border-gray-100 text-emerald-700 flex items-center justify-center opacity-100 lg:opacity-0 group-hover:opacity-100 hover:bg-emerald-50 transition"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                          )}
                         </div>
                       );
                     })}
@@ -1357,13 +1862,15 @@ function AdminTablesPage() {
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0 xl:ml-auto">
-                        <button
-                          onClick={openAddTable}
-                          className="h-8 px-3 rounded-xl bg-green-800 text-white text-[11px] font-black flex items-center justify-center gap-1.5 hover:bg-green-900 transition whitespace-nowrap"
-                        >
-                          <Plus size={14} />
-                          Thêm bàn
-                        </button>
+                        {canUseAction(currentUser, "tables:create") && (
+                          <button
+                            onClick={openAddTable}
+                            className="h-8 px-3 rounded-xl bg-green-800 text-white text-[11px] font-black flex items-center justify-center gap-1.5 hover:bg-green-900 transition whitespace-nowrap"
+                          >
+                            <Plus size={14} />
+                            Thêm bàn
+                          </button>
+                        )}
 
                         <select
                           value={statusFilter}
@@ -1614,9 +2121,8 @@ function AdminTablesPage() {
                       <tr
                         key={table.id}
                         onClick={() => setSelectedTable(table)}
-                        className={`border-t border-gray-100 cursor-pointer hover:bg-green-50/30 ${
-                          selectedTable?.id === table.id ? "bg-green-50/50" : ""
-                        }`}
+                        className={`border-t border-gray-100 cursor-pointer hover:bg-green-50/30 ${selectedTable?.id === table.id ? "bg-green-50/50" : ""
+                          }`}
                       >
                         <td className="px-4 py-3 font-black text-green-700">
                           {table.code}
@@ -1700,11 +2206,10 @@ function AdminTablesPage() {
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
-                        className={`w-9 h-9 rounded-lg border font-black ${
-                          currentPage === page
+                        className={`w-9 h-9 rounded-lg border font-black ${currentPage === page
                             ? "bg-green-700 text-white border-green-700"
                             : "border-gray-200 text-gray-600 hover:bg-green-50"
-                        }`}
+                          }`}
                       >
                         {page}
                       </button>
@@ -1739,6 +2244,10 @@ function AdminTablesPage() {
                 selectedTable,
               )
             }
+            onStartServing={startServingBooking}
+            onOpenAddItems={setActiveAddItemsBooking}
+            onOpenBilling={setActiveBillingBooking}
+            currentUser={currentUser}
           />
         )}
       </div>
@@ -1804,9 +2313,9 @@ function AdminTablesPage() {
                       String(table.areaId) === String(assignForm.areaId) &&
                       table.status === "available" &&
                       Number(table.capacity) >=
-                        Number(
-                          assignBooking.guests || assignBooking.people || 0,
-                        ) &&
+                      Number(
+                        assignBooking.guests || assignBooking.people || 0,
+                      ) &&
                       !isTableBookedAtDate(table.code, assignBooking.date),
                   )
                   .map((table) => (
@@ -2417,26 +2926,23 @@ function AdminTablesPage() {
                             onClick={() =>
                               handleSelectTableForAddBooking(table, status)
                             }
-                            className={`relative h-16 rounded-xl border font-black transition ${
-                              isSelected
+                            className={`relative h-16 rounded-xl border font-black transition ${isSelected
                                 ? "border-green-700 bg-green-600 text-white ring-2 ring-green-300"
                                 : disabled
                                   ? TABLE_STATUS_STYLE[status]
                                   : insufficientCapacity
                                     ? "border-yellow-300 bg-yellow-50 text-yellow-700"
                                     : TABLE_STATUS_STYLE[status]
-                            } ${
-                              disabled
+                              } ${disabled
                                 ? "cursor-not-allowed opacity-80"
                                 : "hover:scale-[1.02]"
-                            }`}
+                              }`}
                           >
                             <span
-                              className={`absolute top-2 left-2 w-2.5 h-2.5 rounded-full ${
-                                isSelected
+                              className={`absolute top-2 left-2 w-2.5 h-2.5 rounded-full ${isSelected
                                   ? "bg-white"
                                   : TABLE_DOT_STYLE[status]
-                              }`}
+                                }`}
                             />
 
                             <div className="flex flex-col items-center leading-tight">
@@ -2488,6 +2994,559 @@ function AdminTablesPage() {
           </div>
         </div>
       )}
+
+      {/* popup gọi thêm món */}
+      {activeAddItemsBooking && (
+        <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh]">
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="text-xl font-black text-green-950">
+                  Gọi thêm món ăn
+                </h3>
+                <p className="text-xs text-gray-400 font-semibold mt-1">
+                  Thêm món ăn cho bàn {activeAddItemsBooking.selectedTable} (Lịch đặt: DB{activeAddItemsBooking.id})
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setActiveAddItemsBooking(null);
+                  setCartToAdd([]);
+                }}
+                className="text-gray-400 hover:text-red-500 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-hidden flex min-h-0">
+              {/* Left panel: Menu items list */}
+              <div className="flex-1 flex flex-col p-5 border-r border-gray-100 min-h-0">
+                {/* Search & Category Filter */}
+                <div className="space-y-3 mb-4 shrink-0">
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                      <Search size={18} />
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Tìm món ăn..."
+                      value={itemSearch}
+                      onChange={(e) => setItemSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm font-bold bg-white focus:outline-none focus:border-green-700"
+                    />
+                  </div>
+
+                  {/* Category tabs */}
+                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                    <button
+                      onClick={() => setItemCategory("all")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black shrink-0 transition ${itemCategory === "all"
+                          ? "bg-green-700 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                    >
+                      Tất cả
+                    </button>
+                    {Array.from(new Set(menuItems.map(item => item.category))).filter(Boolean).map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => setItemCategory(cat)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black shrink-0 transition ${itemCategory === cat
+                            ? "bg-green-700 text-white"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Items Grid */}
+                <div className="flex-1 overflow-y-auto pr-1">
+                  {menuLoading ? (
+                    <div className="h-full flex items-center justify-center text-gray-400 font-bold">
+                      Đang tải thực đơn...
+                    </div>
+                  ) : filteredMenuItems.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {filteredMenuItems.map(food => (
+                        <div
+                          key={food.id}
+                          className="p-3 rounded-2xl border border-gray-100 bg-white flex gap-3 hover:border-green-200 hover:shadow-sm transition-all"
+                        >
+                          <img
+                            src={food.image}
+                            alt={food.name}
+                            className="w-16 h-16 rounded-xl object-cover bg-gray-50 shrink-0 border border-gray-100 shadow-sm"
+                          />
+                          <div className="flex-1 min-w-0 flex flex-col justify-between">
+                            <div>
+                              <h4 className="font-black text-xs text-green-950 truncate">{food.name}</h4>
+                              <p className="text-[10px] text-gray-400 font-extrabold mt-0.5">{food.category}</p>
+                            </div>
+                            <div className="flex items-center justify-between mt-1">
+                              <span className="font-black text-xs text-green-700">
+                                {typeof food.price === 'number' ? Number(food.price).toLocaleString("vi-VN") + "đ" : food.price}
+                              </span>
+                              <button
+                                onClick={() => handleAddItemToTempCart(food)}
+                                className="w-6 h-6 rounded-lg bg-green-700 hover:bg-green-800 text-white flex items-center justify-center font-bold transition"
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-400 font-bold">
+                      Không tìm thấy món ăn phù hợp.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right panel: Temporary selection cart */}
+              <div className="w-[340px] bg-gray-50/50 p-5 flex flex-col min-h-0 shrink-0 border-l border-gray-100">
+                <h4 className="font-black text-sm text-green-950 mb-3 shrink-0">
+                  Món đã chọn thêm
+                </h4>
+
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                  {cartToAdd.length > 0 ? (
+                    cartToAdd.map(item => (
+                      <div key={item.id} className="flex items-center gap-2 p-2 rounded-xl bg-white border border-gray-100 shadow-sm">
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-10 h-10 rounded-lg object-cover bg-gray-50 shrink-0 border border-gray-100"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-black text-xs text-green-950 truncate">{item.name}</p>
+                          <p className="font-black text-[10px] text-green-700 mt-0.5">
+                            {Number(item.price || 0).toLocaleString("vi-VN")}đ
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 border border-gray-200 rounded-lg bg-white p-1">
+                          <button
+                            onClick={() => handleUpdateTempCartQty(item.id, -1)}
+                            className="w-5 h-5 rounded hover:bg-gray-100 text-gray-500 flex items-center justify-center transition"
+                          >
+                            <Minus size={10} />
+                          </button>
+                          <span className="text-xs font-black w-4 text-center">{item.qty}</span>
+                          <button
+                            onClick={() => handleUpdateTempCartQty(item.id, 1)}
+                            className="w-5 h-5 rounded hover:bg-gray-100 text-gray-500 flex items-center justify-center transition"
+                          >
+                            <Plus size={10} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-400 font-bold text-xs py-10">
+                      Chưa chọn món nào.
+                      <span className="text-[10px] font-semibold mt-1">Bấm nút + bên trái để thêm món.</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-gray-100 pt-4 mt-3 space-y-3 shrink-0">
+                  <div className="flex justify-between font-black text-green-950 text-sm">
+                    <span>Tổng tiền gọi thêm:</span>
+                    <span>
+                      {Number(cartToAdd.reduce((acc, i) => acc + (i.price * i.qty), 0)).toLocaleString("vi-VN")}đ
+                    </span>
+                  </div>
+                  <button
+                    disabled={cartToAdd.length === 0}
+                    onClick={saveAddedItems}
+                    className="w-full h-11 rounded-xl bg-green-700 text-white font-black hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    Xác nhận thêm món
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* popup hóa đơn thanh toán */}
+      {activeBillingBooking && (() => {
+        const billSubtotal = activeBillingBooking.subtotal || activeBillingBooking.total || 0;
+        const billDiscount = activeBillingBooking.paymentStatus === "paid"
+          ? (activeBillingBooking.discountAmount || 0)
+          : (appliedCoupon ? (appliedCoupon.discountAmount || 0) : 0);
+        const billTotal = activeBillingBooking.paymentStatus === "paid"
+          ? (activeBillingBooking.total || 0)
+          : Math.max(0, billSubtotal - billDiscount);
+
+        return (
+          <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+            <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[90vh]">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0 bg-green-50/20">
+                <div>
+                  <h3 className="text-lg font-black text-green-950">
+                    Hóa đơn tạm tính / Thanh toán
+                  </h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setActiveBillingBooking(null);
+                    setPaymentMethod("cash");
+                  }}
+                  className="text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Bill Receipt Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6" id="printable-bill">
+                {/* Receipt Header */}
+                <div className="text-center space-y-1">
+                  <h2 className="text-lg font-black text-green-950">NHÀ HÀNG DÊ HƯƠNG SƠN HÀ TĨNH</h2>
+                  <p className="text-[10px] text-gray-400 font-extrabold">Đ. Vũ Lăng, Thanh Trì, Hà Nội</p>
+                  <p className="text-[10px] text-gray-400 font-extrabold">Hotline: 038 713 6878</p>
+                  <div className="border-b border-dashed border-gray-200 pt-3"></div>
+                </div>
+
+                {/* Receipt Meta */}
+                <div className="grid grid-cols-2 gap-y-2 text-xs font-bold text-gray-600">
+                  <div>
+                    <span className="text-gray-400">Mã đặt bàn:</span>{" "}
+                    <span className="text-green-950 font-black">DB{activeBillingBooking.id}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Mã bàn:</span>{" "}
+                    <span className="text-green-950 font-black">{activeBillingBooking.selectedTable}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Khu vực:</span>{" "}
+                    <span>{activeBillingBooking.selectedAreaTitle}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Khách hàng:</span>{" "}
+                    <span>{activeBillingBooking.customerName || activeBillingBooking.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">SĐT:</span>{" "}
+                    <span>{activeBillingBooking.phone}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Ngày đặt:</span>{" "}
+                    <span>{formatDate(activeBillingBooking.date)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Giờ đặt:</span>{" "}
+                    <span>{activeBillingBooking.time}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Giờ in bill:</span>{" "}
+                    <span>{new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</span>
+                  </div>
+                </div>
+
+                {/* Items Table */}
+                <div className="border-t border-b border-dashed border-gray-200 py-3">
+                  <table className="w-full text-left text-xs font-bold text-gray-600">
+                    <thead>
+                      <tr className="text-green-950 font-black border-b border-gray-100 pb-2">
+                        <th className="pb-2">Tên món</th>
+                        <th className="text-center pb-2 w-12">SL</th>
+                        <th className="text-right pb-2 w-20">Đơn giá</th>
+                        <th className="text-right pb-2 w-24">Thành tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeBillingBooking.cartItems && activeBillingBooking.cartItems.length > 0 ? (
+                        activeBillingBooking.cartItems.map((item, idx) => (
+                          <tr key={item.id || idx} className="border-b border-gray-50/50 last:border-0">
+                            <td className="py-2.5 font-black text-green-950 pr-2 leading-tight">{item.name}</td>
+                            <td className="text-center py-2.5">{item.qty}</td>
+                            <td className="text-right py-2.5">{Number(item.price || 0).toLocaleString("vi-VN")}đ</td>
+                            <td className="text-right py-2.5 font-black text-gray-700">
+                              {Number((item.price || 0) * (item.qty || 0)).toLocaleString("vi-VN")}đ
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="4" className="text-center py-4 text-gray-400 font-bold">Khách chưa gọi món.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Totals */}
+                <div className="space-y-1.5 text-xs text-right font-bold text-gray-600">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Tạm tính:</span>
+                    <span>{billSubtotal.toLocaleString("vi-VN")}đ</span>
+                  </div>
+                  {billDiscount > 0 && (
+                    <div className="flex justify-between text-red-600 font-extrabold">
+                      <span className="text-gray-400">Khuyến mãi ({appliedCoupon?.code || activeBillingBooking.couponCode || ""}):</span>
+                      <span>-{billDiscount.toLocaleString("vi-VN")}đ</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm font-black text-green-950 border-t border-dashed border-gray-200 pt-2">
+                    <span>Tổng thanh toán:</span>
+                    <span>{billTotal.toLocaleString("vi-VN")}đ</span>
+                  </div>
+                </div>
+
+                {/* Payment Status Info */}
+                {activeBillingBooking.paymentStatus === "paid" && (
+                  <div className="p-3 bg-green-50 rounded-2xl border border-green-100 flex items-center justify-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-600"></span>
+                    <span className="text-xs font-black text-green-700">
+                      Đã thanh toán bằng {activeBillingBooking.paymentMethod === 'cash' ? 'Tiền mặt' : activeBillingBooking.paymentMethod === 'bank' ? 'Chuyển khoản' : 'Ví điện tử'} lúc {formatDateTime(activeBillingBooking.paidAt)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Bill Footer / Payment actions */}
+              <div className="p-5 border-t border-gray-100 bg-gray-50/50 space-y-4 shrink-0">
+                {activeBillingBooking.paymentStatus !== "paid" && (
+                  <div className="space-y-3">
+                    {/* Coupon Code Input */}
+                    <div className="space-y-2 pb-3 border-b border-gray-200/60">
+                      <span className="text-xs font-black text-green-950 block">Nhập mã khuyến mãi (nếu có):</span>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={couponCodeInput}
+                          onChange={(e) => setCouponCodeInput(e.target.value)}
+                          placeholder="Ví dụ: GIAM10, COMBO50..."
+                          className="flex-1 h-10 px-3 rounded-xl border border-gray-200 text-xs font-black placeholder-gray-400 focus:outline-none focus:border-green-600 bg-white transition"
+                        />
+                        <button
+                          onClick={applyCouponCode}
+                          className="h-10 px-4 rounded-xl bg-green-700 hover:bg-green-800 text-white text-xs font-black transition shrink-0"
+                        >
+                          Áp dụng
+                        </button>
+                      </div>
+                      {couponMsg && (
+                        <p className="text-[10px] font-black text-red-500">{couponMsg}</p>
+                      )}
+                      {appliedCoupon && !couponMsg && (
+                        <p className="text-[10px] font-black text-green-600">
+                          Áp dụng thành công mã {appliedCoupon.code} - Giảm {appliedCoupon.discountAmount.toLocaleString("vi-VN")}đ
+                        </p>
+                      )}
+                    </div>
+
+                    <span className="text-xs font-black text-green-950 block">Chọn phương thức thanh toán:</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => setPaymentMethod("cash")}
+                        className={`h-11 rounded-xl text-xs font-black border transition ${paymentMethod === "cash"
+                            ? "bg-green-700 text-white border-green-700"
+                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100"
+                          }`}
+                      >
+                        Tiền mặt
+                      </button>
+                      <button
+                        onClick={() => setPaymentMethod("bank")}
+                        className={`h-11 rounded-xl text-xs font-black border transition ${paymentMethod === "bank"
+                            ? "bg-green-700 text-white border-green-700"
+                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100"
+                          }`}
+                      >
+                        Chuyển khoản
+                      </button>
+                      <button
+                        onClick={() => setPaymentMethod("momo")}
+                        className={`h-11 rounded-xl text-xs font-black border transition ${paymentMethod === "momo"
+                            ? "bg-green-700 text-white border-green-700"
+                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100"
+                          }`}
+                      >
+                        Ví điện tử (Momo)
+                      </button>
+                    </div>
+
+                    {paymentMethod !== "cash" && (
+                      <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-4 space-y-3 flex flex-col items-center">
+                        <span className="text-xs font-black text-amber-900 self-start">Thông tin chuyển khoản:</span>
+
+                        {paymentMethod === "bank" ? (
+                          <>
+                            <div className="w-48 h-48 bg-white border border-gray-200 rounded-xl overflow-hidden flex items-center justify-center p-2 shadow-sm">
+                              <img
+                                src={`https://qr.sepay.vn/img?bank=BIDV&acc=SBSEPAYYQMNFSKB9F1C&template=compact&amount=${Math.round(billTotal)}&des=DB${activeBillingBooking.id}`}
+                                alt="VietQR Sepay"
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
+                            <div className="text-[10px] font-bold text-gray-600 text-center space-y-0.5">
+                              <p><span className="text-gray-400">Ngân hàng:</span> BIDV</p>
+                              <p><span className="text-gray-400">Số tài khoản:</span> SBSEPAYYQMNFSKB9F1C</p>
+                              <p><span className="text-gray-400">Chủ tài khoản:</span> NHA HANG DE HUONG SON HA TINH</p>
+                              <p><span className="text-gray-400">Nội dung chuyển khoản:</span> <strong className="text-red-600">DB{activeBillingBooking.id}</strong></p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-48 h-48 bg-[#fce8ef] border border-[#f5b8cc] rounded-xl flex flex-col items-center justify-center p-4 text-center shadow-sm">
+                              <Wallet className="w-12 h-12 text-[#ae2070]" />
+                              <p className="font-black text-[#ae2070] text-sm mt-3">MOMO PAYMENT DEMO</p>
+                              <p className="text-[10px] text-gray-500 mt-1">Sử dụng QR chuyển nhanh Momo</p>
+                            </div>
+                            <div className="text-[10px] font-bold text-gray-600 text-center space-y-0.5">
+                              <p><span className="text-gray-400">Số điện thoại MoMo:</span> 038 713 6878</p>
+                              <p><span className="text-gray-400">Chủ tài khoản:</span> DÊ HƯƠNG SƠN HÀ TĨNH</p>
+                              <p><span className="text-gray-400">Nội dung:</span> <strong className="text-red-600">DB{activeBillingBooking.id}</strong></p>
+                            </div>
+                          </>
+                        )}
+
+                        {!simulatedPaid ? (
+                          <button
+                            type="button"
+                            onClick={handleSimulatePayment}
+                            className="w-full h-10 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black transition text-xs flex items-center justify-center gap-1.5"
+                          >
+                            Giả lập nhận tiền thành công (SePay)
+                          </button>
+                        ) : (
+                          <div className="w-full p-2.5 bg-green-50 border border-green-200 rounded-xl flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5 text-green-700">
+                              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                              <strong className="text-xs font-black">Sepay Notification:</strong>
+                            </div>
+                            <p className="text-[10px] font-bold text-green-800 leading-tight">
+                              Đã nhận {billTotal.toLocaleString("vi-VN")}đ từ tài khoản khách hàng. Nội dung: DB{activeBillingBooking.id}.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {paymentMethod === "cash" && (() => {
+                      const parsedCashReceived = Number(String(cashReceived).replace(/\D/g, ""));
+                      const isEnoughCash = parsedCashReceived >= billTotal;
+                      return (
+                        <div className="bg-green-50/50 border border-green-100 rounded-2xl p-4 space-y-3">
+                          <span className="text-xs font-black text-green-950 block">Nhận tiền mặt từ khách:</span>
+                          <div className="space-y-2">
+                            <div className="flex gap-2 items-center">
+                              <input
+                                type="text"
+                                value={cashReceived}
+                                onChange={(e) => handleCashReceivedChange(e.target.value)}
+                                placeholder="Nhập số tiền khách đưa..."
+                                className="flex-1 h-10 px-3 rounded-xl border border-gray-200 text-xs font-black placeholder-gray-400 focus:outline-none focus:border-green-600 bg-white transition"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setCashReceived(billTotal.toLocaleString("vi-VN"))}
+                                className="h-10 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-black transition shrink-0"
+                              >
+                                Đưa đủ
+                              </button>
+                            </div>
+                            {cashReceived && (
+                              <div className="flex justify-between items-center text-xs font-bold pt-1.5 border-t border-dashed border-gray-200">
+                                <span className="text-gray-500">Trạng thái / Tiền thừa:</span>
+                                <span className={`text-sm font-black ${isEnoughCash ? "text-green-700" : "text-red-600 animate-pulse"}`}>
+                                  {isEnoughCash
+                                    ? `Thừa: ${(parsedCashReceived - billTotal).toLocaleString("vi-VN")}đ`
+                                    : "Chưa đủ tiền"}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="h-11 px-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-100 font-bold text-gray-600 transition flex items-center justify-center gap-1.5 text-xs"
+                  >
+                    <Printer size={16} />
+                    In Bill
+                  </button>
+                  {activeBillingBooking.paymentStatus !== "paid" ? (
+                    <button
+                      onClick={confirmPayment}
+                      disabled={
+                        (paymentMethod !== "cash" && !simulatedPaid) ||
+                        (paymentMethod === "cash" && (cashReceived === "" || Number(String(cashReceived).replace(/\D/g, "")) < billTotal))
+                      }
+                      className="flex-1 h-11 rounded-xl bg-green-700 text-white font-black hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition text-xs"
+                    >
+                      Xác nhận thanh toán
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setActiveBillingBooking(null);
+                        setPaymentMethod("cash");
+                      }}
+                      className="flex-1 h-11 rounded-xl bg-green-700 text-white font-black hover:bg-green-800 transition text-xs"
+                    >
+                      Đóng
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      {/* Generic Confirm Dialog */}
+      {confirmDialog && (
+        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-2xl p-6 max-w-sm w-full text-center space-y-4 animate-[scaleIn_0.2s_ease-out]">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto shadow-inner ${confirmDialog.iconBg || 'bg-blue-50 text-blue-600'}`}>
+              {confirmDialog.icon || <HelpCircle size={28} />}
+            </div>
+            <div>
+              <h4 className="font-black text-gray-900 text-base">{confirmDialog.title}</h4>
+              <p className="text-xs text-gray-500 mt-2 leading-relaxed whitespace-pre-line">
+                {confirmDialog.message}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmDialog(null);
+                  if (confirmDialog.onCancel) confirmDialog.onCancel();
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmDialog(null);
+                  if (confirmDialog.onConfirm) confirmDialog.onConfirm();
+                }}
+                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition shadow-sm ${confirmDialog.confirmStyle || 'bg-blue-600 hover:bg-blue-700'}`}
+              >
+                {confirmDialog.confirmText || 'Xác nhận'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2496,9 +3555,8 @@ function TableButton({ table, active, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`relative h-11 sm:h-12 rounded-xl border font-black text-xs sm:text-sm transition ${
-        active ? "ring-2 ring-green-700" : ""
-      } ${STATUS_STYLE[table.status]}`}
+      className={`relative h-11 sm:h-12 rounded-xl border font-black text-xs sm:text-sm transition ${active ? "ring-2 ring-green-700" : ""
+        } ${STATUS_STYLE[table.status]}`}
     >
       <span
         className={`absolute top-2 left-2 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${STATUS_DOT[table.status]}`}
@@ -2520,7 +3578,13 @@ function TableDetailPanel({
   onCancelBooking,
   onConfirmBooking,
   onCompleteBooking,
+  onStartServing,
+  onOpenAddItems,
+  onOpenBilling,
+  currentUser,
 }) {
+  const canEdit = canUseAction(currentUser, "tables:update");
+
   return (
     <aside className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden xl:sticky xl:top-4 xl:self-start xl:h-fit xl:max-h-none">
       <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -2550,59 +3614,110 @@ function TableDetailPanel({
         </DetailBlock>
 
         {booking ? (
-          <DetailBlock title="Thông tin đặt bàn hiện tại">
-            <DetailRow
-              label="Mã đặt bàn"
-              value={`DB${booking.id || "Chưa có"}`}
-            />
-            <DetailRow
-              label="Khách hàng"
-              value={
-                booking.customerName ||
-                booking.fullName ||
-                booking.name ||
-                "Chưa có"
-              }
-            />
-            <DetailRow
-              label="Số điện thoại"
-              value={booking.phone || "Chưa có"}
-            />
-            <DetailRow label="Email" value={booking.email || "Chưa có"} />
-            <DetailRow label="Ngày đặt" value={formatDate(booking.date)} />
-            <DetailRow label="Giờ đặt" value={booking.time || "Chưa có"} />
-            <DetailRow
-              label="Số khách"
-              value={`${booking.guests || booking.people || 0} người`}
-            />
-            <DetailRow
-              label="Loại đặt"
-              value={
-                booking.type === "table_with_order"
-                  ? "Đặt bàn kèm đơn món"
-                  : booking.type === "table_with_food"
-                    ? "Đặt bàn kèm món"
-                    : "Chỉ đặt bàn"
-              }
-            />
-            <DetailRow
-              label="Tổng tiền"
-              value={`${Number(booking.total || 0).toLocaleString("vi-VN")}đ`}
-            />
-            <DetailRow label="Ghi chú" value={booking.note || "Không có"} />
-            <DetailRow
-              label="Tạo lúc"
-              value={formatDateTime(booking.createdAt)}
-            />
-            <DetailRow
-              label="Xếp bàn lúc"
-              value={formatDateTime(booking.assignedAt)}
-            />
-            <DetailRow
-              label="Xếp bởi"
-              value={booking.assignedBy || "Chưa có"}
-            />
-          </DetailBlock>
+          <>
+            <DetailBlock title="Thông tin đặt bàn hiện tại">
+              <DetailRow
+                label="Mã đặt bàn"
+                value={`DB${booking.id || "Chưa có"}`}
+              />
+              <DetailRow
+                label="Khách hàng"
+                value={
+                  booking.customerName ||
+                  booking.fullName ||
+                  booking.name ||
+                  "Chưa có"
+                }
+              />
+              <DetailRow
+                label="Số điện thoại"
+                value={booking.phone || "Chưa có"}
+              />
+              <DetailRow label="Email" value={booking.email || "Chưa có"} />
+              <DetailRow label="Ngày đặt" value={formatDate(booking.date)} />
+              <DetailRow label="Giờ đặt" value={booking.time || "Chưa có"} />
+              <DetailRow
+                label="Số khách"
+                value={`${booking.guests || booking.people || 0} người`}
+              />
+              <DetailRow
+                label="Loại đặt"
+                value={
+                  booking.type === "table_with_order"
+                    ? "Đặt bàn kèm đơn món"
+                    : booking.type === "table_with_food"
+                      ? "Đặt bàn kèm món"
+                      : "Chỉ đặt bàn"
+                }
+              />
+              <DetailRow
+                label="Tổng tiền"
+                value={`${Number(booking.total || 0).toLocaleString("vi-VN")}đ`}
+              />
+              <DetailRow label="Ghi chú" value={booking.note || "Không có"} />
+              <DetailRow
+                label="Tạo lúc"
+                value={formatDateTime(booking.createdAt)}
+              />
+              <DetailRow
+                label="Xếp bàn lúc"
+                value={formatDateTime(booking.assignedAt)}
+              />
+              <DetailRow
+                label="Xếp bởi"
+                value={booking.assignedBy || "Chưa có"}
+              />
+            </DetailBlock>
+
+            <DetailBlock title="Món ăn đã đặt">
+              {booking.cartItems && booking.cartItems.length > 0 ? (
+                <div className="space-y-3 mt-2">
+                  <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                    {booking.cartItems.map((item, idx) => (
+                      <div key={item.id || idx} className="flex items-center gap-2 p-2 rounded-xl bg-gray-50 border border-gray-100">
+                        {item.image && (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-10 h-10 rounded-lg object-cover bg-white shrink-0 border border-gray-100"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-black text-xs text-green-950 truncate">{item.name}</p>
+                          <p className="text-[10px] text-gray-400 font-extrabold mt-0.5">
+                            {Number(item.price || 0).toLocaleString("vi-VN")}đ x {item.qty}
+                          </p>
+                        </div>
+                        <span className="font-black text-xs text-gray-700">
+                          {Number((item.price || 0) * (item.qty || 0)).toLocaleString("vi-VN")}đ
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t border-gray-100 pt-2 flex flex-col gap-1 text-xs">
+                    <div className="flex justify-between font-bold text-gray-500">
+                      <span>Tổng số lượng:</span>
+                      <span>{booking.totalQty || booking.cartItems.reduce((acc, i) => acc + Number(i.qty || 0), 0)} món</span>
+                    </div>
+                    <div className="flex justify-between font-black text-green-950 text-sm">
+                      <span>Tạm tính:</span>
+                      <span>{Number(booking.subtotal || booking.total || 0).toLocaleString("vi-VN")}đ</span>
+                    </div>
+                    {booking.paymentStatus && (
+                      <div className="flex justify-between font-bold mt-1">
+                        <span>Thanh toán:</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-black ${booking.paymentStatus === 'paid' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                          {booking.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 font-bold py-2 text-center">Khách chưa gọi món</p>
+              )}
+            </DetailBlock>
+          </>
         ) : (
           <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-5 text-center">
             <p className="font-black text-gray-500">
@@ -2614,63 +3729,98 @@ function TableDetailPanel({
           </div>
         )}
 
-        {booking && (
+        {booking?.status === "pending" && booking?.selectedTable && (
+          <button
+            onClick={onConfirmBooking}
+            className="w-full h-12 rounded-xl bg-green-700 text-white border border-green-700 font-black hover:bg-green-800 transition mb-2"
+          >
+            Xác nhận đặt bàn
+          </button>
+        )}
+
+        {booking?.status === "confirmed" && booking?.selectedTable && table.status !== "serving" && (
+          <button
+            onClick={() => onStartServing(booking, table)}
+            className="w-full h-12 rounded-xl bg-blue-600 text-white border border-blue-600 font-black hover:bg-blue-700 transition mb-2"
+          >
+            Nhận bàn / Bắt đầu phục vụ
+          </button>
+        )}
+
+        {table.status === "serving" && booking && (
+          <div className="space-y-2">
+            {booking.paymentStatus !== "paid" ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => onOpenAddItems(booking)}
+                  className="h-12 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 font-black hover:bg-blue-100 transition text-xs"
+                >
+                  Thêm món
+                </button>
+                <button
+                  onClick={() => onOpenBilling(booking)}
+                  className="h-12 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 font-black hover:bg-emerald-100 transition text-xs"
+                >
+                  Thanh toán
+                </button>
+              </div>
+            ) : (
+              <div className="p-3 bg-green-50 rounded-2xl border border-green-100 text-center">
+                <p className="text-xs font-black text-green-700">Đã thanh toán hóa đơn thành công</p>
+                <p className="text-[10px] text-gray-500 font-bold mt-0.5">Vui lòng bấm Hoàn thành phục vụ để dọn bàn.</p>
+              </div>
+            )}
+            <button
+              onClick={onCompleteBooking}
+              className="w-full h-12 rounded-xl bg-green-700 text-white border border-green-700 font-black hover:bg-green-800 transition"
+            >
+              Hoàn thành phục vụ
+            </button>
+          </div>
+        )}
+
+        {booking && table.status !== "serving" && (
           <button
             onClick={onCancelBooking}
-            className="w-full h-12 rounded-xl bg-red-50 text-red-600 border border-red-100 font-black hover:bg-red-100 transition"
+            className="w-full h-12 rounded-xl bg-red-50 text-red-600 border border-red-100 font-black hover:bg-red-100 transition mt-2"
           >
             Hủy đặt bàn
           </button>
         )}
 
-        {booking?.status === "pending" && booking?.selectedTable && (
-          <button
-            onClick={onConfirmBooking}
-            className="w-full h-12 rounded-xl bg-green-700 text-white border border-green-700 font-black hover:bg-green-800 transition"
-          >
-            Xác nhận đặt bàn
-          </button>
+        {canEdit && table.status !== "serving" && (
+          <div className="grid grid-cols-2 gap-2 border-t border-gray-100 pt-4 mt-2">
+            <button
+              onClick={() => onStatusChange("available")}
+              className="h-11 rounded-xl bg-green-50 text-green-700 border border-green-100 font-black hover:bg-green-100"
+            >
+              <Unlock size={16} className="inline mr-1" />
+              Mở bàn
+            </button>
+
+            <button
+              onClick={() => onStatusChange("maintenance")}
+              className="h-11 rounded-xl bg-gray-100 text-gray-600 border border-gray-200 font-black hover:bg-gray-200"
+            >
+              <Lock size={16} className="inline mr-1" />
+              Bảo trì
+            </button>
+
+            <button
+              onClick={() => onStatusChange("serving")}
+              className="h-11 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 font-black hover:bg-blue-100"
+            >
+              Đang phục vụ
+            </button>
+
+            <button
+              onClick={onEdit}
+              className="h-11 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 font-black hover:bg-blue-100"
+            >
+              Chỉnh sửa
+            </button>
+          </div>
         )}
-        {booking?.status === "confirmed" && booking?.selectedTable && (
-          <button
-            onClick={onCompleteBooking}
-            className="w-full h-12 rounded-xl bg-green-700 text-white border border-green-700 font-black hover:bg-green-800 transition"
-          >
-            Hoàn thành & mở bàn
-          </button>
-        )}
-
-        <div className="grid grid-cols-2 gap-2 border-t border-gray-100 pt-4">
-          <button
-            onClick={() => onStatusChange("available")}
-            className="h-11 rounded-xl bg-green-50 text-green-700 border border-green-100 font-black hover:bg-green-100"
-          >
-            <Unlock size={16} className="inline mr-1" />
-            Mở bàn
-          </button>
-
-          <button
-            onClick={() => onStatusChange("maintenance")}
-            className="h-11 rounded-xl bg-gray-100 text-gray-600 border border-gray-200 font-black hover:bg-gray-200"
-          >
-            <Lock size={16} className="inline mr-1" />
-            Bảo trì
-          </button>
-
-          <button
-            onClick={() => onStatusChange("serving")}
-            className="h-11 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 font-black hover:bg-blue-100"
-          >
-            Đang phục vụ
-          </button>
-
-          <button
-            onClick={onEdit}
-            className="h-11 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 font-black hover:bg-blue-100"
-          >
-            Chỉnh sửa
-          </button>
-        </div>
       </div>
     </aside>
   );
@@ -2715,11 +3865,10 @@ function TabButton({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className={`h-14 px-3 border-b-2 font-black whitespace-nowrap transition ${
-        active
+      className={`h-14 px-3 border-b-2 font-black whitespace-nowrap transition ${active
           ? "border-green-700 text-green-700 bg-green-50/40"
           : "border-transparent text-gray-500 hover:text-green-700 hover:bg-green-50/40"
-      }`}
+        }`}
     >
       {children}
     </button>
@@ -2794,11 +3943,10 @@ function Legend({ color, text, compact = false }) {
   return (
     <div
       title={text}
-      className={`group h-8 min-[1700px]:h-9 rounded-xl border border-gray-100 bg-white flex items-center text-[11px] min-[1700px]:text-xs font-black text-gray-600 whitespace-nowrap shrink-0 transition-all duration-200 ${
-        compact
+      className={`group h-8 min-[1700px]:h-9 rounded-xl border border-gray-100 bg-white flex items-center text-[11px] min-[1700px]:text-xs font-black text-gray-600 whitespace-nowrap shrink-0 transition-all duration-200 ${compact
           ? "xl:max-[1699px]:w-8 xl:max-[1699px]:px-0 xl:max-[1699px]:justify-center xl:max-[1699px]:overflow-hidden xl:max-[1699px]:hover:w-auto xl:max-[1699px]:hover:px-2.5 gap-1.5 min-[1700px]:gap-2 px-2.5 min-[1700px]:px-3"
           : "px-2.5 min-[1700px]:px-3 gap-1.5 min-[1700px]:gap-2"
-      }`}
+        }`}
     >
       <span
         className={`w-2 h-2 min-[1700px]:w-2.5 min-[1700px]:h-2.5 rounded-full shrink-0 ${color}`}

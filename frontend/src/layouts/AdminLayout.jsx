@@ -1,12 +1,15 @@
 import { Outlet, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AdminSidebar from "../components/admin/AdminSidebar";
 import AdminHeader from "../components/admin/AdminHeader";
 import { Download, Plus } from "lucide-react";
 import AdminToast from "../components/admin/AdminToast";
+import { getCurrentUser, getAuthToken } from "../utils/auth";
+import { canUseAction } from "../utils/permissions";
 
 function AdminLayout() {
   const location = useLocation();
+  const currentUser = getCurrentUser();
   const [exportExcelHandler, setExportExcelHandler] = useState(null);
   const [headerAction, setHeaderAction] = useState(null);
   // tìm kiếm
@@ -19,6 +22,43 @@ function AdminLayout() {
 
   const [dateMode, setDateMode] = useState("range");
   const [dateLabel, setDateLabel] = useState("");
+  
+  // Thông báo
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const token = getAuthToken();
+        if (!token) return;
+        const res = await fetch("http://localhost:5001/api/admin/dashboard/notifications", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        const data = await res.json();
+        if (data.success) {
+          setNotifications(data.notifications || []);
+        }
+      } catch (error) {
+        console.error("Lỗi lấy thông báo:", error);
+      }
+    };
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 5000); // Poll every 5 seconds
+
+    // Nghe sự kiện cập nhật để fetch ngay lập tức
+    const handleUpdate = () => fetchNotifications();
+    window.addEventListener("bookingsUpdated", handleUpdate);
+    window.addEventListener("ordersUpdated", handleUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("bookingsUpdated", handleUpdate);
+      window.removeEventListener("ordersUpdated", handleUpdate);
+    };
+  }, []);
   //
   const pageInfo = {
     "/admin/dashboard": {
@@ -83,7 +123,7 @@ function AdminLayout() {
   const isSpacesPage = location.pathname === "/admin/spaces";
   const isDealsPage = location.pathname === "/admin/deals";
 
-  const pageAction = isOrdersPage ? (
+  const pageAction = isOrdersPage && canUseAction(currentUser, "reports:export") ? (
     <button
       onClick={() => exportExcelHandler && exportExcelHandler()}
       disabled={!exportExcelHandler}
@@ -109,7 +149,7 @@ function AdminLayout() {
       <Plus size={18} />
       {headerAction.label}
     </button>
-  ) : isBookingsPage || isTablesPage ? (
+  ) : (isBookingsPage || isTablesPage) && canUseAction(currentUser, "bookings:create") ? (
     <button
       onClick={() => window.dispatchEvent(new Event("openAddBookingModal"))}
       className="
@@ -121,7 +161,7 @@ function AdminLayout() {
       <Plus size={18} />
       Thêm đặt bàn
     </button>
-  ) : isSpacesPage ? (
+  ) : isSpacesPage && canUseAction(currentUser, "tables:create") ? (
     <button
       onClick={() => window.dispatchEvent(new Event("openAddSpaceModal"))}
       className="
@@ -133,7 +173,7 @@ function AdminLayout() {
       <Plus size={18} />
       Thêm không gian
     </button>
-  ) : isDealsPage ? (
+  ) : isDealsPage && canUseAction(currentUser, "promotions:create") ? (
     <button
       onClick={() => window.dispatchEvent(new Event("openAddDealModal"))}
       className="
@@ -149,7 +189,7 @@ function AdminLayout() {
 
   return (
     <div className="h-screen bg-[#f8faf8] flex overflow-hidden">
-      <AdminSidebar />
+      <AdminSidebar notifications={notifications} />
 
       <div className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden">
         <AdminHeader
@@ -164,6 +204,7 @@ function AdminLayout() {
           setDateMode={setDateMode}
           dateLabel={dateLabel}
           setDateLabel={setDateLabel}
+          notifications={notifications}
         />
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 lg:px-5 py-4">

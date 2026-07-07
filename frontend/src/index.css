@@ -9,16 +9,85 @@ input[type="number"]::-webkit-inner-spin-button {
   margin: 0;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
+/* Ẩn focus outline xanh mặc định của browser cho admin UI */
+select:focus,
+button:focus,
+a:focus {
+  outline: none;
+  box-shadow: none;
+}
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.02);
   }
+  50% {
+    box-shadow: 0 10px 25px rgba(22, 163, 74, 0.08);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUpFade 0.6s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.6s ease-out forwards;
+}
+
+/* Stagger Animations — khung đứng yên, chỉ fade opacity */
+.delay-kpi {
+  animation: slideUpFade 0.6s ease-out forwards;
+  animation-delay: 80ms;
+  opacity: 0;
+}
+
+.delay-chart {
+  animation: slideUpFade 0.6s ease-out forwards;
+  animation-delay: 150ms;
+  opacity: 0;
+}
+
+.delay-table {
+  animation: slideUpFade 0.6s ease-out forwards;
+  animation-delay: 220ms;
+  opacity: 0;
+}
+
+.dashboard-card-glow {
+  /* glowPulse infinite removed — gây rung card */
+}
+
+/* Hiệu ứng hover nhịp nhàng cho card */
+.hover-card-effect {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hover-card-effect:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.06) !important;
+  border-color: rgba(22, 163, 74, 0.2);
+}
+.hover-card-effect:active {
+  transform: translateY(-2px) scale(0.97);
+  transition-duration: 80ms;
 }
 
 /* animatin khuyến mãi - removed, using Swiper instead */

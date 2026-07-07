@@ -51,7 +51,8 @@ function AdminLoginPage() {
         return;
       }
 
-      if (data.user?.role !== "admin") {
+      const allowedRoles = ["admin", "manager", "staff"];
+      if (!allowedRoles.includes(data.user?.role)) {
         setError("Tài khoản này không có quyền truy cập Admin");
         return;
       }
@@ -133,18 +134,19 @@ function AdminLoginPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`w-full py-3 rounded-2xl font-black transition ${
-              isSubmitting
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-green-800 text-white hover:bg-green-900"
-            }`}
+            className={`w-full py-3 rounded-2xl font-black transition ${isSubmitting
+              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+              : "bg-green-800 text-white hover:bg-green-900"
+              }`}
           >
             {isSubmitting ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
         </form>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          Tài khoản admin: admin@gmail.com / Admin@123
+          Tài khoản admin: admin@gmail.com / Admin@123 <br />
+          Tài khoản Nhân viên: staff@dehuongson.com / 123456 <br />
+          Tài khoản Quản lý: manager@dehuongson.com / 123456
         </p>
       </div>
     </div>

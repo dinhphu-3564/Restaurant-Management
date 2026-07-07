@@ -1,9 +1,12 @@
 import { useMemo, useState, useEffect } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import { tableService } from "../../services/tableService";
 import { bookingService } from "../../services/bookingService";
+import { socket } from "../../utils/socket";
 import { showAdminToast } from "../../components/admin/AdminToast";
 import { removeVietnameseTones } from "../../utils/string";
+import { getCurrentUser } from "../../utils/auth";
+import { canUseAction } from "../../utils/permissions";
 import {
   CalendarCheck,
   Clock3,
@@ -31,6 +34,7 @@ const normalizeTableStatus = (status) => {
 };
 
 function AdminBookingsPage() {
+  const currentUser = getCurrentUser();
   const TABLE_STATUS_STYLE = {
     available: "border-green-200 bg-green-50 text-green-700",
     holding: "border-orange-200 bg-orange-50 text-orange-600",
@@ -95,16 +99,26 @@ function AdminBookingsPage() {
 
   const { globalSearch, dateRange } = useOutletContext();
 
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get("search") || "";
+
   const [bookings, setBookings] = useState([]);
   const [areas, setAreas] = useState([]);
   const [tables, setTables] = useState([]);
   const [activeTab, setActiveTab] = useState("all");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [areaFilter, setAreaFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [guestFilter, setGuestFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    const searchParam = searchParams.get("search");
+    if (searchParam !== null) {
+      setSearch(searchParam);
+    }
+  }, [searchParams]);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [editingBooking, setEditingBooking] = useState(null);
   const [selectedBookingIds, setSelectedBookingIds] = useState([]);
@@ -146,6 +160,16 @@ function AdminBookingsPage() {
       ]);
 
       setBookings(apiBookings);
+      
+      const viewId = searchParams.get("view");
+      if (viewId) {
+        const bookingToView = apiBookings.find(
+          (b) => String(b.id) === String(viewId)
+        );
+        if (bookingToView) {
+          setSelectedBooking(bookingToView);
+        }
+      }
     } catch (error) {
       console.error(error);
       alert(error.message || "Không thể tải danh sách đặt bàn.");
@@ -201,15 +225,37 @@ function AdminBookingsPage() {
 
     window.addEventListener("bookingsUpdated", loadBookings);
     window.addEventListener("tablesUpdated", loadBookings);
+    socket.on("table_updated", loadBookings);
 
     return () => {
       window.removeEventListener("bookingsUpdated", loadBookings);
       window.removeEventListener("tablesUpdated", loadBookings);
+      socket.off("table_updated", loadBookings);
     };
   }, []);
 
   useEffect(() => {
+    const viewId = searchParams.get("view");
+    if (viewId && bookings.length > 0) {
+      const bookingToView = bookings.find(
+        (b) => String(b.id) === String(viewId)
+      );
+      if (bookingToView) {
+        setSelectedBooking(bookingToView);
+      }
+    }
+  }, [searchParams, bookings]);
+
+  useEffect(() => {
     const openAddBookingModal = async () => {
+      if (!canUseAction(currentUser, "bookings:create")) {
+        showAdminToast({
+          title: "Từ chối",
+          message: "Bạn không có quyền thêm đặt bàn.",
+          type: "error",
+        });
+        return;
+      }
       const layout = await loadTableLayout();
       const firstArea = layout.areas[0];
 
@@ -258,6 +304,8 @@ function AdminBookingsPage() {
         return "Chờ xác nhận";
       case "confirmed":
         return "Đã xác nhận";
+      case "serving":
+        return "Đang phục vụ";
       case "completed":
         return "Hoàn thành";
       case "cancelled":
@@ -272,6 +320,7 @@ function AdminBookingsPage() {
     const text = getStatusText(status);
 
     if (text === "Hoàn thành") return "bg-green-50 text-green-700";
+    if (text === "Đang phục vụ") return "bg-indigo-50 text-indigo-700";
     if (text === "Đã hủy") return "bg-red-50 text-red-600";
     if (text === "Đã xác nhận") return "bg-blue-50 text-blue-600";
 
@@ -1365,16 +1414,18 @@ function AdminBookingsPage() {
                             <Pencil size={16} />
                           </button>
 
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteBooking(booking.id);
-                            }}
-                            className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100"
-                            title="Xóa lịch đặt bàn"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {canUseAction(currentUser, "bookings:delete") && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteBooking(booking.id);
+                              }}
+                              className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100"
+                              title="Xóa lịch đặt bàn"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1482,7 +1533,7 @@ function AdminBookingsPage() {
       </div>
       {editingBooking && (
         <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
-          <div className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden">
+          <div className={`w-full bg-white rounded-3xl shadow-2xl overflow-hidden transition-all ${editingBooking.status === "completed" ? "max-w-sm" : "max-w-6xl"}`}>
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-black text-green-950">
@@ -1501,6 +1552,39 @@ function AdminBookingsPage() {
               </button>
             </div>
 
+            {editingBooking.status === "completed" ? (
+              <div className="px-6 pt-6 pb-2 flex flex-col items-center text-center gap-3">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white text-3xl shadow-lg">
+                  ✓
+                </div>
+                <div>
+                  <p className="text-lg font-black text-green-800 mt-1">Đặt bàn đã hoàn thành</p>
+                  <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                    Lịch đặt <strong className="text-gray-600">{editingBooking.bookingCode || `DB${editingBooking.id}`}</strong> đã hoàn tất phục vụ.
+                  </p>
+                </div>
+                <div className="w-full bg-gray-50 rounded-2xl px-4 py-3 text-left space-y-1.5 mt-1">
+                  {editingBooking.date && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400 font-semibold">Ngày đặt</span>
+                      <span className="font-black text-gray-700">{formatDate(editingBooking.date)}</span>
+                    </div>
+                  )}
+                  {editingBooking.selectedTable && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400 font-semibold">Bàn</span>
+                      <span className="font-black text-gray-700">{editingBooking.selectedTable}</span>
+                    </div>
+                  )}
+                  {editingBooking.guests && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400 font-semibold">Số khách</span>
+                      <span className="font-black text-gray-700">{editingBooking.guests} người</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
             <div className="p-6 grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 max-h-[70vh] overflow-y-auto">
               <div className="space-y-4">
                 <label className="block">
@@ -1528,21 +1612,31 @@ function AdminBookingsPage() {
                   <span className="text-sm font-black text-gray-500">
                     Trạng thái
                   </span>
-                  <select
-                    value={editForm.status}
-                    onChange={(e) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        status: e.target.value,
-                      }))
-                    }
-                    className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
-                  >
-                    <option value="pending">Chờ xác nhận</option>
-                    <option value="confirmed">Đã xác nhận</option>
-                    <option value="completed">Hoàn thành</option>
-                    <option value="cancelled">Đã hủy</option>
-                  </select>
+                  {editForm.status === "completed" || editForm.status === "serving" ? (
+                    <div className="mt-2 w-full rounded-xl border border-gray-100 px-4 py-3 shadow-sm flex flex-col gap-1 bg-gray-50 select-none">
+                      <span className={`text-sm font-black ${editForm.status === "serving" ? "text-amber-600" : "text-green-600"}`}>
+                        {editForm.status === "serving" ? "🟡 Đang phục vụ" : "✅ Hoàn thành"}
+                      </span>
+                      <span className="text-xs text-gray-400 leading-snug">
+                        Không thể thay đổi tại đây — chỉ quản lý tại trang <strong>Bàn &amp; Khu vực</strong>
+                      </span>
+                    </div>
+                  ) : (
+                    <select
+                      value={editForm.status}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          status: e.target.value,
+                        }))
+                      }
+                      className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 font-bold outline-none shadow-sm"
+                    >
+                      <option value="pending">Chờ xác nhận</option>
+                      <option value="confirmed">Đã xác nhận</option>
+                      <option value="cancelled">Đã hủy</option>
+                    </select>
+                  )}
                 </label>
 
                 <label className="block">
@@ -1736,6 +1830,7 @@ function AdminBookingsPage() {
                 </div>
               </div>
             </div>
+            )}
 
             <div className="px-6 py-5 border-t border-gray-100 flex justify-end gap-3">
               <button
@@ -1745,12 +1840,14 @@ function AdminBookingsPage() {
                 Đóng
               </button>
 
-              <button
-                onClick={saveEditBooking}
-                className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
-              >
-                Lưu thay đổi
-              </button>
+              {editingBooking.status !== "completed" && (
+                <button
+                  onClick={saveEditBooking}
+                  className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+                >
+                  Lưu thay đổi
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -2288,26 +2385,9 @@ function BookingDetailPanel({
           </button>
 
           <button
-            onClick={onComplete}
-            disabled={booking.status === "completed"}
-            className="
-      h-11 rounded-xl
-      bg-green-50 text-green-700
-      border border-green-100
-      text-sm font-black
-      hover:bg-green-100
-      disabled:opacity-50 disabled:cursor-not-allowed
-      transition
-    "
-          >
-            Hoàn thành
-          </button>
-
-          <button
             onClick={onCancel}
             disabled={booking.status === "cancelled"}
             className="
-      col-span-2
       h-11 rounded-xl
       bg-red-50 text-red-600
       border border-red-100

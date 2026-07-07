@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { tableService } from "../services/tableService";
 import { bookingService } from "../services/bookingService";
+import { socket } from "../utils/socket";
 
 import LoginRequiredModal from "../components/LoginRequiredModal";
 
@@ -177,9 +178,11 @@ function BookingPage() {
     loadTableData();
 
     window.addEventListener("tablesUpdated", loadTableData);
+    socket.on("table_updated", loadTableData);
 
     return () => {
       window.removeEventListener("tablesUpdated", loadTableData);
+      socket.off("table_updated", loadTableData);
     };
   }, []);
 

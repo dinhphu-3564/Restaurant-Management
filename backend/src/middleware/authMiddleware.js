@@ -97,46 +97,36 @@ async function requireAuth(req, res, next) {
   }
 }
 
-function requireAdmin(req, res, next) {
-  if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Bạn không có quyền truy cập admin.",
-    });
-  }
-
-  next();
-}
-
-function requireBackOffice(req, res, next) {
-  const allowedRoles = ["admin", "manager", "staff"];
-
-  if (!req.user || !allowedRoles.includes(req.user.role)) {
-    return res.status(403).json({
-      success: false,
-      message: "Bạn không có quyền truy cập khu vực quản trị.",
-    });
-  }
-
-  next();
-}
-
 function requireRoles(...roles) {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: "Bạn không có quyền thực hiện chức năng này.",
+        code: "FORBIDDEN",
+        message: "Bạn không có quyền thực hiện thao tác này.",
       });
     }
-
     next();
   };
 }
 
+const requireAdmin = requireRoles("admin");
+const requireManagerOrAdmin = requireRoles("manager", "admin");
+const requireStaffOrHigher = requireRoles("staff", "manager", "admin", "cashier", "waiter", "chef");
+const requireBackOffice = requireStaffOrHigher;
+
+const requireCashierOrHigher = requireRoles("cashier", "manager", "admin");
+const requireWaiterOrHigher = requireRoles("waiter", "manager", "admin");
+const requireChefOrHigher = requireRoles("chef", "manager", "admin");
+
 module.exports = {
   requireAuth,
   requireAdmin,
+  requireManagerOrAdmin,
+  requireStaffOrHigher,
   requireBackOffice,
+  requireCashierOrHigher,
+  requireWaiterOrHigher,
+  requireChefOrHigher,
   requireRoles,
 };

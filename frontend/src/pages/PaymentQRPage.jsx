@@ -39,6 +39,7 @@ function PaymentQRPage() {
   const order = JSON.parse(localStorage.getItem("currentOrder")) || {};
 
   const [currentOrder, setCurrentOrder] = useState(order);
+  const [customAmount, setCustomAmount] = useState(order.remainingAmount ?? order.total ?? 0);
   const [isChecking, setIsChecking] = useState(false);
   const [copiedText, setCopiedText] = useState("");
   const [copyToast, setCopyToast] = useState({
@@ -78,7 +79,7 @@ function PaymentQRPage() {
   const sepayQRUrl = `https://qr.sepay.vn/img?bank=${
     bankInfo.bankCode
   }&acc=${bankInfo.accountNumber}&template=compact&amount=${Math.round(
-    Number(currentOrder.total || 0),
+    Number(customAmount || 0),
   )}&des=${encodeURIComponent(paymentContent)}`;
 
   // hàm đổi phương thức thanh toán
@@ -239,7 +240,7 @@ function PaymentQRPage() {
       setCurrentOrder(updatedOrder);
       localStorage.setItem("currentOrder", JSON.stringify(updatedOrder));
 
-      if (data.order.paymentStatus === "paid") {
+      if (data.order.paymentStatus === "paid" || data.order.paymentStatus === "partial") {
         localStorage.removeItem("cartItems");
         localStorage.removeItem("checkoutSummary");
         localStorage.removeItem("appliedCoupon");
@@ -426,6 +427,25 @@ function PaymentQRPage() {
                 <div className="grid xl:grid-cols-[390px_1fr] gap-6 items-stretch">
                   {/* QR */}
                   <div className="bg-white border border-slate-200 rounded-3xl p-5 flex flex-col items-center justify-center">
+                    {!isMomo && (
+                      <div className="w-full mb-4">
+                        <label className="text-sm font-bold text-gray-700 block mb-2 text-center">
+                          Số tiền thanh toán (VNĐ)
+                        </label>
+                        <input
+                          type="text"
+                          value={customAmount ? Number(customAmount).toLocaleString("vi-VN") : ""}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "");
+                            setCustomAmount(val ? Number(val) : "");
+                          }}
+                          className="w-full h-12 border border-slate-200 rounded-xl px-4 font-black text-center text-green-900 bg-slate-50 focus:bg-white focus:border-green-600 outline-none transition"
+                        />
+                        <p className="text-xs text-slate-500 text-center mt-2">
+                          Bạn có thể sửa số tiền để thanh toán một phần
+                        </p>
+                      </div>
+                    )}
                     <div className="w-[310px] h-[310px] rounded-2xl bg-[#fffaf0] flex items-center justify-center">
                       {isMomo ? (
                         <div className="text-center">

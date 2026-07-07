@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs");
 
 const router = express.Router();
+const { requireAuth, requireBackOffice, requireManagerOrAdmin } = require("../middleware/authMiddleware");
 
 const DEFAULT_IMAGE = "/src/assets/images/Menu/default-food.png";
 //cấu hình up ảnh
@@ -123,7 +124,7 @@ async function createNextCode() {
 }
 
 //route upload ảnh
-router.post("/upload", uploadMenuImages.array("images", 10), (req, res) => {
+router.post("/upload", requireAuth, requireManagerOrAdmin, uploadMenuImages.array("images", 10), (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({
@@ -153,7 +154,7 @@ router.post("/upload", uploadMenuImages.array("images", 10), (req, res) => {
 });
 
 // Lấy danh sách món
-router.get("/", async (req, res) => {
+router.get("/", requireAuth, requireBackOffice, async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT 
@@ -181,7 +182,7 @@ router.get("/", async (req, res) => {
 });
 
 // Thêm món
-router.post("/", async (req, res) => {
+router.post("/", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const body = req.body;
 
@@ -272,7 +273,7 @@ router.post("/", async (req, res) => {
 });
 
 // Sửa món
-router.put("/:code", async (req, res) => {
+router.put("/:code", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const { code } = req.params;
     const body = req.body;
@@ -366,7 +367,7 @@ router.put("/:code", async (req, res) => {
 });
 
 // Đổi trạng thái một món
-router.patch("/:code/status", async (req, res) => {
+router.patch("/:code/status", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const { code } = req.params;
     const { status } = req.body;
@@ -392,7 +393,7 @@ router.patch("/:code/status", async (req, res) => {
 });
 
 // Xóa mềm một món
-router.delete("/:code", async (req, res) => {
+router.delete("/:code", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const { code } = req.params;
 
@@ -416,7 +417,7 @@ router.delete("/:code", async (req, res) => {
 });
 
 // Ngừng bán nhiều món
-router.patch("/bulk/stop", async (req, res) => {
+router.patch("/bulk/stop", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const { ids } = req.body;
 
@@ -448,7 +449,7 @@ router.patch("/bulk/stop", async (req, res) => {
 });
 
 // Xóa mềm nhiều món
-router.patch("/bulk/delete", async (req, res) => {
+router.patch("/bulk/delete", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const { ids } = req.body;
 

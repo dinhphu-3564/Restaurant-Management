@@ -1,8 +1,11 @@
 const express = require("express");
 const db = require("../config/db");
+const { getIO } = require("../config/socket");
+const { createActivityLog } = require("../utils/activityLog");
 const {
   requireAuth,
   requireBackOffice,
+  requireManagerOrAdmin,
 } = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -182,7 +185,7 @@ router.get("/areas", async (req, res) => {
 });
 
 // POST /api/tables/areas
-router.post("/areas", requireAuth, requireBackOffice, async (req, res) => {
+router.post("/areas", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const name = String(req.body.name || "").trim();
     const description = String(req.body.description || "").trim();
@@ -245,7 +248,7 @@ router.post("/areas", requireAuth, requireBackOffice, async (req, res) => {
 });
 
 // PATCH /api/tables/areas/:id
-router.patch("/areas/:id", requireAuth, requireBackOffice, async (req, res) => {
+router.patch("/areas/:id", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const areaId = Number(req.params.id);
     const name = String(req.body.name || "").trim();
@@ -298,7 +301,7 @@ router.patch("/areas/:id", requireAuth, requireBackOffice, async (req, res) => {
 router.delete(
   "/areas/:id",
   requireAuth,
-  requireBackOffice,
+  requireManagerOrAdmin,
   async (req, res) => {
     try {
       const areaId = Number(req.params.id);
@@ -390,7 +393,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/tables
-router.post("/", requireAuth, requireBackOffice, async (req, res) => {
+router.post("/", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const areaId = Number(req.body.areaId);
     let code = String(req.body.code || req.body.tableCode || "").trim();
@@ -469,6 +472,13 @@ router.post("/", requireAuth, requireBackOffice, async (req, res) => {
       [result.insertId],
     );
 
+    await createActivityLog({
+      targetUserId: req.user.id,
+      actorUserId: req.user.id,
+      action: "add_table",
+      message: `Đã thêm bàn mới: ${code}`,
+    }).catch(err => console.error("Log error:", err));
+
     res.status(201).json({
       success: true,
       message: "Thêm bàn thành công.",
@@ -485,8 +495,11 @@ router.post("/", requireAuth, requireBackOffice, async (req, res) => {
   }
 });
 // PATCH /api/tables/:id
-router.patch("/:id", requireAuth, requireBackOffice, async (req, res) => {
+router.patch("/:id", requireAuth, requireManagerOrAdmin, async (req, res) => {
+  const conn = await db.getConnection();
   try {
+    await conn.beginTransaction();
+
     const tableId = Number(req.params.id);
     const areaId = Number(req.body.areaId);
     const code = String(req.body.code || req.body.tableCode || "").trim();
@@ -495,6 +508,7 @@ router.patch("/:id", requireAuth, requireBackOffice, async (req, res) => {
     const description = String(req.body.description || "").trim();
 
     if (!areaId || !code) {
+      await conn.rollback();
       return res.status(400).json({
         success: false,
         message: "Vui lòng chọn khu vực và nhập mã bàn.",
@@ -502,14 +516,15 @@ router.patch("/:id", requireAuth, requireBackOffice, async (req, res) => {
     }
 
     if (!TABLE_STATUSES.includes(status)) {
+      await conn.rollback();
       return res.status(400).json({
         success: false,
         message: "Trạng thái bàn không hợp lệ.",
       });
     }
 
-    if (["maintenance", "disabled", "serving"].includes(status)) {
-      const [bookingRows] = await db.query(
+    if (["maintenance", "disabled"].includes(status)) {
+      const [bookingRows] = await conn.query(
         `
     SELECT id
     FROM bookings
@@ -522,11 +537,13 @@ router.patch("/:id", requireAuth, requireBackOffice, async (req, res) => {
       AND status IN ('pending', 'confirmed')
       AND deleted_at IS NULL
     LIMIT 1
+    FOR UPDATE
     `,
         [tableId],
       );
 
       if (bookingRows.length > 0) {
+        await conn.rollback();
         return res.status(400).json({
           success: false,
           message:
@@ -535,7 +552,7 @@ router.patch("/:id", requireAuth, requireBackOffice, async (req, res) => {
       }
     }
 
-    const [existedRows] = await db.query(
+    const [existedRows] = await conn.query(
       `
       SELECT id
       FROM restaurant_tables
@@ -543,18 +560,20 @@ router.patch("/:id", requireAuth, requireBackOffice, async (req, res) => {
         AND id != ?
         AND deleted_at IS NULL
       LIMIT 1
+      FOR UPDATE
       `,
       [code, tableId],
     );
 
     if (existedRows.length > 0) {
+      await conn.rollback();
       return res.status(409).json({
         success: false,
         message: "Mã bàn đã tồn tại.",
       });
     }
 
-    await db.query(
+    await conn.query(
       `
       UPDATE restaurant_tables
       SET
@@ -570,7 +589,7 @@ router.patch("/:id", requireAuth, requireBackOffice, async (req, res) => {
       [areaId, code, seats, status, description || null, tableId],
     );
 
-    const [rows] = await db.query(
+    const [rows] = await conn.query(
       `
       SELECT
         t.*,
@@ -583,12 +602,17 @@ router.patch("/:id", requireAuth, requireBackOffice, async (req, res) => {
       [tableId],
     );
 
+    await conn.commit();
+    try {
+      getIO().emit("table_updated", { tableId });
+    } catch(err) { console.error("Emit error:", err); }
     res.json({
       success: true,
       message: "Cập nhật bàn thành công.",
       table: mapTable(rows[0]),
     });
   } catch (error) {
+    await conn.rollback();
     console.error("Lỗi cập nhật bàn:", error);
 
     res.status(500).json({
@@ -596,6 +620,8 @@ router.patch("/:id", requireAuth, requireBackOffice, async (req, res) => {
       message: "Lỗi server khi cập nhật bàn.",
       error: error.message,
     });
+  } finally {
+    conn.release();
   }
 });
 
@@ -605,29 +631,35 @@ router.patch(
   requireAuth,
   requireBackOffice,
   async (req, res) => {
+    const conn = await db.getConnection();
     try {
+      await conn.beginTransaction();
+
       const tableId = Number(req.params.id);
       const status = String(req.body.status || "").trim();
 
       if (!TABLE_STATUSES.includes(status)) {
+        await conn.rollback();
         return res.status(400).json({
           success: false,
           message: "Trạng thái bàn không hợp lệ.",
         });
       }
 
-      const [tableRows] = await db.query(
+      const [tableRows] = await conn.query(
         `
         SELECT id, table_code
         FROM restaurant_tables
         WHERE id = ?
           AND deleted_at IS NULL
         LIMIT 1
+        FOR UPDATE
         `,
         [tableId],
       );
 
       if (tableRows.length === 0) {
+        await conn.rollback();
         return res.status(404).json({
           success: false,
           message: "Không tìm thấy bàn.",
@@ -636,8 +668,8 @@ router.patch(
 
       const table = tableRows[0];
 
-      if (["maintenance", "disabled", "serving"].includes(status)) {
-        const [bookingRows] = await db.query(
+      if (["maintenance", "disabled"].includes(status)) {
+        const [bookingRows] = await conn.query(
           `
           SELECT id
           FROM bookings
@@ -645,11 +677,13 @@ router.patch(
             AND status IN ('pending', 'confirmed')
             AND deleted_at IS NULL
           LIMIT 1
+          FOR UPDATE
           `,
           [table.table_code],
         );
 
         if (bookingRows.length > 0) {
+          await conn.rollback();
           return res.status(400).json({
             success: false,
             message:
@@ -658,7 +692,7 @@ router.patch(
         }
       }
 
-      await db.query(
+      await conn.query(
         `
         UPDATE restaurant_tables
         SET status = ?, updated_at = NOW()
@@ -668,7 +702,31 @@ router.patch(
         [status, tableId],
       );
 
-      const [rows] = await db.query(
+      if (status === "serving") {
+        await conn.query(
+          `
+          UPDATE bookings
+          SET status = 'serving', updated_at = NOW()
+          WHERE selected_table = ?
+            AND status = 'confirmed'
+            AND deleted_at IS NULL
+          `,
+          [table.table_code]
+        );
+      } else if (status === "available") {
+        await conn.query(
+          `
+          UPDATE bookings
+          SET status = 'completed', updated_at = NOW()
+          WHERE selected_table = ?
+            AND status IN ('serving', 'confirmed')
+            AND deleted_at IS NULL
+          `,
+          [table.table_code]
+        );
+      }
+
+      const [rows] = await conn.query(
         `
         SELECT
           t.*,
@@ -681,12 +739,26 @@ router.patch(
         [tableId],
       );
 
+      await conn.commit();
+      try {
+        getIO().emit("table_updated", { tableId });
+      } catch(err) { console.error("Emit error:", err); }
+      if (["maintenance", "disabled"].includes(status)) {
+        await createActivityLog({
+          targetUserId: req.user.id,
+          actorUserId: req.user.id,
+          action: "update_table_status",
+          message: `Đã đổi trạng thái bàn ${table.table_code} sang ${status}`,
+        }).catch(err => console.error("Log error:", err));
+      }
+
       res.json({
         success: true,
         message: "Cập nhật trạng thái bàn thành công.",
         table: mapTable(rows[0]),
       });
     } catch (error) {
+      await conn.rollback();
       console.error("Lỗi cập nhật trạng thái bàn:", error);
 
       res.status(500).json({
@@ -694,12 +766,14 @@ router.patch(
         message: "Lỗi server khi cập nhật trạng thái bàn.",
         error: error.message,
       });
+    } finally {
+      conn.release();
     }
   },
 );
 
 // DELETE /api/tables/:id
-router.delete("/:id", requireAuth, requireBackOffice, async (req, res) => {
+router.delete("/:id", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const tableId = Number(req.params.id);
 
@@ -736,6 +810,13 @@ router.delete("/:id", requireAuth, requireBackOffice, async (req, res) => {
       `,
       [tableId],
     );
+
+    await createActivityLog({
+      targetUserId: req.user.id,
+      actorUserId: req.user.id,
+      action: "delete_table",
+      message: `Đã xóa bàn ID ${tableId}`,
+    }).catch(err => console.error("Log error:", err));
 
     res.json({
       success: true,
