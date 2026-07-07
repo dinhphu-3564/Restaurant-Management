@@ -1,6 +1,10 @@
 const express = require("express");
 const db = require("../config/db");
-const { requireAuth, requireAdmin, requireManagerOrAdmin } = require("../middleware/authMiddleware");
+const {
+  requireAuth,
+  requireAdmin,
+  requireManagerOrAdmin,
+} = require("../middleware/authMiddleware");
 const { createActivityLog } = require("../utils/activityLog");
 
 const router = express.Router();

@@ -217,8 +217,14 @@ router.post("/areas", requireAuth, requireManagerOrAdmin, async (req, res) => {
 
     // Auto-create a pending space linked to this new area
     try {
-      const spaceKey = "area_" + result.insertId + "_" + Math.random().toString(36).substring(2, 6);
-      const [maxOrderRows] = await db.query("SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM restaurant_spaces");
+      const spaceKey =
+        "area_" +
+        result.insertId +
+        "_" +
+        Math.random().toString(36).substring(2, 6);
+      const [maxOrderRows] = await db.query(
+        "SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM restaurant_spaces",
+      );
       const nextOrder = maxOrderRows[0]?.next_order || 1;
 
       await db.query(
@@ -228,7 +234,10 @@ router.post("/areas", requireAuth, requireManagerOrAdmin, async (req, res) => {
       );
     } catch (spaceErr) {
       // Non-critical: log but don't fail the area creation
-      console.warn("Không thể tạo không gian pending cho khu vực mới:", spaceErr.message);
+      console.warn(
+        "Không thể tạo không gian pending cho khu vực mới:",
+        spaceErr.message,
+      );
     }
 
     res.status(201).json({
@@ -248,54 +257,59 @@ router.post("/areas", requireAuth, requireManagerOrAdmin, async (req, res) => {
 });
 
 // PATCH /api/tables/areas/:id
-router.patch("/areas/:id", requireAuth, requireManagerOrAdmin, async (req, res) => {
-  try {
-    const areaId = Number(req.params.id);
-    const name = String(req.body.name || "").trim();
-    const description = String(req.body.description || "").trim();
+router.patch(
+  "/areas/:id",
+  requireAuth,
+  requireManagerOrAdmin,
+  async (req, res) => {
+    try {
+      const areaId = Number(req.params.id);
+      const name = String(req.body.name || "").trim();
+      const description = String(req.body.description || "").trim();
 
-    if (!name) {
-      return res.status(400).json({
-        success: false,
-        message: "Vui lòng nhập tên khu vực.",
-      });
-    }
+      if (!name) {
+        return res.status(400).json({
+          success: false,
+          message: "Vui lòng nhập tên khu vực.",
+        });
+      }
 
-    await db.query(
-      `
+      await db.query(
+        `
       UPDATE areas
       SET name = ?, description = ?, updated_at = NOW()
       WHERE id = ?
         AND deleted_at IS NULL
       `,
-      [name, description || null, areaId],
-    );
+        [name, description || null, areaId],
+      );
 
-    const [rows] = await db.query(
-      `
+      const [rows] = await db.query(
+        `
       SELECT *
       FROM areas
       WHERE id = ?
       LIMIT 1
       `,
-      [areaId],
-    );
+        [areaId],
+      );
 
-    res.json({
-      success: true,
-      message: "Cập nhật khu vực thành công.",
-      area: mapArea(rows[0]),
-    });
-  } catch (error) {
-    console.error("Lỗi cập nhật khu vực:", error);
+      res.json({
+        success: true,
+        message: "Cập nhật khu vực thành công.",
+        area: mapArea(rows[0]),
+      });
+    } catch (error) {
+      console.error("Lỗi cập nhật khu vực:", error);
 
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server khi cập nhật khu vực.",
-      error: error.message,
-    });
-  }
-});
+      res.status(500).json({
+        success: false,
+        message: "Lỗi server khi cập nhật khu vực.",
+        error: error.message,
+      });
+    }
+  },
+);
 
 // DELETE /api/tables/areas/:id
 router.delete(
@@ -325,7 +339,9 @@ router.delete(
       }
 
       // Get area details first to get the name
-      const [areaRows] = await db.query("SELECT name FROM areas WHERE id = ?", [areaId]);
+      const [areaRows] = await db.query("SELECT name FROM areas WHERE id = ?", [
+        areaId,
+      ]);
       const areaName = areaRows[0]?.name;
 
       await db.query(
@@ -339,10 +355,9 @@ router.delete(
 
       // Cascade delete the corresponding space in restaurant_spaces
       if (areaName) {
-        await db.query(
-          "DELETE FROM restaurant_spaces WHERE label = ?",
-          [areaName]
-        );
+        await db.query("DELETE FROM restaurant_spaces WHERE label = ?", [
+          areaName,
+        ]);
       }
 
       res.json({
@@ -477,7 +492,7 @@ router.post("/", requireAuth, requireManagerOrAdmin, async (req, res) => {
       actorUserId: req.user.id,
       action: "add_table",
       message: `Đã thêm bàn mới: ${code}`,
-    }).catch(err => console.error("Log error:", err));
+    }).catch((err) => console.error("Log error:", err));
 
     res.status(201).json({
       success: true,
@@ -605,7 +620,9 @@ router.patch("/:id", requireAuth, requireManagerOrAdmin, async (req, res) => {
     await conn.commit();
     try {
       getIO().emit("table_updated", { tableId });
-    } catch(err) { console.error("Emit error:", err); }
+    } catch (err) {
+      console.error("Emit error:", err);
+    }
     res.json({
       success: true,
       message: "Cập nhật bàn thành công.",
@@ -711,7 +728,7 @@ router.patch(
             AND status = 'confirmed'
             AND deleted_at IS NULL
           `,
-          [table.table_code]
+          [table.table_code],
         );
       } else if (status === "available") {
         await conn.query(
@@ -722,7 +739,7 @@ router.patch(
             AND status IN ('serving', 'confirmed')
             AND deleted_at IS NULL
           `,
-          [table.table_code]
+          [table.table_code],
         );
       }
 
@@ -742,14 +759,16 @@ router.patch(
       await conn.commit();
       try {
         getIO().emit("table_updated", { tableId });
-      } catch(err) { console.error("Emit error:", err); }
+      } catch (err) {
+        console.error("Emit error:", err);
+      }
       if (["maintenance", "disabled"].includes(status)) {
         await createActivityLog({
           targetUserId: req.user.id,
           actorUserId: req.user.id,
           action: "update_table_status",
           message: `Đã đổi trạng thái bàn ${table.table_code} sang ${status}`,
-        }).catch(err => console.error("Log error:", err));
+        }).catch((err) => console.error("Log error:", err));
       }
 
       res.json({
@@ -816,7 +835,7 @@ router.delete("/:id", requireAuth, requireManagerOrAdmin, async (req, res) => {
       actorUserId: req.user.id,
       action: "delete_table",
       message: `Đã xóa bàn ID ${tableId}`,
-    }).catch(err => console.error("Log error:", err));
+    }).catch((err) => console.error("Log error:", err));
 
     res.json({
       success: true,

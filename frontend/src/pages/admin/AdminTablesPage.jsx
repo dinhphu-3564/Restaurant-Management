@@ -401,8 +401,10 @@ function AdminTablesPage() {
       const isActive =
         status === "pending" ||
         status === "confirmed" ||
+        status === "serving" ||
         status === "Chờ xác nhận" ||
-        status === "Đã xác nhận";
+        status === "Đã xác nhận" ||
+        status === "Đang phục vụ";
 
       return (
         String(booking.selectedTable) === String(tableCode) &&
@@ -1020,6 +1022,7 @@ function AdminTablesPage() {
     if (!booking || !table) return;
     try {
       const updatedTable = await tableService.updateTableStatus(table.id, "serving");
+      const updatedBooking = await bookingService.updateBookingStatus(booking.id, "serving");
 
       setTables((prev) =>
         prev.map((item) =>
@@ -1027,9 +1030,15 @@ function AdminTablesPage() {
         )
       );
 
+      setBookings((prev) =>
+        prev.map((item) =>
+          String(item.id) === String(booking.id) ? updatedBooking : item
+        )
+      );
+
       setSelectedTable({
         ...updatedTable,
-        currentBooking: booking,
+        currentBooking: updatedBooking,
       });
 
       showAdminToast({
@@ -1922,7 +1931,8 @@ function AdminTablesPage() {
                             </span>
                           </h3>
 
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 xl:gap-4">
+                          <div className="overflow-x-auto px-2 py-3 -mx-2">
+                            <div className="grid grid-cols-5 gap-2 sm:gap-3 xl:gap-4 min-w-[400px]">
                             {areaTables.map((table) => (
                               <TableButton
                                 key={table.id}
@@ -1931,6 +1941,7 @@ function AdminTablesPage() {
                                 onClick={() => setSelectedTable(table)}
                               />
                             ))}
+                            </div>
                           </div>
                         </div>
                       );
@@ -3555,7 +3566,7 @@ function TableButton({ table, active, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`relative h-11 sm:h-12 rounded-xl border font-black text-xs sm:text-sm transition ${active ? "ring-2 ring-green-700" : ""
+      className={`relative h-11 sm:h-12 rounded-xl border font-black text-xs sm:text-sm transition-all duration-200 ${active ? "ring-4 ring-green-500 ring-offset-2 border-green-600 scale-[1.03] shadow-md z-10" : "hover:scale-[1.02]"
         } ${STATUS_STYLE[table.status]}`}
     >
       <span
@@ -3788,7 +3799,7 @@ function TableDetailPanel({
           </button>
         )}
 
-        {canEdit && table.status !== "serving" && (
+        {canEdit && !booking && (
           <div className="grid grid-cols-2 gap-2 border-t border-gray-100 pt-4 mt-2">
             <button
               onClick={() => onStatusChange("available")}

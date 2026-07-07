@@ -10,7 +10,7 @@ export default function AdminActivityLogsPage() {
     fetchLogs();
   }, []);
 
-  const fetchLogs = async () => {
+  async function fetchLogs() {
     setLoading(true);
     try {
       const response = await fetch("http://localhost:5001/api/activity-logs", {

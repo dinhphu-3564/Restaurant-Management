@@ -305,12 +305,13 @@ LIMIT 1
 
     if (oldRole === "admin" && role !== "admin") {
       const [[{ adminCount }]] = await db.query(
-        "SELECT COUNT(*) AS adminCount FROM users WHERE role = 'admin' AND status = 'active' AND deleted_at IS NULL"
+        "SELECT COUNT(*) AS adminCount FROM users WHERE role = 'admin' AND status = 'active' AND deleted_at IS NULL",
       );
       if (adminCount <= 1) {
         return res.status(400).json({
           success: false,
-          message: "Không thể thay đổi vai trò của quản trị viên (admin) hoạt động cuối cùng trong hệ thống.",
+          message:
+            "Không thể thay đổi vai trò của quản trị viên (admin) hoạt động cuối cùng trong hệ thống.",
         });
       }
     }

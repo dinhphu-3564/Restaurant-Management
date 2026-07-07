@@ -393,10 +393,12 @@ function AdminOrdersPage() {
 
   const totalPages = Math.ceil(filteredOrders.length / pageSize);
 
-  const paginatedOrders = filteredOrders.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
+  const paginatedOrders = useMemo(() => {
+    return filteredOrders.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
+    );
+  }, [filteredOrders, currentPage, pageSize]);
 
   //ten xuất Excel
   const formatFileDate = (value) => {

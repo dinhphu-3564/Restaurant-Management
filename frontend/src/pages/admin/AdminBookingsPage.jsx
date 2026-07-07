@@ -399,8 +399,10 @@ function AdminBookingsPage() {
     return (
       booking.status === "pending" ||
       booking.status === "confirmed" ||
+      booking.status === "serving" ||
       booking.status === "Chờ xác nhận" ||
-      booking.status === "Đã xác nhận"
+      booking.status === "Đã xác nhận" ||
+      booking.status === "Đang phục vụ"
     );
   };
 
@@ -428,7 +430,9 @@ function AdminBookingsPage() {
 
     if (
       bookingAtDate?.status === "confirmed" ||
-      bookingAtDate?.status === "Đã xác nhận"
+      bookingAtDate?.status === "Đã xác nhận" ||
+      bookingAtDate?.status === "serving" ||
+      bookingAtDate?.status === "Đang phục vụ"
     ) {
       return "booked";
     }
@@ -903,10 +907,12 @@ function AdminBookingsPage() {
 
   const totalPages = Math.ceil(filteredBookings.length / pageSize);
 
-  const paginatedBookings = filteredBookings.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
+  const paginatedBookings = useMemo(() => {
+    return filteredBookings.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
+    );
+  }, [filteredBookings, currentPage, pageSize]);
 
   const resetFilter = () => {
     setSearch("");
@@ -959,7 +965,9 @@ function AdminBookingsPage() {
 
     if (
       existedBooking?.status === "confirmed" ||
-      existedBooking?.status === "Đã xác nhận"
+      existedBooking?.status === "Đã xác nhận" ||
+      existedBooking?.status === "serving" ||
+      existedBooking?.status === "Đang phục vụ"
     ) {
       return "booked";
     }
@@ -1243,20 +1251,6 @@ function AdminBookingsPage() {
                   className="h-10 px-4 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 text-sm font-black hover:bg-blue-100 transition"
                 >
                   Xác nhận
-                </button>
-
-                <button
-                  onClick={() => updateSelectedBookingsStatus("completed")}
-                  className="h-10 px-4 rounded-xl bg-green-100 text-green-700 border border-green-200 text-sm font-black hover:bg-green-200 transition"
-                >
-                  Hoàn thành
-                </button>
-
-                <button
-                  onClick={() => updateSelectedBookingsStatus("cancelled")}
-                  className="h-10 px-4 rounded-xl bg-orange-50 text-orange-600 border border-orange-100 text-sm font-black hover:bg-orange-100 transition"
-                >
-                  Hủy bàn
                 </button>
 
                 <button
@@ -1594,6 +1588,7 @@ function AdminBookingsPage() {
 
                   <input
                     type="date"
+                    disabled={editingBooking?.status === "completed" || editingBooking?.status === "serving" || editingBooking?.status === "confirmed"}
                     value={editForm.date}
                     onChange={(e) =>
                       setEditForm((prev) => ({
@@ -1612,13 +1607,13 @@ function AdminBookingsPage() {
                   <span className="text-sm font-black text-gray-500">
                     Trạng thái
                   </span>
-                  {editForm.status === "completed" || editForm.status === "serving" ? (
+                  {editingBooking?.status === "completed" || editingBooking?.status === "serving" || editingBooking?.status === "confirmed" ? (
                     <div className="mt-2 w-full rounded-xl border border-gray-100 px-4 py-3 shadow-sm flex flex-col gap-1 bg-gray-50 select-none">
-                      <span className={`text-sm font-black ${editForm.status === "serving" ? "text-amber-600" : "text-green-600"}`}>
-                        {editForm.status === "serving" ? "🟡 Đang phục vụ" : "✅ Hoàn thành"}
+                      <span className={`text-sm font-black ${editingBooking.status === "serving" ? "text-amber-600" : editingBooking.status === "completed" ? "text-green-600" : "text-blue-600"}`}>
+                        {editingBooking.status === "serving" ? "🟡 Đang phục vụ" : editingBooking.status === "completed" ? "✅ Hoàn thành" : "🔵 Đã xác nhận"}
                       </span>
                       <span className="text-xs text-gray-400 leading-snug">
-                        Không thể thay đổi tại đây — chỉ quản lý tại trang <strong>Bàn &amp; Khu vực</strong>
+                        Tất cả thao tác còn lại vui lòng xử lý tại <strong>Sơ đồ bàn</strong>
                       </span>
                     </div>
                   ) : (
@@ -1645,6 +1640,7 @@ function AdminBookingsPage() {
                   </span>
 
                   <select
+                    disabled={editingBooking?.status === "completed" || editingBooking?.status === "serving" || editingBooking?.status === "confirmed"}
                     value={editForm.selectedArea}
                     onChange={(e) => {
                       const areaId = e.target.value;
@@ -1677,6 +1673,7 @@ function AdminBookingsPage() {
                   </span>
 
                   <textarea
+                    disabled={editingBooking?.status === "completed" || editingBooking?.status === "serving" || editingBooking?.status === "confirmed"}
                     value={editForm.note}
                     onChange={(e) =>
                       setEditForm((prev) => ({
@@ -1749,7 +1746,7 @@ function AdminBookingsPage() {
                             Number(table.capacity || 0) < guestCount;
 
                           const disabled =
-                            currentTable || rawStatus !== "available";
+                            currentTable || rawStatus !== "available" || editingBooking?.status === "completed" || editingBooking?.status === "serving" || editingBooking?.status === "confirmed";
 
                           return (
                             <button
@@ -2365,41 +2362,39 @@ function BookingDetailPanel({
           )}
         </DetailBlock>
 
-        <div className="grid grid-cols-2 gap-2 border-t border-gray-100 pt-4">
-          <button
-            onClick={onConfirm}
-            disabled={booking.status === "confirmed"}
-            className="
-      h-11 rounded-xl
-      bg-blue-50 text-blue-700
-      border border-blue-100
-      text-sm font-black
-      hover:bg-blue-100
-      disabled:opacity-50 disabled:cursor-not-allowed
-      flex items-center justify-center gap-1
-      transition
-    "
-          >
-            <Check size={16} />
-            Xác nhận
-          </button>
+        {booking.status === "pending" && (
+          <div className="grid grid-cols-2 gap-2 border-t border-gray-100 pt-4">
+            <button
+              onClick={onConfirm}
+              className="
+        h-11 rounded-xl
+        bg-blue-50 text-blue-700
+        border border-blue-100
+        text-sm font-black
+        hover:bg-blue-100
+        flex items-center justify-center gap-1
+        transition
+      "
+            >
+              <Check size={16} />
+              Xác nhận
+            </button>
 
-          <button
-            onClick={onCancel}
-            disabled={booking.status === "cancelled"}
-            className="
-      h-11 rounded-xl
-      bg-red-50 text-red-600
-      border border-red-100
-      text-sm font-black
-      hover:bg-red-100
-      disabled:opacity-50 disabled:cursor-not-allowed
-      transition
-    "
-          >
-            Hủy bàn
-          </button>
-        </div>
+            <button
+              onClick={onCancel}
+              className="
+        h-11 rounded-xl
+        bg-red-50 text-red-600
+        border border-red-100
+        text-sm font-black
+        hover:bg-red-100
+        transition
+      "
+            >
+              Hủy bàn
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

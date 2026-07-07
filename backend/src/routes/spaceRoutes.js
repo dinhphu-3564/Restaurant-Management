@@ -36,7 +36,9 @@ const uploadSpaceImages = multer({
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Chỉ hỗ trợ tải lên các tệp định dạng JPG, JPEG, PNG, WEBP."));
+      cb(
+        new Error("Chỉ hỗ trợ tải lên các tệp định dạng JPG, JPEG, PNG, WEBP."),
+      );
     }
   },
 });
@@ -71,14 +73,14 @@ function formatSpaces(spacesRows, imagesRows) {
 router.get("/active", async (req, res) => {
   try {
     const [spaces] = await db.query(
-      "SELECT * FROM restaurant_spaces WHERE status = 'active' ORDER BY display_order ASC"
+      "SELECT * FROM restaurant_spaces WHERE status = 'active' ORDER BY display_order ASC",
     );
     if (spaces.length === 0) {
       return res.json([]);
     }
     const [images] = await db.query(
       "SELECT * FROM space_images WHERE space_id IN (?)",
-      [spaces.map((s) => s.id)]
+      [spaces.map((s) => s.id)],
     );
     const formatted = formatSpaces(spaces, images);
     res.json(formatted);
@@ -91,7 +93,9 @@ router.get("/active", async (req, res) => {
 // 2. GET /api/admin/spaces (Admin only)
 router.get("/admin-list", requireAuth, requireBackOffice, async (req, res) => {
   try {
-    const [spaces] = await db.query("SELECT * FROM restaurant_spaces ORDER BY display_order ASC");
+    const [spaces] = await db.query(
+      "SELECT * FROM restaurant_spaces ORDER BY display_order ASC",
+    );
     if (spaces.length === 0) {
       return res.json([]);
     }
@@ -107,9 +111,18 @@ router.get("/admin-list", requireAuth, requireBackOffice, async (req, res) => {
 // 3. POST /api/spaces
 router.post("/", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
-    const { key, label, description, detailDescription, capacity, order, status } = req.body;
-    const randomKey = key || "space_" + Math.random().toString(36).substring(2, 9);
-    
+    const {
+      key,
+      label,
+      description,
+      detailDescription,
+      capacity,
+      order,
+      status,
+    } = req.body;
+    const randomKey =
+      key || "space_" + Math.random().toString(36).substring(2, 9);
+
     await db.query(
       `INSERT INTO restaurant_spaces (space_key, label, description, detail_description, capacity, display_order, status) 
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -121,7 +134,7 @@ router.post("/", requireAuth, requireManagerOrAdmin, async (req, res) => {
         Number(capacity) || 0,
         Number(order) || 1,
         status || "active",
-      ]
+      ],
     );
 
     // Auto-create a corresponding area in areas table
@@ -130,11 +143,14 @@ router.post("/", requireAuth, requireManagerOrAdmin, async (req, res) => {
         await db.query(
           `INSERT INTO areas (name, description, status)
            VALUES (?, ?, 'active')`,
-          [label.trim(), description || ""]
+          [label.trim(), description || ""],
         );
       }
     } catch (areaErr) {
-      console.warn("Không thể tự động tạo khu vực cho không gian mới:", areaErr.message);
+      console.warn(
+        "Không thể tự động tạo khu vực cho không gian mới:",
+        areaErr.message,
+      );
     }
 
     res.json({
@@ -153,7 +169,9 @@ router.post("/", requireAuth, requireManagerOrAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi tạo không gian mới:", error);
-    res.status(500).json({ success: false, message: "Không thể tạo không gian mới" });
+    res
+      .status(500)
+      .json({ success: false, message: "Không thể tạo không gian mới" });
   }
 });
 
@@ -161,12 +179,25 @@ router.post("/", requireAuth, requireManagerOrAdmin, async (req, res) => {
 router.put("/:key", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const { key } = req.params;
-    const { label, description, detailDescription, capacity, order, status, images } = req.body;
+    const {
+      label,
+      description,
+      detailDescription,
+      capacity,
+      order,
+      status,
+      images,
+    } = req.body;
 
     // Get the internal ID of the space
-    const [spaces] = await db.query("SELECT id FROM restaurant_spaces WHERE space_key = ?", [key]);
+    const [spaces] = await db.query(
+      "SELECT id FROM restaurant_spaces WHERE space_key = ?",
+      [key],
+    );
     if (spaces.length === 0) {
-      return res.status(404).json({ success: false, message: "Không tìm thấy không gian" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy không gian" });
     }
     const spaceId = spaces[0].id;
 
@@ -183,7 +214,7 @@ router.put("/:key", requireAuth, requireManagerOrAdmin, async (req, res) => {
         Number(order) || 1,
         status,
         spaceId,
-      ]
+      ],
     );
 
     // Delete existing images for this space
@@ -201,7 +232,7 @@ router.put("/:key", requireAuth, requireManagerOrAdmin, async (req, res) => {
             img.title || "",
             img.description || "",
             img.isCover ? 1 : 0,
-          ]
+          ],
         );
       }
     }
@@ -212,7 +243,9 @@ router.put("/:key", requireAuth, requireManagerOrAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi cập nhật không gian:", error);
-    res.status(500).json({ success: false, message: "Không thể lưu cập nhật không gian" });
+    res
+      .status(500)
+      .json({ success: false, message: "Không thể lưu cập nhật không gian" });
   }
 });
 
@@ -220,33 +253,50 @@ router.put("/:key", requireAuth, requireManagerOrAdmin, async (req, res) => {
 router.delete("/:key", requireAuth, requireManagerOrAdmin, async (req, res) => {
   try {
     const { key } = req.params;
-    const [result] = await db.query("DELETE FROM restaurant_spaces WHERE space_key = ?", [key]);
+    const [result] = await db.query(
+      "DELETE FROM restaurant_spaces WHERE space_key = ?",
+      [key],
+    );
     if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: "Không tìm thấy không gian để xóa" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy không gian để xóa" });
     }
     res.json({ success: true, message: "Xóa không gian thành công" });
   } catch (error) {
     console.error("Lỗi xóa không gian:", error);
-    res.status(500).json({ success: false, message: "Không thể xóa không gian này" });
+    res
+      .status(500)
+      .json({ success: false, message: "Không thể xóa không gian này" });
   }
 });
 
 // 6. POST /api/spaces/upload
-router.post("/upload", requireAuth, requireManagerOrAdmin, uploadSpaceImages.single("image"), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: "Vui lòng chọn ảnh để tải lên" });
+router.post(
+  "/upload",
+  requireAuth,
+  requireManagerOrAdmin,
+  uploadSpaceImages.single("image"),
+  (req, res) => {
+    try {
+      if (!req.file) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Vui lòng chọn ảnh để tải lên" });
+      }
+      const publicUrl = `/uploads/spaces/${req.file.filename}`;
+      res.json({
+        success: true,
+        url: publicUrl,
+        fileName: req.file.filename,
+      });
+    } catch (error) {
+      console.error("Lỗi upload ảnh không gian:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Không thể tải lên hình ảnh" });
     }
-    const publicUrl = `/uploads/spaces/${req.file.filename}`;
-    res.json({
-      success: true,
-      url: publicUrl,
-      fileName: req.file.filename,
-    });
-  } catch (error) {
-    console.error("Lỗi upload ảnh không gian:", error);
-    res.status(500).json({ success: false, message: "Không thể tải lên hình ảnh" });
-  }
-});
+  },
+);
 
 module.exports = router;

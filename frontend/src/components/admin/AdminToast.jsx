@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from "lucide-react";
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const showAdminToast = ({
   title = "Thành công",
   message = "",

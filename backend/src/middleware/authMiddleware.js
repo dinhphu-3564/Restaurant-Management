@@ -112,7 +112,14 @@ function requireRoles(...roles) {
 
 const requireAdmin = requireRoles("admin");
 const requireManagerOrAdmin = requireRoles("manager", "admin");
-const requireStaffOrHigher = requireRoles("staff", "manager", "admin", "cashier", "waiter", "chef");
+const requireStaffOrHigher = requireRoles(
+  "staff",
+  "manager",
+  "admin",
+  "cashier",
+  "waiter",
+  "chef",
+);
 const requireBackOffice = requireStaffOrHigher;
 
 const requireCashierOrHigher = requireRoles("cashier", "manager", "admin");

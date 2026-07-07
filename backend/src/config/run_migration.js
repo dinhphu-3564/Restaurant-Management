@@ -3,7 +3,9 @@ const path = require("path");
 const db = require("./db");
 
 async function runMigration() {
-  console.log("=== Bắt đầu chạy di chuyển dữ liệu (Migration) cho Không gian ===");
+  console.log(
+    "=== Bắt đầu chạy di chuyển dữ liệu (Migration) cho Không gian ===",
+  );
   try {
     const sqlPath = path.join(__dirname, "create_spaces_tables.sql");
     const rawSql = fs.readFileSync(sqlPath, "utf8");
@@ -21,14 +23,19 @@ async function runMigration() {
 
     for (let i = 0; i < statements.length; i++) {
       const stmt = statements[i];
-      console.log(`[${i + 1}/${statements.length}] Đang thực thi: ${stmt.substring(0, 50)}...`);
+      console.log(
+        `[${i + 1}/${statements.length}] Đang thực thi: ${stmt.substring(0, 50)}...`,
+      );
       await db.query(stmt);
     }
 
     console.log("✔️ Chạy di chuyển dữ liệu (Migration) THÀNH CÔNG!");
     process.exit(0);
   } catch (error) {
-    console.error("❌ Lỗi trong quá trình chạy di chuyển dữ liệu (Migration):", error);
+    console.error(
+      "❌ Lỗi trong quá trình chạy di chuyển dữ liệu (Migration):",
+      error,
+    );
     process.exit(1);
   }
 }

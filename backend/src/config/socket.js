@@ -6,13 +6,13 @@ module.exports = {
     io = new Server(server, {
       cors: {
         origin: "*", // Cấu hình origin phù hợp trên production
-        methods: ["GET", "POST", "PATCH", "DELETE"]
-      }
+        methods: ["GET", "POST", "PATCH", "DELETE"],
+      },
     });
 
     io.on("connection", (socket) => {
       console.log("New client connected:", socket.id);
-      
+
       socket.on("disconnect", () => {
         console.log("Client disconnected:", socket.id);
       });
@@ -25,5 +25,5 @@ module.exports = {
       throw new Error("Socket.io not initialized!");
     }
     return io;
-  }
+  },
 };

@@ -5,7 +5,11 @@ const path = require("path");
 const fs = require("fs");
 
 const router = express.Router();
-const { requireAuth, requireBackOffice, requireManagerOrAdmin } = require("../middleware/authMiddleware");
+const {
+  requireAuth,
+  requireBackOffice,
+  requireManagerOrAdmin,
+} = require("../middleware/authMiddleware");
 
 const DEFAULT_IMAGE = "/src/assets/images/Menu/default-food.png";
 //cấu hình up ảnh
@@ -124,34 +128,40 @@ async function createNextCode() {
 }
 
 //route upload ảnh
-router.post("/upload", requireAuth, requireManagerOrAdmin, uploadMenuImages.array("images", 10), (req, res) => {
-  try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({
+router.post(
+  "/upload",
+  requireAuth,
+  requireManagerOrAdmin,
+  uploadMenuImages.array("images", 10),
+  (req, res) => {
+    try {
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Chưa có ảnh được upload",
+        });
+      }
+
+      const imageUrls = req.files.map(
+        (file) => `http://localhost:5001/uploads/menu/${file.filename}`,
+      );
+
+      res.json({
+        success: true,
+        images: imageUrls,
+        image: imageUrls[0],
+      });
+    } catch (error) {
+      console.error("Lỗi upload ảnh món ăn:", error);
+
+      res.status(500).json({
         success: false,
-        message: "Chưa có ảnh được upload",
+        message: "Lỗi server khi upload ảnh món ăn",
+        error: error.message,
       });
     }
-
-    const imageUrls = req.files.map(
-      (file) => `http://localhost:5001/uploads/menu/${file.filename}`,
-    );
-
-    res.json({
-      success: true,
-      images: imageUrls,
-      image: imageUrls[0],
-    });
-  } catch (error) {
-    console.error("Lỗi upload ảnh món ăn:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server khi upload ảnh món ăn",
-      error: error.message,
-    });
-  }
-});
+  },
+);
 
 // Lấy danh sách món
 router.get("/", requireAuth, requireBackOffice, async (req, res) => {
@@ -367,117 +377,138 @@ router.put("/:code", requireAuth, requireManagerOrAdmin, async (req, res) => {
 });
 
 // Đổi trạng thái một món
-router.patch("/:code/status", requireAuth, requireManagerOrAdmin, async (req, res) => {
-  try {
-    const { code } = req.params;
-    const { status } = req.body;
+router.patch(
+  "/:code/status",
+  requireAuth,
+  requireManagerOrAdmin,
+  async (req, res) => {
+    try {
+      const { code } = req.params;
+      const { status } = req.body;
 
-    await db.query("UPDATE menu_items SET status = ? WHERE code = ?", [
-      status,
-      code,
-    ]);
+      await db.query("UPDATE menu_items SET status = ? WHERE code = ?", [
+        status,
+        code,
+      ]);
 
-    res.json({
-      success: true,
-      message: "Cập nhật trạng thái thành công",
-    });
-  } catch (error) {
-    console.error("Lỗi đổi trạng thái:", error);
+      res.json({
+        success: true,
+        message: "Cập nhật trạng thái thành công",
+      });
+    } catch (error) {
+      console.error("Lỗi đổi trạng thái:", error);
 
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server khi đổi trạng thái",
-      error: error.message,
-    });
-  }
-});
+      res.status(500).json({
+        success: false,
+        message: "Lỗi server khi đổi trạng thái",
+        error: error.message,
+      });
+    }
+  },
+);
 
 // Xóa mềm một món
-router.delete("/:code", requireAuth, requireManagerOrAdmin, async (req, res) => {
-  try {
-    const { code } = req.params;
+router.delete(
+  "/:code",
+  requireAuth,
+  requireManagerOrAdmin,
+  async (req, res) => {
+    try {
+      const { code } = req.params;
 
-    await db.query("UPDATE menu_items SET status = 'deleted' WHERE code = ?", [
-      code,
-    ]);
+      await db.query(
+        "UPDATE menu_items SET status = 'deleted' WHERE code = ?",
+        [code],
+      );
 
-    res.json({
-      success: true,
-      message: "Xóa món thành công",
-    });
-  } catch (error) {
-    console.error("Lỗi xóa món:", error);
+      res.json({
+        success: true,
+        message: "Xóa món thành công",
+      });
+    } catch (error) {
+      console.error("Lỗi xóa món:", error);
 
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server khi xóa món",
-      error: error.message,
-    });
-  }
-});
+      res.status(500).json({
+        success: false,
+        message: "Lỗi server khi xóa món",
+        error: error.message,
+      });
+    }
+  },
+);
 
 // Ngừng bán nhiều món
-router.patch("/bulk/stop", requireAuth, requireManagerOrAdmin, async (req, res) => {
-  try {
-    const { ids } = req.body;
+router.patch(
+  "/bulk/stop",
+  requireAuth,
+  requireManagerOrAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
 
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Danh sách món không hợp lệ",
+        });
+      }
+
+      await db.query(
+        "UPDATE menu_items SET status = 'stopped' WHERE code IN (?)",
+        [ids],
+      );
+
+      res.json({
+        success: true,
+        message: "Ngừng bán các món đã chọn thành công",
+      });
+    } catch (error) {
+      console.error("Lỗi ngừng bán nhiều món:", error);
+
+      res.status(500).json({
         success: false,
-        message: "Danh sách món không hợp lệ",
+        message: "Lỗi server khi ngừng bán nhiều món",
+        error: error.message,
       });
     }
-
-    await db.query(
-      "UPDATE menu_items SET status = 'stopped' WHERE code IN (?)",
-      [ids],
-    );
-
-    res.json({
-      success: true,
-      message: "Ngừng bán các món đã chọn thành công",
-    });
-  } catch (error) {
-    console.error("Lỗi ngừng bán nhiều món:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server khi ngừng bán nhiều món",
-      error: error.message,
-    });
-  }
-});
+  },
+);
 
 // Xóa mềm nhiều món
-router.patch("/bulk/delete", requireAuth, requireManagerOrAdmin, async (req, res) => {
-  try {
-    const { ids } = req.body;
+router.patch(
+  "/bulk/delete",
+  requireAuth,
+  requireManagerOrAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
 
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Danh sách món không hợp lệ",
+        });
+      }
+
+      await db.query(
+        "UPDATE menu_items SET status = 'deleted' WHERE code IN (?)",
+        [ids],
+      );
+
+      res.json({
+        success: true,
+        message: "Xóa các món đã chọn thành công",
+      });
+    } catch (error) {
+      console.error("Lỗi xóa nhiều món:", error);
+
+      res.status(500).json({
         success: false,
-        message: "Danh sách món không hợp lệ",
+        message: "Lỗi server khi xóa nhiều món",
+        error: error.message,
       });
     }
-
-    await db.query(
-      "UPDATE menu_items SET status = 'deleted' WHERE code IN (?)",
-      [ids],
-    );
-
-    res.json({
-      success: true,
-      message: "Xóa các món đã chọn thành công",
-    });
-  } catch (error) {
-    console.error("Lỗi xóa nhiều món:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server khi xóa nhiều món",
-      error: error.message,
-    });
-  }
-});
+  },
+);
 
 module.exports = router;

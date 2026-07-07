@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Truck,
   ShoppingCart,
+  Utensils,
 } from "lucide-react";
 
 import goatIcon from "../assets/images/Icon_De.png";

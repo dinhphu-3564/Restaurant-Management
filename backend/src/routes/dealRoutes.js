@@ -6,7 +6,10 @@ const fs = require("fs");
 const db = require("../config/db");
 
 const router = express.Router();
-const { requireAuth, requireManagerOrAdmin } = require("../middleware/authMiddleware");
+const {
+  requireAuth,
+  requireManagerOrAdmin,
+} = require("../middleware/authMiddleware");
 
 const DEFAULT_SERVICE_CONDITION_ITEMS = {
   dinein: [],
@@ -210,21 +213,27 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/deals/upload
-router.post("/upload", requireAuth, requireManagerOrAdmin, uploadDealImage.single("image"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({
-      success: false,
-      message: "Chưa có ảnh được upload.",
-    });
-  }
+router.post(
+  "/upload",
+  requireAuth,
+  requireManagerOrAdmin,
+  uploadDealImage.single("image"),
+  (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Chưa có ảnh được upload.",
+      });
+    }
 
-  res.json({
-    success: true,
-    imageUrl: `${req.protocol}://${req.get("host")}/uploads/deals/${
-      req.file.filename
-    }`,
-  });
-});
+    res.json({
+      success: true,
+      imageUrl: `${req.protocol}://${req.get("host")}/uploads/deals/${
+        req.file.filename
+      }`,
+    });
+  },
+);
 
 // POST /api/deals
 router.post("/", requireAuth, requireManagerOrAdmin, async (req, res) => {
@@ -503,14 +512,18 @@ router.delete("/:id", requireAuth, requireManagerOrAdmin, async (req, res) => {
 });
 
 // POST /api/deals/recalculate-stats
-router.post("/recalculate-stats", requireAuth, requireManagerOrAdmin, async (req, res) => {
-  try {
-    const [deals] = await db.query(`
+router.post(
+  "/recalculate-stats",
+  requireAuth,
+  requireManagerOrAdmin,
+  async (req, res) => {
+    try {
+      const [deals] = await db.query(`
       SELECT *
       FROM deals
     `);
 
-    const [orders] = await db.query(`
+      const [orders] = await db.query(`
       SELECT 
         order_code,
         applied_coupon,
@@ -520,46 +533,46 @@ router.post("/recalculate-stats", requireAuth, requireManagerOrAdmin, async (req
       FROM orders
     `);
 
-    for (const deal of deals) {
-      const dealCode = String(deal.code || "").toUpperCase();
+      for (const deal of deals) {
+        const dealCode = String(deal.code || "").toUpperCase();
 
-      const matchedOrders = orders.filter((order) => {
-        const appliedCoupon = parseJsonValue(order.applied_coupon, {});
-        const couponCode = String(appliedCoupon?.code || "").toUpperCase();
-        const discount = Number(order.coupon_discount_total || 0);
+        const matchedOrders = orders.filter((order) => {
+          const appliedCoupon = parseJsonValue(order.applied_coupon, {});
+          const couponCode = String(appliedCoupon?.code || "").toUpperCase();
+          const discount = Number(order.coupon_discount_total || 0);
 
-        return couponCode === dealCode && discount > 0;
-      });
+          return couponCode === dealCode && discount > 0;
+        });
 
-      const usageHistoryMap = {};
+        const usageHistoryMap = {};
 
-      matchedOrders.forEach((order) => {
-        const date = formatDateOnly(order.created_at || order.updated_at);
-        const discount = Number(order.coupon_discount_total || 0);
+        matchedOrders.forEach((order) => {
+          const date = formatDateOnly(order.created_at || order.updated_at);
+          const discount = Number(order.coupon_discount_total || 0);
 
-        if (!usageHistoryMap[date]) {
-          usageHistoryMap[date] = {
-            date,
-            count: 0,
-            discountTotal: 0,
-          };
-        }
+          if (!usageHistoryMap[date]) {
+            usageHistoryMap[date] = {
+              date,
+              count: 0,
+              discountTotal: 0,
+            };
+          }
 
-        usageHistoryMap[date].count += 1;
-        usageHistoryMap[date].discountTotal += discount;
-      });
+          usageHistoryMap[date].count += 1;
+          usageHistoryMap[date].discountTotal += discount;
+        });
 
-      const usageHistory = Object.values(usageHistoryMap).sort((a, b) =>
-        String(a.date).localeCompare(String(b.date)),
-      );
+        const usageHistory = Object.values(usageHistoryMap).sort((a, b) =>
+          String(a.date).localeCompare(String(b.date)),
+        );
 
-      const totalDiscount = matchedOrders.reduce(
-        (sum, order) => sum + Number(order.coupon_discount_total || 0),
-        0,
-      );
+        const totalDiscount = matchedOrders.reduce(
+          (sum, order) => sum + Number(order.coupon_discount_total || 0),
+          0,
+        );
 
-      await db.query(
-        `
+        await db.query(
+          `
         UPDATE deals
         SET
           used_count = ?,
@@ -568,35 +581,36 @@ router.post("/recalculate-stats", requireAuth, requireManagerOrAdmin, async (req
           updated_at = NOW()
         WHERE id = ?
         `,
-        [
-          matchedOrders.length,
-          totalDiscount,
-          toJsonString(usageHistory, []),
-          deal.id,
-        ],
-      );
-    }
+          [
+            matchedOrders.length,
+            totalDiscount,
+            toJsonString(usageHistory, []),
+            deal.id,
+          ],
+        );
+      }
 
-    const [rows] = await db.query(`
+      const [rows] = await db.query(`
       SELECT *
       FROM deals
       ORDER BY created_at DESC, id DESC
     `);
 
-    res.json({
-      success: true,
-      message: "Đã tính lại thống kê khuyến mãi từ đơn hàng.",
-      deals: rows.map(mapDeal),
-    });
-  } catch (error) {
-    console.error("Lỗi tính lại thống kê:", error);
+      res.json({
+        success: true,
+        message: "Đã tính lại thống kê khuyến mãi từ đơn hàng.",
+        deals: rows.map(mapDeal),
+      });
+    } catch (error) {
+      console.error("Lỗi tính lại thống kê:", error);
 
-    res.status(500).json({
-      success: false,
-      message: "Lỗi tính lại thống kê khuyến mãi.",
-      error: error.message,
-    });
-  }
-});
+      res.status(500).json({
+        success: false,
+        message: "Lỗi tính lại thống kê khuyến mãi.",
+        error: error.message,
+      });
+    }
+  },
+);
 
 module.exports = router;

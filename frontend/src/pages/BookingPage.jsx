@@ -244,8 +244,10 @@ function BookingPage() {
     return (
       booking.status === "pending" ||
       booking.status === "confirmed" ||
+      booking.status === "serving" ||
       booking.status === "Chờ xác nhận" ||
-      booking.status === "Đã xác nhận"
+      booking.status === "Đã xác nhận" ||
+      booking.status === "Đang phục vụ"
     );
   };
 
@@ -460,7 +462,7 @@ function BookingPage() {
     }
 
     const newBooking = {
-      id: Date.now(),
+      id: new Date().getTime(),
       source: "booking_page",
 
       type: isAutoArrange ? "table_with_food" : "table_only",

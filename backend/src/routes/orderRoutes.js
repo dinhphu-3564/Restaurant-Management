@@ -2,7 +2,11 @@ const express = require("express");
 const db = require("../config/db");
 const { getIO } = require("../config/socket");
 const { createActivityLog } = require("../utils/activityLog");
-const { requireAuth, requireStaffOrHigher, requireCashierOrHigher } = require("../middleware/authMiddleware");
+const {
+  requireAuth,
+  requireStaffOrHigher,
+  requireCashierOrHigher,
+} = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -266,7 +270,7 @@ async function getOrderByCode(orderCode) {
 
   const mappedOrder = mapOrder(order, itemRows);
   mappedOrder.payments = paymentRows;
-  
+
   const totalPaid = paymentRows.reduce((sum, p) => sum + Number(p.amount), 0);
   mappedOrder.totalPaid = totalPaid;
   mappedOrder.remainingAmount = Math.max(0, mappedOrder.total - totalPaid);
@@ -330,8 +334,11 @@ router.get("/", requireAuth, requireStaffOrHigher, async (req, res) => {
     const orders = orderRows.map((order) => {
       const mapped = mapOrder(order, itemMap[order.id] || []);
       const payments = paymentMap[order.id] || [];
-      const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-      
+      const totalPaid = payments.reduce(
+        (sum, p) => sum + Number(p.amount || 0),
+        0,
+      );
+
       mapped.payments = payments;
       mapped.totalPaid = totalPaid;
       mapped.remainingAmount = Math.max(0, mapped.total - totalPaid);
@@ -661,7 +668,7 @@ router.post("/", requireAuth, async (req, res) => {
         actorUserId: req.user.id,
         action: "apply_discount",
         message: `Đã áp dụng mã giảm giá ${appliedCoupon.code} cho đơn hàng ${orderCode}`,
-      }).catch(err => console.error("Log error:", err));
+      }).catch((err) => console.error("Log error:", err));
     }
 
     try {
@@ -700,13 +707,31 @@ router.patch("/:id", requireAuth, requireStaffOrHigher, async (req, res) => {
       if (req.user.role === "chef") {
         allowedKeys = ["status", "updatedAt", "updated_at", "note"];
       } else if (req.user.role === "waiter") {
-        allowedKeys = ["status", "paymentStatus", "payment_status", "updatedAt", "updated_at", "note"];
+        allowedKeys = [
+          "status",
+          "paymentStatus",
+          "payment_status",
+          "updatedAt",
+          "updated_at",
+          "note",
+        ];
       } else {
         // staff or cashier
-        allowedKeys = ["status", "paymentStatus", "paymentMethod", "payment_status", "payment_method", "updatedAt", "updated_at", "note"];
+        allowedKeys = [
+          "status",
+          "paymentStatus",
+          "paymentMethod",
+          "payment_status",
+          "payment_method",
+          "updatedAt",
+          "updated_at",
+          "note",
+        ];
       }
 
-      const requestedKeys = Object.keys(updates).filter((k) => updates[k] !== undefined);
+      const requestedKeys = Object.keys(updates).filter(
+        (k) => updates[k] !== undefined,
+      );
       const isViolation = requestedKeys.some((k) => !allowedKeys.includes(k));
       if (isViolation) {
         return res.status(403).json({
@@ -727,7 +752,8 @@ router.patch("/:id", requireAuth, requireStaffOrHigher, async (req, res) => {
     }
 
     const nextStatus = updates.status || currentOrder.status;
-    const nextPaymentStatus = updates.paymentStatus || currentOrder.paymentStatus;
+    const nextPaymentStatus =
+      updates.paymentStatus || currentOrder.paymentStatus;
 
     if (nextStatus === "completed" && nextPaymentStatus !== "paid") {
       return res.status(400).json({
@@ -772,14 +798,14 @@ router.patch("/:id", requireAuth, requireStaffOrHigher, async (req, res) => {
         actorUserId: req.user.id,
         action: "cancel_order",
         message: `Đã hủy đơn hàng ${orderCode}`,
-      }).catch(err => console.error("Log error:", err));
+      }).catch((err) => console.error("Log error:", err));
     } else {
       await createActivityLog({
         targetUserId: req.user.id,
         actorUserId: req.user.id,
         action: "edit_order",
         message: `Đã cập nhật đơn hàng ${orderCode}`,
-      }).catch(err => console.error("Log error:", err));
+      }).catch((err) => console.error("Log error:", err));
     }
 
     try {
@@ -804,91 +830,109 @@ router.patch("/:id", requireAuth, requireStaffOrHigher, async (req, res) => {
 });
 
 // Thêm thanh toán (chia bill / trả trước)
-router.post("/:id/payments", requireAuth, requireCashierOrHigher, async (req, res) => {
-  const connection = await db.getConnection();
-  try {
-    await connection.beginTransaction();
+router.post(
+  "/:id/payments",
+  requireAuth,
+  requireCashierOrHigher,
+  async (req, res) => {
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
 
-    const orderCode = req.params.id;
-    const { amount, paymentMethod, transactionId, note } = req.body;
-    const payAmount = Number(amount || 0);
+      const orderCode = req.params.id;
+      const { amount, paymentMethod, transactionId, note } = req.body;
+      const payAmount = Number(amount || 0);
 
-    if (payAmount <= 0) {
-      await connection.rollback();
-      return res.status(400).json({ success: false, message: "Số tiền không hợp lệ." });
-    }
+      if (payAmount <= 0) {
+        await connection.rollback();
+        return res
+          .status(400)
+          .json({ success: false, message: "Số tiền không hợp lệ." });
+      }
 
-    const currentOrder = await getOrderByCode(orderCode);
-    if (!currentOrder) {
-      await connection.rollback();
-      return res.status(404).json({ success: false, message: "Không tìm thấy đơn hàng." });
-    }
+      const currentOrder = await getOrderByCode(orderCode);
+      if (!currentOrder) {
+        await connection.rollback();
+        return res
+          .status(404)
+          .json({ success: false, message: "Không tìm thấy đơn hàng." });
+      }
 
-    // Insert payment
-    await connection.query(
-      `
+      // Insert payment
+      await connection.query(
+        `
       INSERT INTO order_payments (order_id, amount, payment_method, transaction_id, note)
       VALUES (?, ?, ?, ?, ?)
       `,
-      [currentOrder.dbId, payAmount, paymentMethod || 'cash', transactionId || null, note || '']
-    );
+        [
+          currentOrder.dbId,
+          payAmount,
+          paymentMethod || "cash",
+          transactionId || null,
+          note || "",
+        ],
+      );
 
-    // Re-evaluate total paid
-    const [paymentRows] = await connection.query(
-      "SELECT amount FROM order_payments WHERE order_id = ?",
-      [currentOrder.dbId]
-    );
-    const newTotalPaid = paymentRows.reduce((sum, p) => sum + Number(p.amount), 0);
+      // Re-evaluate total paid
+      const [paymentRows] = await connection.query(
+        "SELECT amount FROM order_payments WHERE order_id = ?",
+        [currentOrder.dbId],
+      );
+      const newTotalPaid = paymentRows.reduce(
+        (sum, p) => sum + Number(p.amount),
+        0,
+      );
 
-    if (newTotalPaid >= currentOrder.total) {
-      if (currentOrder.paymentStatus !== "paid") {
-        await connection.query(
-          "UPDATE orders SET payment_status = ?, payment_method = ? WHERE id = ?",
-          ["paid", paymentMethod || 'cash', currentOrder.dbId]
-        );
+      if (newTotalPaid >= currentOrder.total) {
+        if (currentOrder.paymentStatus !== "paid") {
+          await connection.query(
+            "UPDATE orders SET payment_status = ?, payment_method = ? WHERE id = ?",
+            ["paid", paymentMethod || "cash", currentOrder.dbId],
+          );
+        }
+      } else {
+        if (currentOrder.paymentStatus === "pending") {
+          await connection.query(
+            "UPDATE orders SET payment_status = ?, payment_method = ? WHERE id = ?",
+            ["partial", paymentMethod || "cash", currentOrder.dbId],
+          );
+        }
       }
-    } else {
-      if (currentOrder.paymentStatus === "pending") {
-        await connection.query(
-          "UPDATE orders SET payment_status = ?, payment_method = ? WHERE id = ?",
-          ["partial", paymentMethod || 'cash', currentOrder.dbId]
-        );
+
+      await connection.commit();
+
+      await createActivityLog({
+        targetUserId: req.user.id,
+        actorUserId: req.user.id,
+        action: "add_payment",
+        message: `Đã thanh toán ${payAmount.toLocaleString("vi-VN")}đ cho đơn hàng ${orderCode}`,
+      }).catch((err) => console.error("Log error:", err));
+
+      const updatedOrder = await getOrderByCode(orderCode);
+
+      try {
+        getIO().emit("order_updated", updatedOrder);
+      } catch (socketErr) {
+        console.error("Socket error:", socketErr);
       }
+
+      res.json({
+        success: true,
+        message: "Thêm thanh toán thành công.",
+        order: updatedOrder,
+      });
+    } catch (error) {
+      await connection.rollback();
+      console.error("Lỗi thêm thanh toán:", error);
+      res.status(500).json({
+        success: false,
+        message: "Lỗi server khi thêm thanh toán",
+        error: error.message,
+      });
+    } finally {
+      connection.release();
     }
-
-    await connection.commit();
-
-    await createActivityLog({
-      targetUserId: req.user.id,
-      actorUserId: req.user.id,
-      action: "add_payment",
-      message: `Đã thanh toán ${payAmount.toLocaleString("vi-VN")}đ cho đơn hàng ${orderCode}`,
-    }).catch(err => console.error("Log error:", err));
-
-    const updatedOrder = await getOrderByCode(orderCode);
-
-    try {
-      getIO().emit("order_updated", updatedOrder);
-    } catch (socketErr) {
-      console.error("Socket error:", socketErr);
-    }
-
-    res.json({
-      success: true,
-      message: "Thêm thanh toán thành công.",
-      order: updatedOrder
-    });
-  } catch (error) {
-    await connection.rollback();
-    console.error("Lỗi thêm thanh toán:", error);
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server khi thêm thanh toán",
-      error: error.message,
-    });
-  } finally {
-    connection.release();
-  }
-});
+  },
+);
 
 module.exports = router;

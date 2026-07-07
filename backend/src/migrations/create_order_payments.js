@@ -18,9 +18,8 @@ async function migrate() {
         FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
-    
+
     console.log("Created table order_payments successfully.");
-    
   } catch (error) {
     console.error("Migration failed:", error);
   } finally {

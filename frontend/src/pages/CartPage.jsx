@@ -125,6 +125,10 @@ function CartPage() {
   }, [cartItems]);
 
   //Thêm API lấy khuyến mãi
+  function parseMoneyFromText(value) {
+    const number = String(value || "").replace(/[^\d]/g, "");
+    return Number(number || 0);
+  }
   const convertDealToCoupon = (deal) => {
     const discountText = String(deal.discount || "").trim();
     const isPercent = discountText.includes("%");
@@ -175,10 +179,7 @@ function CartPage() {
     return price.toLocaleString("vi-VN") + "đ";
   };
 
-  const parseMoneyFromText = (value) => {
-    const number = String(value || "").replace(/[^\d]/g, "");
-    return Number(number || 0);
-  };
+
   // Hàm áp dụng mã giảm giá với các điều kiện kiểm tra và lưu trạng thái đã áp dụng
   const applyCoupon = async () => {
     const code = couponCode.trim().toUpperCase();

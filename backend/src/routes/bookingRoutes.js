@@ -9,7 +9,7 @@ const {
 
 const router = express.Router();
 
-const ALLOWED_STATUSES = ["pending", "confirmed", "completed", "cancelled"];
+const ALLOWED_STATUSES = ["pending", "confirmed", "serving", "completed", "cancelled"];
 
 const toJsonString = (value) => {
   if (!value) return null;
@@ -84,7 +84,7 @@ const hasTableConflict = async ({
   date,
   selectedTable,
   excludeBookingId = null,
-  conn = db
+  conn = db,
 }) => {
   if (!date || !selectedTable) return false;
 
@@ -103,7 +103,7 @@ const hasTableConflict = async ({
     WHERE deleted_at IS NULL
       AND booking_date = ?
       AND selected_table = ?
-      AND status IN ('pending', 'confirmed')
+      AND status IN ('pending', 'confirmed', 'serving')
       ${excludeSql}
     LIMIT 1
     FOR UPDATE
@@ -115,7 +115,7 @@ const hasTableConflict = async ({
 };
 
 //hàm kiểm tra sức chứa bàn
-const validateTableCapacity = async ({ selectedTable, guests, conn = db }) => {
+const validateTableCapacity = async ({ selectedTable, guests, date, conn = db }) => {
   if (!selectedTable) return null;
 
   const guestCount = Number(guests || 0);
@@ -153,12 +153,24 @@ const validateTableCapacity = async ({ selectedTable, guests, conn = db }) => {
 
   const table = rows[0];
 
-  if (["maintenance", "disabled", "serving"].includes(table.status)) {
+  if (["maintenance", "disabled"].includes(table.status)) {
     const error = new Error(
-      `Bàn ${table.table_code} hiện không thể đặt. Vui lòng chọn bàn khác.`,
+      `Bàn ${table.table_code} hiện đang bảo trì hoặc vô hiệu hóa. Vui lòng chọn bàn khác.`,
     );
     error.statusCode = 400;
     throw error;
+  }
+
+  if (date) {
+    const today = new Date().toLocaleDateString('en-CA'); // format: YYYY-MM-DD
+    const isToday = date === today;
+    if (isToday && table.status === "serving") {
+      const error = new Error(
+        `Bàn ${table.table_code} hiện đang có khách. Vui lòng chọn bàn khác.`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
   }
 
   if (guestCount > Number(table.seats || 0)) {
@@ -203,6 +215,7 @@ router.post("/", requireAuth, async (req, res) => {
       await validateTableCapacity({
         selectedTable,
         guests,
+        date,
         conn,
       });
 
@@ -296,7 +309,9 @@ router.post("/", requireAuth, async (req, res) => {
     await conn.commit();
     try {
       getIO().emit("table_updated", { source: "booking_created" });
-    } catch(err) { console.error("Emit error:", err); }
+    } catch (err) {
+      console.error("Emit error:", err);
+    }
     res.status(201).json({
       success: true,
       message: "Đặt bàn thành công.",
@@ -535,6 +550,7 @@ router.post("/admin", requireAuth, requireBackOffice, async (req, res) => {
       await validateTableCapacity({
         selectedTable,
         guests,
+        date,
         conn,
       });
 
@@ -626,7 +642,9 @@ router.post("/admin", requireAuth, requireBackOffice, async (req, res) => {
     await conn.commit();
     try {
       getIO().emit("table_updated", { source: "booking_admin_created" });
-    } catch(err) { console.error("Emit error:", err); }
+    } catch (err) {
+      console.error("Emit error:", err);
+    }
     res.status(201).json({
       success: true,
       message: "Tạo đặt bàn thành công.",
@@ -689,6 +707,7 @@ router.patch("/admin/:id", requireAuth, requireBackOffice, async (req, res) => {
       await validateTableCapacity({
         selectedTable: nextTable,
         guests: nextGuests,
+        date: nextDate,
         conn,
       });
 
@@ -753,7 +772,9 @@ router.patch("/admin/:id", requireAuth, requireBackOffice, async (req, res) => {
     await conn.commit();
     try {
       getIO().emit("table_updated", { source: "booking_admin_updated" });
-    } catch(err) { console.error("Emit error:", err); }
+    } catch (err) {
+      console.error("Emit error:", err);
+    }
     res.json({
       success: true,
       message: "Cập nhật đặt bàn thành công.",
@@ -823,6 +844,7 @@ router.patch(
         await validateTableCapacity({
           selectedTable: current.selected_table,
           guests: current.guests,
+          date: current.booking_date,
           conn,
         });
 
@@ -865,7 +887,9 @@ router.patch(
       await conn.commit();
       try {
         getIO().emit("table_updated", { source: "booking_status_updated" });
-      } catch(err) { console.error("Emit error:", err); }
+      } catch (err) {
+        console.error("Emit error:", err);
+      }
       res.json({
         success: true,
         message: "Cập nhật trạng thái đặt bàn thành công.",
@@ -1001,7 +1025,13 @@ router.patch(
   async (req, res) => {
     try {
       const bookingId = Number(req.params.id);
-      const { paymentMethod, paymentStatus, couponCode, discountAmount, total } = req.body;
+      const {
+        paymentMethod,
+        paymentStatus,
+        couponCode,
+        discountAmount,
+        total,
+      } = req.body;
 
       await db.query(
         `

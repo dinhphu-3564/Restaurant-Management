@@ -2,7 +2,10 @@ const express = require("express");
 const db = require("../config/db");
 
 const router = express.Router();
-const { requireAuth, requireBackOffice } = require("../middleware/authMiddleware");
+const {
+  requireAuth,
+  requireBackOffice,
+} = require("../middleware/authMiddleware");
 
 function parseJson(value, fallback = []) {
   if (!value) return fallback;
@@ -19,39 +22,39 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
   try {
     // 1. Tổng số lượng user (role = 'user')
     const [[{ totalUsers }]] = await db.query(
-      "SELECT COUNT(*) AS totalUsers FROM users WHERE deleted_at IS NULL AND role = 'user'"
+      "SELECT COUNT(*) AS totalUsers FROM users WHERE deleted_at IS NULL AND role = 'user'",
     );
 
     // 2. Tổng số đơn hàng và booking
     const [[{ totalOrders }]] = await db.query(
-      "SELECT COUNT(*) AS totalOrders FROM orders"
+      "SELECT COUNT(*) AS totalOrders FROM orders",
     );
     const [[{ totalBookings }]] = await db.query(
-      "SELECT COUNT(*) AS totalBookings FROM bookings WHERE deleted_at IS NULL"
+      "SELECT COUNT(*) AS totalBookings FROM bookings WHERE deleted_at IS NULL",
     );
 
     // 3. Doanh thu từ orders và bookings
     const [[{ orderRevenue }]] = await db.query(
-      "SELECT COALESCE(SUM(total), 0) AS orderRevenue FROM orders WHERE status != 'cancelled'"
+      "SELECT COALESCE(SUM(total), 0) AS orderRevenue FROM orders WHERE status != 'cancelled'",
     );
     const [[{ bookingRevenue }]] = await db.query(
-      "SELECT COALESCE(SUM(total), 0) AS bookingRevenue FROM bookings WHERE deleted_at IS NULL AND status != 'cancelled'"
+      "SELECT COALESCE(SUM(total), 0) AS bookingRevenue FROM bookings WHERE deleted_at IS NULL AND status != 'cancelled'",
     );
     const totalRevenue = Number(orderRevenue) + Number(bookingRevenue);
 
     // 4. Lượt khách đặt bàn
     const [[{ totalBookingGuests }]] = await db.query(
-      "SELECT COALESCE(SUM(guests), 0) AS totalBookingGuests FROM bookings WHERE deleted_at IS NULL AND status != 'cancelled'"
+      "SELECT COALESCE(SUM(guests), 0) AS totalBookingGuests FROM bookings WHERE deleted_at IS NULL AND status != 'cancelled'",
     );
 
     // 5. Số món ăn đang hoạt động (selling)
     const [[{ activeMenuItems }]] = await db.query(
-      "SELECT COUNT(*) AS activeMenuItems FROM menu_items WHERE status = 'selling'"
+      "SELECT COUNT(*) AS activeMenuItems FROM menu_items WHERE status = 'selling'",
     );
 
     // 6. Số lượng đơn hàng theo trạng thái
     const [orderStatuses] = await db.query(
-      "SELECT status, COUNT(*) AS count FROM orders GROUP BY status"
+      "SELECT status, COUNT(*) AS count FROM orders GROUP BY status",
     );
     const orderStatusBreakdown = {
       pending: 0,
@@ -62,62 +65,62 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
     };
     orderStatuses.forEach((row) => {
       const status = row.status || "pending";
-      if (orderStatusBreakdown.hasOwnProperty(status)) {
+      if (Object.prototype.hasOwnProperty.call(orderStatusBreakdown, status)) {
         orderStatusBreakdown[status] = row.count;
       }
     });
 
     // 7. Danh sách 5 đơn hàng mới nhất
     const [latestOrderRows] = await db.query(
-      "SELECT order_code AS id, customer_name AS customerName, total, status, created_at AS createdAt, phone FROM orders ORDER BY created_at DESC LIMIT 5"
+      "SELECT order_code AS id, customer_name AS customerName, total, status, created_at AS createdAt, phone FROM orders ORDER BY created_at DESC LIMIT 5",
     );
 
     // 8. Lịch đặt bàn hôm nay (hoặc 4 lịch đặt bàn mới nhất)
     const [latestBookingRows] = await db.query(
-      "SELECT id, customer_name AS customerName, phone, booking_time AS time, selected_area_title AS selectedAreaTitle, selected_table AS selectedTable, status FROM bookings WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 4"
+      "SELECT id, customer_name AS customerName, phone, booking_time AS time, selected_area_title AS selectedAreaTitle, selected_table AS selectedTable, status FROM bookings WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 4",
     );
 
     // 9. Thống kê món ăn bán chạy từ order_items hoặc menu_items có sold cao nhất
     const [bestFoodRows] = await db.query(
-      "SELECT id, name, image, sold AS qty, price FROM menu_items WHERE status = 'selling' ORDER BY sold DESC LIMIT 5"
+      "SELECT id, name, image, sold AS qty, price FROM menu_items WHERE status = 'selling' ORDER BY sold DESC LIMIT 5",
     );
 
     // A. Tính toán tăng trưởng tuần thực tế cho các KPI
     const [[{ thisWeekOrderRev }]] = await db.query(
-      "SELECT COALESCE(SUM(total), 0) AS thisWeekOrderRev FROM orders WHERE status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+      "SELECT COALESCE(SUM(total), 0) AS thisWeekOrderRev FROM orders WHERE status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
     const [[{ thisWeekBookingRev }]] = await db.query(
-      "SELECT COALESCE(SUM(total), 0) AS thisWeekBookingRev FROM bookings WHERE deleted_at IS NULL AND status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+      "SELECT COALESCE(SUM(total), 0) AS thisWeekBookingRev FROM bookings WHERE deleted_at IS NULL AND status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
     const thisWeekRev = Number(thisWeekOrderRev) + Number(thisWeekBookingRev);
 
     const [[{ lastWeekOrderRev }]] = await db.query(
-      "SELECT COALESCE(SUM(total), 0) AS lastWeekOrderRev FROM orders WHERE status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+      "SELECT COALESCE(SUM(total), 0) AS lastWeekOrderRev FROM orders WHERE status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
     const [[{ lastWeekBookingRev }]] = await db.query(
-      "SELECT COALESCE(SUM(total), 0) AS lastWeekBookingRev FROM bookings WHERE deleted_at IS NULL AND status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+      "SELECT COALESCE(SUM(total), 0) AS lastWeekBookingRev FROM bookings WHERE deleted_at IS NULL AND status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
     const lastWeekRev = Number(lastWeekOrderRev) + Number(lastWeekBookingRev);
 
     const [[{ thisWeekOrders }]] = await db.query(
-      "SELECT COUNT(*) AS thisWeekOrders FROM orders WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+      "SELECT COUNT(*) AS thisWeekOrders FROM orders WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
     const [[{ lastWeekOrders }]] = await db.query(
-      "SELECT COUNT(*) AS lastWeekOrders FROM orders WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+      "SELECT COUNT(*) AS lastWeekOrders FROM orders WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
 
     const [[{ thisWeekBookings }]] = await db.query(
-      "SELECT COUNT(*) AS thisWeekBookings FROM bookings WHERE deleted_at IS NULL AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+      "SELECT COUNT(*) AS thisWeekBookings FROM bookings WHERE deleted_at IS NULL AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
     const [[{ lastWeekBookings }]] = await db.query(
-      "SELECT COUNT(*) AS lastWeekBookings FROM bookings WHERE deleted_at IS NULL AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+      "SELECT COUNT(*) AS lastWeekBookings FROM bookings WHERE deleted_at IS NULL AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
 
     const [[{ thisWeekUsers }]] = await db.query(
-      "SELECT COUNT(*) AS thisWeekUsers FROM users WHERE deleted_at IS NULL AND role = 'user' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+      "SELECT COUNT(*) AS thisWeekUsers FROM users WHERE deleted_at IS NULL AND role = 'user' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
     const [[{ lastWeekUsers }]] = await db.query(
-      "SELECT COUNT(*) AS lastWeekUsers FROM users WHERE deleted_at IS NULL AND role = 'user' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+      "SELECT COUNT(*) AS lastWeekUsers FROM users WHERE deleted_at IS NULL AND role = 'user' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
 
     const calcGrowth = (curr, prev) => {
@@ -140,11 +143,14 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
     if (categoryRange === "today") {
       categoryTimeConstraint = "AND o.created_at >= CURDATE()";
     } else if (categoryRange === "week") {
-      categoryTimeConstraint = "AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)";
+      categoryTimeConstraint =
+        "AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)";
     } else if (categoryRange === "month") {
-      categoryTimeConstraint = "AND o.created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')";
+      categoryTimeConstraint =
+        "AND o.created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')";
     } else if (categoryRange === "year") {
-      categoryTimeConstraint = "AND o.created_at >= DATE_FORMAT(CURDATE(), '%Y-01-01')";
+      categoryTimeConstraint =
+        "AND o.created_at >= DATE_FORMAT(CURDATE(), '%Y-01-01')";
     }
 
     const [categoryRevenueRows] = await db.query(`
@@ -169,31 +175,36 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
     let sqlOrderBy = "";
 
     if (revenueRange === "30") {
-      revenueTimeConstraint = "AND created_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)";
-      sqlGroupBy = "GROUP BY DATE(created_at), DATE_FORMAT(created_at, '%d/%m')";
+      revenueTimeConstraint =
+        "AND created_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)";
+      sqlGroupBy =
+        "GROUP BY DATE(created_at), DATE_FORMAT(created_at, '%d/%m')";
       sqlOrderBy = "ORDER BY DATE(created_at) ASC";
-      
+
       for (let i = 29; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, "0");
+        const month = String(d.getMonth() + 1).padStart(2, "0");
         dateLabelsGenerator.push(`${day}/${month}`);
       }
     } else if (revenueRange === "month") {
-      revenueTimeConstraint = "AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')";
-      sqlGroupBy = "GROUP BY DATE(created_at), DATE_FORMAT(created_at, '%d/%m')";
+      revenueTimeConstraint =
+        "AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')";
+      sqlGroupBy =
+        "GROUP BY DATE(created_at), DATE_FORMAT(created_at, '%d/%m')";
       sqlOrderBy = "ORDER BY DATE(created_at) ASC";
 
       const today = new Date();
       const endDay = today.getDate();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const month = String(today.getMonth() + 1).padStart(2, "0");
       for (let i = 1; i <= endDay; i++) {
-        const day = String(i).padStart(2, '0');
+        const day = String(i).padStart(2, "0");
         dateLabelsGenerator.push(`${day}/${month}`);
       }
     } else if (revenueRange === "year") {
-      revenueTimeConstraint = "AND created_at >= DATE_FORMAT(CURDATE(), '%Y-01-01')";
+      revenueTimeConstraint =
+        "AND created_at >= DATE_FORMAT(CURDATE(), '%Y-01-01')";
       dateFormat = "%m";
       sqlGroupBy = "GROUP BY MONTH(created_at), DATE_FORMAT(created_at, '%m')";
       sqlOrderBy = "ORDER BY MONTH(created_at) ASC";
@@ -201,18 +212,20 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
       const today = new Date();
       const currentMonth = today.getMonth() + 1;
       for (let i = 1; i <= currentMonth; i++) {
-        dateLabelsGenerator.push(`Tháng ${String(i).padStart(2, '0')}`);
+        dateLabelsGenerator.push(`Tháng ${String(i).padStart(2, "0")}`);
       }
     } else {
-      revenueTimeConstraint = "AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)";
-      sqlGroupBy = "GROUP BY DATE(created_at), DATE_FORMAT(created_at, '%d/%m')";
+      revenueTimeConstraint =
+        "AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)";
+      sqlGroupBy =
+        "GROUP BY DATE(created_at), DATE_FORMAT(created_at, '%d/%m')";
       sqlOrderBy = "ORDER BY DATE(created_at) ASC";
 
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, "0");
+        const month = String(d.getMonth() + 1).padStart(2, "0");
         dateLabelsGenerator.push(`${day}/${month}`);
       }
     }
@@ -271,10 +284,12 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
           qty: Number(row.qty),
           price: Number(row.price || 0),
         })),
-        categoryRevenue: isStaff ? [] : categoryRevenueRows.map((row) => ({
-          name: row.name,
-          revenue: Number(row.revenue),
-        })),
+        categoryRevenue: isStaff
+          ? []
+          : categoryRevenueRows.map((row) => ({
+              name: row.name,
+              revenue: Number(row.revenue),
+            })),
         dailyLabels: isStaff ? [] : dailyLabels,
         dailyRevenues: isStaff ? [] : dailyRevenues,
         dailyProfits: isStaff ? [] : dailyProfits,
@@ -296,65 +311,74 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
     });
   }
 });
-router.get("/notifications", requireAuth, requireBackOffice, async (req, res) => {
-  try {
-    // 1. Lấy danh sách đặt bàn mới (pending) từ ngày hôm nay trở đi
-    const [bookings] = await db.query(
-      "SELECT id, customer_name, booking_code, booking_date, booking_time, created_at FROM bookings WHERE deleted_at IS NULL AND status = 'pending' AND booking_date >= CURDATE() ORDER BY created_at DESC"
-    );
+router.get(
+  "/notifications",
+  requireAuth,
+  requireBackOffice,
+  async (req, res) => {
+    try {
+      // 1. Lấy danh sách đặt bàn mới (pending) từ ngày hôm nay trở đi
+      const [bookings] = await db.query(
+        "SELECT id, customer_name, booking_code, booking_date, booking_time, created_at FROM bookings WHERE deleted_at IS NULL AND status = 'pending' AND booking_date >= CURDATE() ORDER BY created_at DESC",
+      );
 
-    // 2. Lấy danh sách đơn hàng mới (pending) được tạo từ hôm nay trở đi
-    const [orders] = await db.query(
-      "SELECT id, order_code, customer_name, total, created_at FROM orders WHERE status = 'pending' AND created_at >= CURDATE() ORDER BY created_at DESC"
-    );
+      // 2. Lấy danh sách đơn hàng mới (pending) được tạo từ hôm nay trở đi
+      const [orders] = await db.query(
+        "SELECT id, order_code, customer_name, total, created_at FROM orders WHERE status = 'pending' AND created_at >= CURDATE() ORDER BY created_at DESC",
+      );
 
-    const notifications = [];
-    bookings.forEach(b => {
-      const dateStr = b.booking_date ? new Date(b.booking_date).toLocaleDateString('vi-VN') : '';
-      notifications.push({
-        id: `booking-${b.id}`,
-        type: 'booking',
-        title: 'Đặt bàn mới',
-        link: '/admin/bookings',
-        createdAt: b.created_at,
-        details: {
-          customerName: b.customer_name,
-          time: b.booking_time,
-          date: dateStr,
-          bookingCode: b.booking_code || `DB${b.id}`
-        }
+      const notifications = [];
+      bookings.forEach((b) => {
+        const dateStr = b.booking_date
+          ? new Date(b.booking_date).toLocaleDateString("vi-VN")
+          : "";
+        notifications.push({
+          id: `booking-${b.id}`,
+          type: "booking",
+          title: "Đặt bàn mới",
+          link: "/admin/bookings",
+          createdAt: b.created_at,
+          details: {
+            customerName: b.customer_name,
+            time: b.booking_time,
+            date: dateStr,
+            bookingCode: b.booking_code || `DB${b.id}`,
+          },
+        });
       });
-    });
 
-    orders.forEach(o => {
-      notifications.push({
-        id: `order-${o.id}`,
-        type: 'order',
-        title: 'Đơn hàng mới',
-        link: '/admin/orders',
-        createdAt: o.created_at,
-        details: {
-          orderCode: o.order_code || o.id,
-          customerName: o.customer_name || 'Khách vãng lai',
-          total: o.total
-        }
+      orders.forEach((o) => {
+        notifications.push({
+          id: `order-${o.id}`,
+          type: "order",
+          title: "Đơn hàng mới",
+          link: "/admin/orders",
+          createdAt: o.created_at,
+          details: {
+            orderCode: o.order_code || o.id,
+            customerName: o.customer_name || "Khách vãng lai",
+            total: o.total,
+          },
+        });
       });
-    });
-    // Sắp xếp theo thời gian giảm dần
-    notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      // Sắp xếp theo thời gian giảm dần
+      notifications.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+      );
 
-    res.json({
-      success: true,
-      notifications
-    });
-  } catch (error) {
-    console.error("Lỗi lấy thông báo:", error);
-    res.status(500).json({
-      success: false,
-      message: "Lỗi lấy thông báo",
-      error: error.message
-    });
-  }
-});
+      res.json({
+        success: true,
+        notifications,
+      });
+    } catch (error) {
+      console.error("Lỗi lấy thông báo:", error);
+      res.status(500).json({
+        success: false,
+        message: "Lỗi lấy thông báo",
+        error: error.message,
+      });
+    }
+  },
+);
 
 module.exports = router;
