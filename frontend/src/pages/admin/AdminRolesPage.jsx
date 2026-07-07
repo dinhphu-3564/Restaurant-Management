@@ -347,7 +347,7 @@ function AdminRolesPage() {
   };
 
   //hàm gọi API lịch sử
-  const loadAccountActivities = async (userId) => {
+  async function loadAccountActivities(userId) {
     if (!userId) {
       setActivityLogs([]);
       return;
@@ -367,7 +367,7 @@ function AdminRolesPage() {
   };
 
   //hàm load lịch sử hoạt động admin
-  const loadAdminActivities = async () => {
+  async function loadAdminActivities() {
     setAdminActivitiesLoading(true);
 
     try {

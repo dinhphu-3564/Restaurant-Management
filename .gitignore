@@ -1,0 +1,29 @@
+# Dependency directories
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+**/dist/
+**/build/
+
+# Environment files
+.env
+.env.*
+**/.env
+**/.env.*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Firebase configuration
+backend/src/config/firebase-service-account.json
+
+# Local uploads
+backend/uploads/
+
+# Temporary files & reports
+frontend/eslint-report.json
+tree_output.txt
