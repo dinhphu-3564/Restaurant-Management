@@ -303,10 +303,10 @@ function CartPage() {
       prev.map((item) =>
         item.id === id
           ? {
-              ...item,
-              qty:
-                type === "increase" ? item.qty + 1 : Math.max(1, item.qty - 1),
-            }
+            ...item,
+            qty:
+              type === "increase" ? item.qty + 1 : Math.max(1, item.qty - 1),
+          }
           : item,
       ),
     );
@@ -400,7 +400,7 @@ function CartPage() {
 
                   <Link
                     to="/menu"
-                    className="mt-5 px-5 py-2.5 rounded-xl bg-green-900 text-white font-bold hover:bg-green-950"
+                    className="mt-5 px-6 py-3 rounded-full bg-primary text-white font-bold hover:bg-primary-light shadow-md transition-all hover:-translate-y-1 hover:shadow-lg"
                   >
                     Xem thực đơn
                   </Link>
@@ -481,9 +481,9 @@ function CartPage() {
                               prev.map((cartItem) =>
                                 cartItem.id === item.id
                                   ? {
-                                      ...cartItem,
-                                      qty: value < 1 ? 1 : value,
-                                    }
+                                    ...cartItem,
+                                    qty: value < 1 ? 1 : value,
+                                  }
                                   : cartItem,
                               ),
                             );
@@ -549,7 +549,7 @@ function CartPage() {
 
                 <button
                   onClick={applyCoupon}
-                  className="h-11 px-4 rounded-lg bg-green-900 text-white font-bold hover:bg-green-950"
+                  className="h-11 px-5 rounded-xl bg-primary text-white font-bold hover:bg-primary-light transition-colors"
                 >
                   Áp dụng
                 </button>
@@ -557,9 +557,8 @@ function CartPage() {
 
               {couponMessage && (
                 <p
-                  className={`text-xs mt-2 font-medium ${
-                    appliedCoupon ? "text-green-800" : "text-red-500"
-                  }`}
+                  className={`text-xs mt-2 font-medium ${appliedCoupon ? "text-green-800" : "text-red-500"
+                    }`}
                 >
                   {couponMessage}
                 </p>
@@ -669,7 +668,7 @@ function CartPage() {
                   if (
                     latestCoupon.usageLimit &&
                     Number(latestCoupon.used || 0) >=
-                      Number(latestCoupon.usageLimit)
+                    Number(latestCoupon.usageLimit)
                   ) {
                     setAppliedCoupon(null);
                     setCouponCode("");
@@ -701,11 +700,10 @@ function CartPage() {
 
                 navigate("/checkout");
               }}
-              className={`mt-5 w-full h-12 rounded-lg font-black transition ${
-                cartItems.length === 0
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-green-900 text-white hover:bg-green-950"
-              }`}
+              className={`mt-6 w-full h-14 rounded-2xl font-black transition-all duration-300 shadow-md flex items-center justify-center ${cartItems.length === 0
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                  : "bg-primary text-white hover:bg-primary-light hover:-translate-y-1 hover:shadow-xl active:scale-95"
+                }`}
             >
               <ShoppingCart className="w-5 h-5 inline mr-2" />
               TIẾN HÀNH THANH TOÁN
@@ -844,7 +842,7 @@ function CartPage() {
           <Service
             icon={<Headphones />}
             title="Hỗ trợ 24/7"
-            text="Hotline: 038 713 6878 / 076 877 4619"
+            text="Hotline: 038 713 6878"
           />
         </section>
       </main>
@@ -903,33 +901,30 @@ function CartPage() {
                   <div className="grid grid-cols-3 text-center text-sm font-black">
                     <button
                       onClick={() => setActiveDetailTab("description")}
-                      className={`py-3 ${
-                        activeDetailTab === "description"
+                      className={`py-3 ${activeDetailTab === "description"
                           ? "text-green-800 border-b-4 border-green-800"
                           : "text-gray-500"
-                      }`}
+                        }`}
                     >
                       MÔ TẢ
                     </button>
 
                     <button
                       onClick={() => setActiveDetailTab("ingredients")}
-                      className={`py-3 ${
-                        activeDetailTab === "ingredients"
+                      className={`py-3 ${activeDetailTab === "ingredients"
                           ? "text-green-800 border-b-4 border-green-800"
                           : "text-gray-500"
-                      }`}
+                        }`}
                     >
                       THÀNH PHẦN
                     </button>
 
                     <button
                       onClick={() => setActiveDetailTab("taste")}
-                      className={`py-3 ${
-                        activeDetailTab === "taste"
+                      className={`py-3 ${activeDetailTab === "taste"
                           ? "text-green-800 border-b-4 border-green-800"
                           : "text-gray-500"
-                      }`}
+                        }`}
                     >
                       HƯƠNG VỊ
                     </button>
@@ -1155,9 +1150,8 @@ function CartPage() {
         <div className="fixed top-20 right-5 z-[9999]">
           <div className="bg-white border border-[#eadfcd] shadow-xl rounded-2xl px-4 py-3 flex items-center gap-3 w-[330px] max-w-[calc(100vw-32px)] animate-[slideIn_.25s_ease-out]">
             <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                toast.type === "delete" ? "bg-red-50" : "bg-green-50"
-              }`}
+              className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${toast.type === "delete" ? "bg-red-50" : "bg-green-50"
+                }`}
             >
               {toast.type === "delete" ? (
                 <Trash2 className="w-5 h-5 text-red-500" />

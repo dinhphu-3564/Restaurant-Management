@@ -6,7 +6,7 @@ const FACEBOOK_URL = "https://www.facebook.com/profile.php?id=100088682802201";
 
 function Footer() {
   return (
-    <footer className="bg-green-900 text-white">
+    <footer className="bg-primary text-white">
       {/* FOOTER */}
 
       <div className="max-w-7xl mx-auto px-4 md:px-5 py-7 md:py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-8">
@@ -33,7 +33,7 @@ function Footer() {
 
           <div className="space-y-4 text-sm text-white/80">
             <div className="flex items-start gap-3">
-              <MapPin className="w-5 h-5 text-[#d6a84f] shrink-0 mt-0.5" />
+              <MapPin className="w-5 h-5 text-secondary shrink-0 mt-0.5" />
 
               <a
                 href="https://maps.app.goo.gl/wSkET5ThBjNm9f29A"
@@ -48,19 +48,19 @@ function Footer() {
             </div>
 
             <div className="flex items-center gap-3">
-              <Phone className="w-5 h-5 text-[#d6a84f]" />
+              <Phone className="w-5 h-5 text-secondary" />
               <a href="tel:0387136878" className="hover:text-white">
                 038 713 6878
               </a>
             </div>
 
             <div className="flex items-center gap-3">
-              <Mail className="w-5 h-5 text-[#d6a84f]" />
+              <Mail className="w-5 h-5 text-secondary" />
               <a
-                href="mailto:dehuongson.ht@gmail.com"
+                href="mailto:dehuongsonn.ht@gmail.com"
                 className="hover:text-white break-all"
               >
-                dehuongson.ht@gmail.com
+                dehuongsonn.ht@gmail.com
               </a>
             </div>
           </div>
@@ -71,12 +71,12 @@ function Footer() {
 
           <div className="space-y-4 text-sm text-white/80">
             <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-[#d6a84f]" />
+              <Clock className="w-5 h-5 text-secondary" />
               <span>08:00 - 22:00</span>
             </div>
 
             <div className="flex items-center gap-3">
-              <CalendarDays className="w-5 h-5 text-[#d6a84f]" />
+              <CalendarDays className="w-5 h-5 text-secondary" />
               <span>Tất cả các ngày trong tuần</span>
             </div>
           </div>

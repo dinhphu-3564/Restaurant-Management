@@ -1,7 +1,7 @@
 function AdminRevenuePage() {
   return (
     <div>
-      <h2 className="text-3xl font-black text-green-950">Quản lý đơn hàng</h2>
+      <h2 className="text-3xl font-black text-primary">Quản lý đơn hàng</h2>
     </div>
   );
 }

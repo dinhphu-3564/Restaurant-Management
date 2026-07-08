@@ -391,7 +391,7 @@ function Register() {
 
                   <button
                     type="submit"
-                    className="w-full bg-green-700 hover:bg-green-800 text-white font-bold py-2.5 rounded-xl transition duration-200 shadow-md"
+                    className="w-full bg-primary hover:bg-primary-light text-white font-bold py-3 rounded-2xl transition-all duration-300 shadow-md hover:-translate-y-1 hover:shadow-lg active:scale-95"
                   >
                     Đăng ký
                   </button>

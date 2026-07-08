@@ -1216,7 +1216,7 @@ function AdminOrdersPage() {
           {/* thanh thao tác hàng loạt */}
           {selectedOrderIds.length > 0 && (
             <div className="mx-4 mb-4 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 flex items-center justify-between gap-3">
-              <p className="text-sm font-black text-green-800">
+              <p className="text-sm font-black text-primary">
                 Đã chọn {selectedOrderIds.length} đơn hàng
               </p>
 
@@ -1325,7 +1325,7 @@ function AdminOrdersPage() {
 
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-green-100 text-green-800 flex items-center justify-center font-black">
+                          <div className="w-9 h-9 rounded-full bg-green-100 text-primary flex items-center justify-center font-black">
                             {(order.customerName || order.name || "A")
                               .charAt(0)
                               .toUpperCase()}
@@ -1358,7 +1358,7 @@ function AdminOrdersPage() {
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 font-black text-green-950 whitespace-nowrap text-center">
+                      <td className="px-4 py-3 font-black text-primary whitespace-nowrap text-center">
                         {formatPrice(order.total || order.totalPrice)}
                       </td>
 
@@ -1458,8 +1458,8 @@ function AdminOrdersPage() {
                     onClick={() => setCurrentPage(page)}
                     className={`w-9 h-9 rounded-lg border font-black transition ${
                       currentPage === page
-                        ? "bg-green-700 text-white border-green-700"
-                        : "border-gray-200 text-gray-600 hover:bg-green-50 hover:text-green-700"
+                        ? "bg-primary text-white border-primary focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20"
+                        : "border-gray-200 text-gray-600 hover:bg-primary/5 hover:text-primary"
                     }`}
                   >
                     {page}
@@ -1483,7 +1483,7 @@ function AdminOrdersPage() {
               <Legend color="bg-blue-500" text="Đã xác nhận" />
               <Legend color="bg-purple-500" text="Đang chuẩn bị" />
               <Legend color="bg-orange-500" text="Đang giao" />
-              <Legend color="bg-green-600" text="Hoàn thành" />
+              <Legend color="bg-primary" text="Hoàn thành" />
               <Legend color="bg-red-500" text="Đã hủy" />
             </div>
           </div>
@@ -1535,7 +1535,7 @@ function AdminOrdersPage() {
           <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-green-950">
+                <h3 className="text-xl font-black text-primary">
                   Chỉnh sửa đơn hàng
                 </h3>
 
@@ -1630,7 +1630,7 @@ function AdminOrdersPage() {
 
               <button
                 onClick={saveEditOrder}
-                className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+                className="h-11 px-5 rounded-xl bg-primary text-white font-black hover:bg-primary/90"
               >
                 Lưu thay đổi
               </button>
@@ -1679,7 +1679,7 @@ function AdminOrdersPage() {
                 }}
                 className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition shadow-sm ${
                   deleteConfirmOrder.bulkStatus
-                    ? "bg-green-700 hover:bg-green-800"
+                    ? "bg-primary hover:bg-primary-light"
                     : "bg-red-600 hover:bg-red-700"
                 }`}
               >
@@ -1695,7 +1695,7 @@ function AdminOrdersPage() {
 
 function OrderStatCard({ icon, title, value, bg, color }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 min-h-[96px] hover:bg-green-50/40 hover:border-green-100 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 min-h-[96px] hover:bg-primary/5 hover:border-primary/20 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer">
       <div className="flex items-center gap-3">
         <div
           className={`w-11 h-11 rounded-xl ${bg} ${color} flex items-center justify-center shrink-0`}
@@ -1708,11 +1708,11 @@ function OrderStatCard({ icon, title, value, bg, color }) {
             {title}
           </p>
 
-          <h3 className="text-2xl font-black text-green-950 mt-1 truncate">
+          <h3 className="text-2xl font-black text-primary mt-1 truncate">
             {value}
           </h3>
 
-          <p className="text-green-600 text-[11px] font-black mt-1 leading-tight truncate">
+          <p className="text-primary text-[11px] font-black mt-1 leading-tight truncate">
             ↑ 12.4% so với tuần trước
           </p>
         </div>
@@ -1727,8 +1727,8 @@ function TabButton({ active, onClick, children }) {
       onClick={onClick}
       className={`h-16 min-w-[180px] px-6 border-b-2 font-black text-lg whitespace-nowrap transition-all duration-200 ${
         active
-          ? "border-green-700 text-green-700 bg-green-50/40"
-          : "border-transparent text-gray-500 hover:text-green-700 hover:bg-green-50/40"
+          ? "border-primary/20 border-t-primary bg-primary/5"
+          : "border-transparent text-gray-500 hover:text-primary hover:bg-primary/5"
       }`}
     >
       {children}
@@ -1813,7 +1813,7 @@ function OrderDetailPanel({
   return (
     <aside className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden xl:sticky xl:top-4">
       <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="text-xl font-black text-green-950">Chi tiết đơn hàng</h3>
+        <h3 className="text-xl font-black text-primary">Chi tiết đơn hàng</h3>
 
         <button onClick={onClose} className="text-gray-400 hover:text-red-500">
           ✕
@@ -1834,7 +1834,7 @@ function OrderDetailPanel({
             </span>
           </div>
 
-          <h2 className="text-2xl font-black text-green-950 mt-1 break-all leading-tight">
+          <h2 className="text-2xl font-black text-primary mt-1 break-all leading-tight">
             #{order.id}
           </h2>
 
@@ -1888,7 +1888,7 @@ function OrderDetailPanel({
                 </div>
               ))}
 
-              <div className="pt-3 border-t border-gray-100 flex justify-between font-black text-green-800">
+              <div className="pt-3 border-t border-gray-100 flex justify-between font-black text-primary">
                 <span>Tổng tiền</span>
                 <span>{formatPrice(order.total || order.totalPrice)}</span>
               </div>

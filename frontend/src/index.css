@@ -2,20 +2,45 @@
 @import url("https://fonts.googleapis.com/css2?family=Allura&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
+
+@theme {
+  --color-primary: #14532d;
+  --color-primary-light: #166534;
+  --color-secondary: #d4af37;
+  --color-secondary-light: #f3e5ab;
+  --color-accent: #f59e0b;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  --color-background: #f9fafb;
+  --color-surface: #ffffff;
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: 'Playfair Display', serif;
+}
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-800 font-sans antialiased;
+  }
+}
+
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-/* Ẩn focus outline xanh mặc định của browser cho admin UI */
+/* Ẩn focus outline xanh mặc định của browser */
 select:focus,
 button:focus,
 a:focus {
   outline: none;
   box-shadow: none;
 }
+
 
 @keyframes fadeIn {
   from { opacity: 0; }

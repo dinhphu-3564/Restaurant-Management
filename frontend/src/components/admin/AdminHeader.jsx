@@ -140,7 +140,7 @@ function AdminHeader({
   return (
     <header className="h-[76px] bg-white border-b border-gray-100 flex items-center justify-between px-5 min-w-0">
       <div className="shrink-0 min-w-0 mr-4">
-        <h1 className="text-xl sm:text-2xl font-black text-green-950 whitespace-nowrap">{title}</h1>
+        <h1 className="text-xl sm:text-2xl font-black text-primary whitespace-nowrap">{title}</h1>
         <p className="text-xs sm:text-sm text-gray-500 mt-1 truncate">{subtitle}</p>
       </div>
 
@@ -160,10 +160,10 @@ function AdminHeader({
           <button
             type="button"
             onClick={() => setIsDateOpen(!isDateOpen)}
-            className="h-11 px-4 rounded-2xl border border-gray-100 bg-white shadow-sm text-sm font-black text-gray-700 flex items-center justify-between gap-3 hover:bg-green-50/50 transition"
+            className="h-11 px-4 rounded-2xl border border-gray-100 bg-white shadow-sm text-sm font-black text-gray-700 flex items-center justify-between gap-3 hover:bg-primary/5 transition"
           >
             <div className="flex items-center gap-2 min-w-0">
-              <CalendarDays size={18} className="text-green-800 shrink-0" />
+              <CalendarDays size={18} className="text-primary shrink-0" />
               <span className="truncate">{displayDate}</span>
             </div>
 
@@ -181,8 +181,8 @@ function AdminHeader({
                   }}
                   className={`h-10 rounded-xl text-sm font-black transition ${
                     dateMode === "range"
-                      ? "bg-green-800 text-white"
-                      : "bg-gray-50 text-gray-600 hover:bg-green-50 hover:text-green-800"
+                      ? "bg-primary text-white shadow-md"
+                      : "bg-gray-50 text-gray-600 hover:bg-primary/10 hover:text-primary"
                   }`}
                 >
                   Ngày
@@ -193,8 +193,8 @@ function AdminHeader({
                   onClick={() => setDateMode?.("week")}
                   className={`h-10 rounded-xl text-sm font-black transition ${
                     dateMode === "week"
-                      ? "bg-green-800 text-white"
-                      : "bg-gray-50 text-gray-600 hover:bg-green-50 hover:text-green-800"
+                      ? "bg-primary text-white shadow-md"
+                      : "bg-gray-50 text-gray-600 hover:bg-primary/10 hover:text-primary"
                   }`}
                 >
                   Tuần
@@ -205,8 +205,8 @@ function AdminHeader({
                   onClick={() => setDateMode?.("month")}
                   className={`h-10 rounded-xl text-sm font-black transition ${
                     dateMode === "month"
-                      ? "bg-green-800 text-white"
-                      : "bg-gray-50 text-gray-600 hover:bg-green-50 hover:text-green-800"
+                      ? "bg-primary text-white shadow-md"
+                      : "bg-gray-50 text-gray-600 hover:bg-primary/10 hover:text-primary"
                   }`}
                 >
                   Tháng
@@ -217,8 +217,8 @@ function AdminHeader({
                   onClick={() => setDateMode?.("year")}
                   className={`h-10 rounded-xl text-sm font-black transition ${
                     dateMode === "year"
-                      ? "bg-green-800 text-white"
-                      : "bg-gray-50 text-gray-600 hover:bg-green-50 hover:text-green-800"
+                      ? "bg-primary text-white shadow-md"
+                      : "bg-gray-50 text-gray-600 hover:bg-primary/10 hover:text-primary"
                   }`}
                 >
                   Năm
@@ -332,7 +332,7 @@ function AdminHeader({
                 <button
                   type="button"
                   onClick={() => setIsDateOpen(false)}
-                  className="h-10 px-4 rounded-xl bg-green-800 text-white font-black hover:bg-green-900 transition"
+                  className="h-10 px-4 rounded-xl bg-primary text-white font-black hover:bg-primary-light transition"
                 >
                   Áp dụng
                 </button>
@@ -418,10 +418,10 @@ function AdminHeader({
           )}
         </div>
 
-        <div className="hidden lg:flex items-center gap-2 bg-green-50 text-green-800 px-4 h-11 rounded-full font-bold">
+        <div className="hidden lg:flex items-center gap-2 bg-primary/10 text-primary px-4 h-11 rounded-full font-bold">
           <ShieldCheck size={18} />
           <span>{currentUser?.name || "Admin"}</span>
-          <span className="text-xs text-green-600 font-black hidden 2xl:inline">
+          <span className="text-xs text-primary font-black hidden 2xl:inline">
             ({ROLE_TEXT[currentUser?.role] || "Nhân viên"})
           </span>
         </div>

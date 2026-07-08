@@ -443,7 +443,7 @@ function ProfilePage() {
 
                     <button
                       onClick={handleSave}
-                      className="hidden md:block h-11 px-7 rounded-xl bg-[#d6a84f] hover:bg-[#c99a45] text-green-950 font-black shadow-sm transition"
+                      className="hidden md:block h-11 px-7 rounded-xl bg-secondary hover:bg-secondary-light text-white font-black shadow-sm transition-all hover:-translate-y-1 hover:shadow-md active:scale-95"
                     >
                       Cập nhật thông tin
                     </button>
@@ -536,7 +536,7 @@ function ProfilePage() {
                     <div className="flex flex-col sm:flex-row gap-3 mt-5">
                       <button
                         onClick={() => navigate("/booking")}
-                        className="h-11 px-7 rounded-xl bg-[#d6a84f] text-green-950 font-black"
+                        className="h-12 px-8 rounded-full bg-secondary hover:bg-secondary-light text-white font-black shadow-md transition-all hover:-translate-y-1 hover:shadow-lg active:scale-95"
                       >
                         <CalendarDays className="w-5 h-5 inline mr-2" />
                         Đặt bàn ngay
@@ -544,7 +544,7 @@ function ProfilePage() {
 
                       <button
                         onClick={() => navigate("/menu")}
-                        className="h-11 px-7 rounded-xl border border-[#d6a84f] text-[#d6a84f] font-black hover:bg-[#d6a84f] hover:text-green-950 transition"
+                        className="h-12 px-8 rounded-full border-2 border-secondary text-secondary font-black hover:bg-secondary hover:text-white transition-all shadow-sm hover:-translate-y-1 hover:shadow-lg active:scale-95"
                       >
                         <BookOpen className="w-5 h-5 inline mr-2" />
                         Xem thực đơn

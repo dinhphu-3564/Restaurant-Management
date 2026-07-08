@@ -34,10 +34,10 @@ export default function AdminActivityLogsPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Nhật ký hoạt động (Audit Logs)</h1>
+        <h1 className="text-2xl font-border-primary/20 border-t-primary">Nhật ký hoạt động (Audit Logs)</h1>
         <button
           onClick={fetchLogs}
-          className="bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-700"
+          className="bg-primary text-white px-4 py-2 rounded shadow hover:bg-primary-light"
         >
           Làm mới
         </button>

@@ -849,7 +849,7 @@ function BookingPage() {
 
             <button
               onClick={handleSubmit}
-              className="mt-6 w-full h-12 rounded-xl bg-green-900 hover:bg-green-950 text-white font-black"
+              className="mt-6 w-full h-14 rounded-2xl bg-primary hover:bg-primary-light text-white font-black shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl active:scale-95"
             >
               <CalendarDays className="w-5 h-5 inline mr-2" />
               XÁC NHẬN ĐẶT BÀN

@@ -54,10 +54,10 @@ function AdminToast() {
 
   const toastStyle = {
     success: {
-      wrapper: "border-green-100 bg-white",
-      iconBox: "bg-green-50 text-green-700",
-      title: "text-green-900",
-      bar: "bg-green-700",
+      wrapper: "border-primary/20 bg-white",
+      iconBox: "bg-primary/10 text-primary",
+      title: "text-primary",
+      bar: "bg-primary",
       icon: <CheckCircle size={22} />,
     },
     error: {

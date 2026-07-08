@@ -771,7 +771,7 @@ function AdminDealsPage() {
 
           {selectedDealIds.length > 0 && (
             <div className="mx-4 mb-4 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm font-black text-green-800">
+              <p className="text-sm font-black text-primary">
                 Đã chọn {selectedDealIds.length} khuyến mãi
               </p>
 
@@ -865,7 +865,7 @@ function AdminDealsPage() {
                       </td>
 
                       <td className="px-4 py-3">
-                        <p className="font-black text-green-950 whitespace-nowrap">
+                        <p className="font-black text-primary whitespace-nowrap">
                           {deal.name}
                         </p>
                         <p className="text-xs text-gray-400 font-semibold mt-1 whitespace-nowrap">
@@ -1108,7 +1108,7 @@ function AdminDealsPage() {
                 }}
                 className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition shadow-sm ${
                   deleteConfirmDeal.bulkStatus
-                    ? "bg-green-700 hover:bg-green-800"
+                    ? "bg-primary hover:bg-primary-light"
                     : "bg-red-600 hover:bg-red-700"
                 }`}
               >
@@ -1145,7 +1145,7 @@ function DealDetailPanel({
   return (
     <aside className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden xl:sticky xl:top-4">
       <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="text-xl font-black text-green-950">
+        <h3 className="text-xl font-black text-primary">
           Chi tiết khuyến mãi
         </h3>
 
@@ -1423,7 +1423,7 @@ function DealFormModal({
         {/* Header */}
         <div className="px-7 py-5 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div>
-            <h3 className="text-2xl font-black text-green-950">{title}</h3>
+            <h3 className="text-2xl font-black text-primary">{title}</h3>
             <p className="text-sm text-gray-500 font-semibold mt-1">
               {subtitle}
             </p>
@@ -1830,7 +1830,7 @@ function DealStatCard({ icon, title, value, bg, color }) {
             {title}
           </p>
 
-          <h3 className="text-2xl font-black text-green-950 mt-1 truncate">
+          <h3 className="text-2xl font-black text-primary mt-1 truncate">
             {value}
           </h3>
         </div>
@@ -1845,8 +1845,8 @@ function TabButton({ active, onClick, children }) {
       onClick={onClick}
       className={`h-16 min-w-[150px] px-5 border-b-2 font-black text-base whitespace-nowrap transition-all duration-200 ${
         active
-          ? "border-green-700 text-green-700 bg-green-50/40"
-          : "border-transparent text-gray-500 hover:text-green-700 hover:bg-green-50/40"
+          ? "border-primary/20 border-t-primary bg-primary/5"
+          : "border-transparent text-gray-500 hover:text-primary hover:bg-primary/5"
       }`}
     >
       {children}
@@ -1878,7 +1878,7 @@ function SelectBox({ label, value, onChange, children, compact = false }) {
 
 function IconButton({ icon, color, onClick, disabled = false, title = "" }) {
   const colors = {
-    green: "bg-green-50 text-green-700 hover:bg-green-100",
+    green: "bg-primary/10 text-primary hover:bg-primary-light",
     emerald: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
     orange: "bg-orange-50 text-orange-600 hover:bg-orange-100",
     red: "bg-red-50 text-red-600 hover:bg-red-100",
@@ -1901,7 +1901,7 @@ function IconButton({ icon, color, onClick, disabled = false, title = "" }) {
 function DetailBlock({ title, children }) {
   return (
     <div className="border-t border-gray-100 pt-4">
-      <h4 className="font-black text-green-800 mb-3">{title}</h4>
+      <h4 className="font-black text-primary mb-3">{title}</h4>
       <div className="space-y-2">{children}</div>
     </div>
   );
@@ -1921,7 +1921,7 @@ function DetailRow({ label, value }) {
 function MiniStat({ label, value }) {
   return (
     <div className="rounded-xl border border-gray-100 p-3 text-center">
-      <p className="text-green-950 font-black">{value}</p>
+      <p className="text-primary font-black">{value}</p>
       <p className="text-xs text-gray-500 font-semibold mt-1">{label}</p>
     </div>
   );

@@ -17,6 +17,7 @@ import {
 
 import { clearAuthSession, getCurrentUser } from "../../utils/auth";
 import { canAccessAdminRoute } from "../../utils/permissions";
+import goatIcon from "../../assets/images/Icon_De.png";
 
 const ROLE_TEXT = {
   admin: "Quản trị viên",
@@ -149,12 +150,10 @@ function AdminSidebar({ notifications = [] }) {
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
   return (
-    <aside className="w-[250px] shrink-0 h-screen overflow-y-auto bg-gradient-to-b from-green-950 to-emerald-950 text-white px-3 py-5 flex flex-col">
+    <aside className="w-[250px] shrink-0 h-screen overflow-y-auto bg-primary text-white px-3 py-5 flex flex-col shadow-xl">
       <div className="px-3 mb-7">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center text-2xl">
-            🐐
-          </div>
+          <img src={goatIcon} alt="Logo" className="w-10 h-10 object-contain brightness-0 invert drop-shadow-md" />
 
           <div>
             <h2 className="text-lg font-black leading-tight">Dê Hương Sơn</h2>
@@ -190,10 +189,9 @@ function AdminSidebar({ notifications = [] }) {
                     className={({ isActive }) =>
                       `
                       flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition
-                      ${
-                        isActive
-                          ? "bg-white/15 text-white shadow-sm"
-                          : "text-white/75 hover:bg-white/10 hover:text-white"
+                      ${isActive
+                        ? "bg-white/15 text-white shadow-sm"
+                        : "text-white/75 hover:bg-white/10 hover:text-white"
                       }
                     `
                     }

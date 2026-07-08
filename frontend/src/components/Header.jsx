@@ -275,7 +275,7 @@ function Header({ currentPage = "home" }) {
               {!isLoginPage && (
                 <Link
                   to="/login"
-                  className="border border-green-800 text-green-800 px-5 py-2 rounded-lg font-semibold hover:bg-green-50"
+                  className="border-2 border-primary text-primary px-5 py-2 rounded-xl font-semibold hover:bg-primary/5 transition-colors"
                 >
                   Đăng nhập
                 </Link>
@@ -284,7 +284,7 @@ function Header({ currentPage = "home" }) {
               {!isRegisterPage && (
                 <Link
                   to="/register"
-                  className="bg-green-800 text-white px-5 py-2 rounded-lg font-semibold shadow-md hover:bg-green-900"
+                  className="bg-primary text-white px-5 py-2 rounded-xl font-semibold shadow-md hover:bg-primary-light hover:shadow-lg transition-all"
                 >
                   Đăng ký
                 </Link>

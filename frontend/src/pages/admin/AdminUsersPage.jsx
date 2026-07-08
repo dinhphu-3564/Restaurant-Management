@@ -508,7 +508,7 @@ function AdminUsersPage() {
 
           {selectedIds.length > 0 && (
             <div className="mx-5 mb-3 rounded-xl border border-green-100 bg-green-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-              <p className="font-black text-green-800">
+              <p className="font-black text-primary">
                 Đã chọn {selectedIds.length} khách hàng
               </p>
 
@@ -626,7 +626,7 @@ function AdminUsersPage() {
                           {bookingCount}
                         </td>
 
-                        <td className="px-4 py-3 font-black text-green-950 text-center whitespace-nowrap">
+                        <td className="px-4 py-3 font-black text-primary text-center whitespace-nowrap">
                           {formatPrice(totalSpent)}
                         </td>
 
@@ -842,7 +842,7 @@ function UserDetailPanel({
   return (
     <aside className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden 2xl:sticky 2xl:top-4">
       <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="text-xl font-black text-green-950">
+        <h3 className="text-xl font-black text-primary">
           Chi tiết khách hàng
         </h3>
         <button onClick={onClose} className="text-gray-400 hover:text-red-500">
@@ -857,7 +857,7 @@ function UserDetailPanel({
           </div>
 
           <div>
-            <h2 className="text-xl font-black text-green-950">
+            <h2 className="text-xl font-black text-primary">
               {user.name || user.fullName || "Khách hàng"}
             </h2>
             <p className="text-sm text-gray-500 font-semibold">
@@ -976,7 +976,7 @@ function GrantRoleModal({
       >
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <div>
-            <h3 className="text-xl font-black text-green-950">
+            <h3 className="text-xl font-black text-primary">
               Cấp quyền tài khoản
             </h3>
             <p className="text-sm text-gray-500 font-semibold mt-1">
@@ -996,7 +996,7 @@ function GrantRoleModal({
         <div className="p-5 space-y-4">
           <div className="rounded-2xl bg-green-50 border border-green-100 p-4">
             <p className="text-sm text-gray-500 font-bold">Tài khoản</p>
-            <h4 className="text-lg font-black text-green-950 mt-1">
+            <h4 className="text-lg font-black text-primary mt-1">
               {displayName}
             </h4>
             <p className="text-sm text-gray-600 font-semibold mt-1">
@@ -1005,14 +1005,14 @@ function GrantRoleModal({
           </div>
 
           <label className="block">
-            <span className="text-sm font-black text-green-950">
+            <span className="text-sm font-black text-primary">
               Vai trò cần cấp
             </span>
 
             <select
               value={roleValue}
               onChange={(e) => setRoleValue(e.target.value)}
-              className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 text-sm font-bold text-gray-700 outline-none focus:border-green-700"
+              className="mt-2 w-full h-12 rounded-xl border border-gray-100 px-4 text-sm font-bold text-gray-700 outline-none focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20"
             >
               <option value="staff">Nhân viên</option>
               <option value="manager">Quản lý</option>
@@ -1040,7 +1040,7 @@ function GrantRoleModal({
             type="button"
             onClick={onSubmit}
             disabled={submitting}
-            className="h-11 px-6 rounded-xl bg-green-800 text-white font-black hover:bg-green-900 disabled:opacity-60"
+            className="h-11 px-6 rounded-xl bg-primary text-white font-black hover:bg-primary-dark disabled:opacity-60"
           >
             {submitting ? "Đang cấp..." : "Cấp quyền"}
           </button>
@@ -1061,7 +1061,7 @@ function UserStatCard({ icon, title, value, bg, color }) {
         </div>
         <div>
           <p className="text-gray-500 font-bold text-sm">{title}</p>
-          <h3 className="text-2xl font-black text-green-950 mt-1">{value}</h3>
+          <h3 className="text-2xl font-black text-primary mt-1">{value}</h3>
         </div>
       </div>
     </div>
@@ -1085,7 +1085,7 @@ function SelectBox({ label, value, onChange, children }) {
 
 function IconButton({ icon, color, onClick }) {
   const styles = {
-    green: "bg-green-50 text-green-700 hover:bg-green-100",
+    green: "bg-primary-50 textbg-primary hover:bg-primary-light",
     blue: "bg-blue-50 text-blue-600 hover:bg-blue-100",
     orange: "bg-orange-50 text-orange-600 hover:bg-orange-100",
     red: "bg-red-50 text-red-600 hover:bg-red-100",
@@ -1104,7 +1104,7 @@ function IconButton({ icon, color, onClick }) {
 function DetailBlock({ title, children }) {
   return (
     <div className="border-t border-gray-100 pt-4">
-      <h4 className="font-black text-green-800 mb-3">{title}</h4>
+      <h4 className="font-black text-primary mb-3">{title}</h4>
       <div className="space-y-2">{children}</div>
     </div>
   );
@@ -1125,7 +1125,7 @@ function DetailRow({ icon, label, value }) {
 function MiniStat({ label, value }) {
   return (
     <div className="rounded-xl border border-gray-100 p-3 text-center">
-      <p className="text-green-950 font-black">{value}</p>
+      <p className="text-primary font-black">{value}</p>
       <p className="text-xs text-gray-500 font-semibold mt-1">{label}</p>
     </div>
   );

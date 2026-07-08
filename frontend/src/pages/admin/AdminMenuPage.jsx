@@ -841,7 +841,7 @@ function AdminMenuPage() {
           {/* thanh thao tác hàng loạt */}
           {selectedFoodIds.length > 0 && (
             <div className="mx-4 mb-4 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 flex items-center justify-between gap-3">
-              <p className="text-sm font-black text-green-800">
+              <p className="text-sm font-black text-primary">
                 Đã chọn {selectedFoodIds.length} món
               </p>
 
@@ -967,7 +967,7 @@ function AdminMenuPage() {
                       {food.id}
                     </td>
                     <td className={`px-4 py-3`}>{food.category}</td>
-                    <td className="px-4 py-3 font-black text-green-950">
+                    <td className="px-4 py-3 font-black text-primary">
                       {formatPrice(food.price)}
                     </td>
                     <td className={` px-4 py-3`}>{food.type}</td>
@@ -1077,8 +1077,8 @@ function AdminMenuPage() {
                     onClick={() => setCurrentPage(page)}
                     className={`w-9 h-9 rounded-lg border font-black transition ${
                       currentPage === page
-                        ? "bg-green-700 text-white border-green-700"
-                        : "border-gray-200 text-gray-600 hover:bg-green-50 hover:text-green-700"
+                        ? "bg-primary text-white border-primary"
+                        : "border-gray-200 text-gray-600 hover:bg-primary/5 hover:text-primary"
                     }`}
                   >
                     {page}
@@ -1102,7 +1102,7 @@ function AdminMenuPage() {
         {selectedFood && (
           <aside className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden 2xl:sticky 2xl:top-4">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-xl font-black text-green-950">
+              <h3 className="text-xl font-black text-primary">
                 Chi tiết món ăn
               </h3>
               <button
@@ -1121,7 +1121,7 @@ function AdminMenuPage() {
               />
 
               <div>
-                <h2 className="text-2xl font-black text-green-950">
+                <h2 className="text-2xl font-black text-primary">
                   {selectedFood.name}
                 </h2>
                 <p className="text-sm text-gray-500 font-semibold mt-1">
@@ -1173,7 +1173,7 @@ function AdminMenuPage() {
                     !canUseAction(currentUser, "menu:update")
                       ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                       : selectedFood.status === "stopped"
-                      ? "bg-green-50 text-green-700 border-green-100 hover:bg-green-100"
+                      ? "bg-primary/10 text-primary border-primary hover:bg-primary/20"
                       : "bg-red-50 text-red-600 border-red-100 hover:bg-red-100"
                   }`}
                   title={!canUseAction(currentUser, "menu:update") ? "Bạn không có quyền thay đổi trạng thái món ăn." : ""}
@@ -1191,7 +1191,7 @@ function AdminMenuPage() {
           <div className="w-full max-w-6xl max-h-[92vh] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="text-2xl font-black text-[#064e2f]">
+                <h3 className="text-2xl font-black text-primary">
                   {editingFood ? "Chỉnh sửa món ăn" : "Thêm món ăn"}
                 </h3>
 
@@ -1218,7 +1218,7 @@ function AdminMenuPage() {
               <div className="grid grid-cols-1 lg:grid-cols-[420px_minmax(0,1fr)] gap-6">
                 {/* Cột trái: ảnh */}
                 <div className="space-y-4">
-                  <label className="relative block rounded-2xl border-2 border-[#d6a84f] bg-gray-50 overflow-hidden h-[290px] cursor-pointer group">
+                  <label className="relative block rounded-2xl border-2 border-secondary bg-gray-50 overflow-hidden h-[290px] cursor-pointer group">
                     {editForm.image ? (
                       <>
                         <img
@@ -1228,14 +1228,14 @@ function AdminMenuPage() {
                         />
 
                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                          <div className="w-14 h-14 rounded-full bg-white text-green-800 text-4xl font-bold flex items-center justify-center shadow-lg">
+                          <div className="w-14 h-14 rounded-full bg-white text-primary text-4xl font-bold flex items-center justify-center shadow-lg">
                             +
                           </div>
                         </div>
                       </>
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 font-bold text-center px-6">
-                        <div className="w-16 h-16 rounded-full bg-white border border-gray-200 flex items-center justify-center text-4xl text-green-800 shadow-sm">
+                        <div className="w-16 h-16 rounded-full bg-white border border-gray-200 flex items-center justify-center text-4xl text-primary shadow-sm">
                           +
                         </div>
 
@@ -1270,7 +1270,7 @@ function AdminMenuPage() {
                             }
                             className={`h-16 w-full rounded-xl overflow-hidden border-2 ${
                               index === 0
-                                ? "border-[#d6a84f]"
+                                ? "border-secondary"
                                 : "border-transparent"
                             }`}
                           >
@@ -1282,7 +1282,7 @@ function AdminMenuPage() {
 
                             {/* thêm badge ảnh chính */}
                             {index === 0 && (
-                              <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-green-800 text-white text-[10px] font-black">
+                              <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-primary text-white text-[10px] font-black">
                                 Chính
                               </div>
                             )}
@@ -1374,7 +1374,7 @@ function AdminMenuPage() {
                 {/* Cột phải: thông tin */}
                 <div className="space-y-5">
                   {isLoading && (
-                    <div className="rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm font-bold text-primary">
                       Đang tải danh sách món ăn...
                     </div>
                   )}
@@ -1404,7 +1404,7 @@ function AdminMenuPage() {
                         }))
                       }
                       placeholder="399.000"
-                      className="mt-2 w-full h-14 rounded-xl border border-gray-100 px-4 text-2xl font-black text-[#c89b3c] outline-none shadow-sm"
+                      className="mt-2 w-full h-14 rounded-xl border border-gray-100 px-4 text-2xl font-black text-secondary outline-none shadow-sm"
                     />
                   </label>
 
@@ -1452,13 +1452,13 @@ function AdminMenuPage() {
                       />
 
                       {editForm.category === "Món khác" && (
-                        <div className="rounded-xl border border-green-100 bg-green-50/40 p-3">
+                        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
                           <button
                             type="button"
                             onClick={() =>
                               setShowOtherCategories((prev) => !prev)
                             }
-                            className="w-full flex items-center justify-between text-sm font-black text-green-800"
+                            className="w-full flex items-center justify-between text-sm font-black text-primary"
                           >
                             <span>Chọn mục con</span>
                             <span>{showOtherCategories ? "▲" : "▼"}</span>
@@ -1487,8 +1487,8 @@ function AdminMenuPage() {
                                   }
                                   className={`h-9 rounded-lg text-sm font-bold border transition ${
                                     editForm.subCategory === child
-                                      ? "bg-green-800 text-white border-green-800"
-                                      : "bg-white text-gray-600 border-gray-100 hover:bg-green-50 hover:text-green-800"
+                                      ? "bg-primary text-white border-primary"
+                                      : "bg-white text-gray-600 border-gray-100 hover:bg-primary/5 hover:text-primary"
                                   }`}
                                 >
                                   {child}
@@ -1547,14 +1547,14 @@ function AdminMenuPage() {
                     />
                   </div>
 
-                  <div className="rounded-2xl border border-green-900/30 overflow-hidden">
-                    <div className="grid grid-cols-3 border-b border-green-900/30 text-sm font-black">
+                  <div className="rounded-2xl border border-primary/30 overflow-hidden">
+                    <div className="grid grid-cols-3 border-b border-primary/30 text-sm font-black">
                       <button
                         type="button"
                         onClick={() => setAddFormTab("description")}
                         className={`py-3 text-center transition ${
                           addFormTab === "description"
-                            ? "text-green-800 border-b-2 border-green-700"
+                            ? "text-primary border-b-2 border-primary"
                             : "text-gray-500"
                         }`}
                       >
@@ -1566,7 +1566,7 @@ function AdminMenuPage() {
                         onClick={() => setAddFormTab("ingredients")}
                         className={`py-3 text-center transition ${
                           addFormTab === "ingredients"
-                            ? "text-green-800 border-b-2 border-green-700"
+                            ? "text-primary border-b-2 border-primary"
                             : "text-gray-500"
                         }`}
                       >
@@ -1578,7 +1578,7 @@ function AdminMenuPage() {
                         onClick={() => setAddFormTab("flavor")}
                         className={`py-3 text-center transition ${
                           addFormTab === "flavor"
-                            ? "text-green-800 border-b-2 border-green-700"
+                            ? "text-primary border-b-2 border-primary"
                             : "text-gray-500"
                         }`}
                       >
@@ -1654,7 +1654,7 @@ function AdminMenuPage() {
 
               <button
                 onClick={saveAddFood}
-                className="h-11 px-7 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+                className="h-11 px-7 rounded-xl bg-primary text-white font-black hover:bg-primary-dark"
               >
                 {editingFood ? "Lưu thay đổi" : "Thêm món"}
               </button>
@@ -1713,7 +1713,7 @@ function AdminMenuPage() {
 
 function StatCard({ icon, title, value, bg, color }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 min-h-[96px] hover:bg-green-50/40 hover:border-green-100 hover:-translate-y-0.5 hover:shadow-md transition">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 min-h-[96px] hover:bg-primary/5 hover:border-primary/20 hover:-translate-y-0.5 hover:shadow-md transition">
       <div className="flex items-center gap-3">
         <div
           className={`w-11 h-11 rounded-xl ${bg} ${color} flex items-center justify-center`}
@@ -1722,8 +1722,8 @@ function StatCard({ icon, title, value, bg, color }) {
         </div>
         <div>
           <p className="text-gray-500 font-bold text-sm">{title}</p>
-          <h3 className="text-2xl font-black text-green-950 mt-1">{value}</h3>
-          <p className="text-green-600 text-[11px] font-black mt-1">
+          <h3 className="text-2xl font-black text-primary mt-1">{value}</h3>
+          <p className="text-primary text-[11px] font-black mt-1">
             ↑ so với tuần trước
           </p>
         </div>
@@ -1752,7 +1752,7 @@ function SelectBox({ label, value, onChange, children }) {
 
 function ActionButton({ icon, color, onClick, disabled = false, title = "" }) {
   const colors = {
-    green: "bg-green-50 text-green-700 hover:bg-green-100",
+    green: "bg-primary/10 text-primary hover:bg-primary/20",
     emerald: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
     blue: "bg-blue-50 text-blue-700 hover:bg-blue-100",
     red: "bg-red-50 text-red-600 hover:bg-red-100",
@@ -1794,7 +1794,7 @@ function MiniInfoInput({ label, value, onChange, placeholder }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="mt-1 w-full bg-transparent text-center text-sm font-black text-green-800 outline-none placeholder:text-green-800/40"
+        className="mt-1 w-full bg-transparent text-center text-sm font-black text-primary outline-none placeholder:text-primary/40"
       />
     </label>
   );
@@ -1828,7 +1828,7 @@ function SelectField({ label, value, onChange, options }) {
 function DetailBlock({ title, children }) {
   return (
     <div className="border-t border-gray-100 pt-4">
-      <h4 className="font-black text-green-800 mb-3">{title}</h4>
+      <h4 className="font-black text-primary mb-3">{title}</h4>
       <div className="space-y-2">{children}</div>
     </div>
   );

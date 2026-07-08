@@ -606,7 +606,7 @@ function AdminRolesPage() {
                   </div>
 
                   <div>
-                    <h2 className="text-xl font-black text-green-950">
+                    <h2 className="text-xl font-black text-primary">
                       Quản lý vai trò tài khoản
                     </h2>
                     <p className="text-sm text-gray-500">
@@ -823,7 +823,7 @@ function AdminRolesPage() {
                                   e.stopPropagation();
                                   setSelectedAccount(user);
                                 }}
-                                className="w-9 h-9 rounded-xl border border-green-100 bg-green-50 text-green-700 hover:bg-green-100 transition inline-flex items-center justify-center"
+                                className="w-9 h-9 rounded-xl border border-primary-light bg-primary-light text-primary hover:bg-primary-light transition inline-flex items-center justify-center"
                                 title="Xem chi tiết"
                               >
                                 <Eye size={17} />
@@ -872,8 +872,8 @@ function AdminRolesPage() {
                       onClick={() => setCurrentPage(page)}
                       className={`w-9 h-9 rounded-lg border font-black transition ${
                         currentPage === page
-                          ? "bg-green-700 text-white border-green-700"
-                          : "border-gray-200 text-gray-600 hover:bg-green-50 hover:text-green-700"
+                          ? "bg-primary text-white border-primary focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20"
+                          : "border-gray-200 text-gray-600 hover:bg-primary-light hover:text-primary"
                       }`}
                     >
                       {page}
@@ -922,7 +922,7 @@ function TopStatCard({ icon, title, value, note, bg, color, hover }) {
   return (
     <div
       className={`bg-white rounded-2xl border border-gray-100 shadow-sm px-3 py-3 h-[106px] flex flex-col cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition min-w-0 ${
-        hover || "hover:bg-green-50 hover:border-green-100"
+        hover || "hover:bg-primary-light hover:border-primary-light"
       }`}
     >
       <div className="flex items-start gap-2.5 min-w-0">
@@ -937,7 +937,7 @@ function TopStatCard({ icon, title, value, note, bg, color, hover }) {
             {title}
           </p>
 
-          <h3 className="text-[28px] font-black text-green-950 leading-none mt-1">
+          <h3 className="text-[28px] font-black text-primary leading-none mt-1">
             {value}
           </h3>
         </div>
@@ -1003,7 +1003,7 @@ function AdminTipsCard() {
         </div>
 
         <div>
-          <h3 className="text-lg font-black text-green-950 leading-6">
+          <h3 className="text-lg font-black text-primary leading-6">
             Gợi ý quản trị
           </h3>
 
@@ -1061,7 +1061,7 @@ function StatusBadgeText({ status }) {
 function ActivityMessage({ activity }) {
   if (activity.action === "role_changed") {
     return (
-      <p className="font-black text-green-950 leading-7">
+      <p className="font-black text-primary leading-7">
         Đổi vai trò từ
         <RoleBadgeText role={activity.oldValue} />
         sang
@@ -1072,7 +1072,7 @@ function ActivityMessage({ activity }) {
 
   if (activity.action === "status_changed") {
     return (
-      <p className="font-black text-green-950 leading-7">
+      <p className="font-black text-primary leading-7">
         Cập nhật trạng thái tài khoản thành
         <StatusBadgeText status={activity.newValue} />
       </p>
@@ -1081,7 +1081,7 @@ function ActivityMessage({ activity }) {
 
   if (activity.action === "deleted" || activity.action === "account_deleted") {
     return (
-      <p className="font-black text-green-950 leading-7">
+      <p className="font-black text-primary leading-7">
         Tài khoản đã được
         <StatusBadgeText status="deleted" />
       </p>
@@ -1089,7 +1089,7 @@ function ActivityMessage({ activity }) {
   }
 
   return (
-    <p className="font-black text-green-950 leading-5">
+    <p className="font-black text-primary leading-5">
       {activity.message || "Có thay đổi tài khoản"}
     </p>
   );
@@ -1105,7 +1105,7 @@ function RecentActivityPanel({ activities, loading, formatDateTime }) {
     <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
       <div className="flex items-center justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-xl font-black text-green-950">
+          <h3 className="text-xl font-black text-primary">
             Nhật ký hoạt động gần đây
           </h3>
 
@@ -1138,7 +1138,7 @@ function RecentActivityPanel({ activities, loading, formatDateTime }) {
               visibleActivities.map((activity) => (
                 <tr
                   key={activity.id}
-                  className="border-t border-gray-100 hover:bg-green-50/30"
+                  className="border-t border-gray-100 hover:bg-primary-light/30"
                 >
                   <td className="px-4 py-3 align-top">
                     <p className="font-black text-gray-700">
@@ -1183,7 +1183,7 @@ function RecentActivityPanel({ activities, loading, formatDateTime }) {
           <button
             type="button"
             onClick={() => setShowAll((prev) => !prev)}
-            className="h-10 px-5 rounded-xl bg-green-50 text-green-700 text-sm font-black hover:bg-green-100 transition flex items-center justify-center gap-2"
+            className="h-10 px-5 rounded-xl bg-primary-light text-primary text-sm font-black hover:bg-primary-light transition flex items-center justify-center gap-2"
           >
             {showAll
               ? "Thu gọn nhật ký"
@@ -1231,7 +1231,7 @@ function AccountDetailPanel({
   return (
     <aside className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden xl:sticky xl:top-4">
       <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="text-xl font-black text-green-950">
+        <h3 className="text-xl font-black text-primary">
           Chi tiết tài khoản
         </h3>
 
@@ -1249,7 +1249,7 @@ function AccountDetailPanel({
           <Avatar user={user} size="large" />
 
           <div className="min-w-0">
-            <h2 className="text-xl font-black text-green-950 truncate">
+            <h2 className="text-xl font-black text-primary truncate">
               {displayName}
             </h2>
 
@@ -1391,7 +1391,7 @@ function AccountDetailPanel({
                 <button
                   type="button"
                   onClick={() => setShowAllActivities((prev) => !prev)}
-                  className="mt-3 w-full h-10 rounded-xl bg-green-50 text-green-700 text-sm font-black hover:bg-green-100 transition flex items-center justify-center gap-2"
+                  className="mt-3 w-full h-10 rounded-xl bg-primary-light text-primary text-sm font-black hover:bg-primary-light transition flex items-center justify-center gap-2"
                 >
                   {showAllActivities
                     ? "Thu gọn"
@@ -1427,7 +1427,7 @@ function AccountDetailPanel({
             onClick={() => onToggleStatus(user)}
             className={`h-11 rounded-xl border font-black ${
               isLocked
-                ? "bg-green-50 text-green-700 border-green-100 hover:bg-green-100"
+                ? "bg-primary-light text-primary border-primary/20 border-t-primary"
                 : "bg-red-50 text-red-600 border-red-100 hover:bg-red-100"
             }`}
           >
@@ -1447,7 +1447,7 @@ function DetailBox({ icon, title, children }) {
           {icon}
         </div>
 
-        <h4 className="font-black text-green-950">{title}</h4>
+        <h4 className="font-black text-primary">{title}</h4>
       </div>
 
       <div className="space-y-3">{children}</div>
@@ -1529,7 +1529,7 @@ function Avatar({ user, size = "normal" }) {
 
   return (
     <div
-      className={`${sizeClass} rounded-full bg-green-50 text-green-800 flex items-center justify-center font-black shrink-0`}
+      className={`${sizeClass} rounded-full bg-green-50 text-primary flex items-center justify-center font-black shrink-0`}
     >
       {displayName.charAt(0).toUpperCase()}
     </div>

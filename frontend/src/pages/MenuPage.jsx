@@ -632,7 +632,7 @@ after:pointer-events-none
                     setSearchTerm("");
                     setSelectedCategory("Tất cả món");
                   }}
-                  className="mt-6 px-6 py-3 rounded-xl bg-green-900 text-white font-bold hover:bg-green-950 transition"
+                  className="mt-6 px-8 py-3 rounded-full bg-primary text-white font-bold hover:bg-primary-light shadow-md transition-all hover:-translate-y-1 hover:shadow-lg"
                 >
                   Xem tất cả món
                 </button>
@@ -672,7 +672,7 @@ after:pointer-events-none
 
                     navigate("/booking");
                   }}
-                  className="booking-btn bg-[#d6a84f] hover:bg-[#c99a45] text-green-950 font-bold px-7 py-3 rounded-xl"
+                  className="bg-secondary hover:bg-secondary-light text-white font-bold px-8 py-3 rounded-full shadow-md transition-all hover:-translate-y-1 hover:shadow-xl"
                 >
                   Đặt bàn ngay
                 </button>
@@ -980,10 +980,10 @@ after:pointer-events-none
                           addToCart(selectedDish, quantity, e);
                           setSelectedDish(null);
                         }}
-                        className={`py-3 rounded-xl font-bold transition ${
+                        className={`py-3 rounded-xl font-bold transition-all shadow-sm ${
                           selectedDish.status === "soldout"
-                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            : "bg-green-800 text-white hover:bg-green-900"
+                            ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
+                            : "bg-primary text-white hover:bg-primary-light hover:-translate-y-1 hover:shadow-md active:scale-95"
                         }`}
                       >
                         Thêm vào giỏ hàng
@@ -1008,7 +1008,7 @@ after:pointer-events-none
 
                           setSelectedDish(null);
                         }}
-                        className="py-3 rounded-xl font-bold border border-green-800 text-green-800 hover:bg-white"
+                        className="py-3 rounded-xl font-bold border-2 border-primary text-primary hover:bg-primary hover:text-white transition-all shadow-sm hover:-translate-y-1 hover:shadow-md active:scale-95"
                       >
                         Đặt bàn ngay
                       </button>

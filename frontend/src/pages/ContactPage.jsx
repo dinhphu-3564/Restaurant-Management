@@ -138,7 +138,7 @@ function ContactPage() {
 
       {/* INFO BAR */}
       <section className="max-w-7xl mx-auto px-5 -mt-10 relative z-10">
-        <div className="bg-white rounded-3xl shadow-xl border border-[#eadfcd] grid sm:grid-cols-2 lg:grid-cols-4 overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-xl border border-[#eadfcd] grid sm:grid-cols-2 xl:grid-cols-4 overflow-hidden">
           <ContactInfo
             icon={<Phone />}
             title="Hotline"
@@ -160,7 +160,7 @@ function ContactPage() {
           <ContactInfo
             icon={<Mail />}
             title="Email"
-            main="dehuongson.ht@gmail.com"
+            main="dehuongsonn.ht@gmail.com"
             sub="Phản hồi trong ngày"
           />
         </div>
@@ -187,14 +187,14 @@ function ContactPage() {
                 href="https://maps.app.goo.gl/wSkET5ThBjNm9f29A"
                 target="_blank"
                 rel="noreferrer"
-                className=" bg-green-900 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-xl hover:bg-green-900 hover:scale-110 transition"
+                className="bg-primary text-white rounded-full w-12 h-12 flex items-center justify-center shadow-xl hover:bg-primary-light hover:scale-110 transition"
               >
                 <Navigation className="w-6 h-6" />
               </a>
 
               <a
                 href="tel:0387136878"
-                className="w-12 h-12 rounded-full bg-[#d6a84f] text-white shadow-2xl flex items-center justify-center hover:scale-110 transition"
+                className="w-12 h-12 rounded-full bg-secondary text-white shadow-2xl flex items-center justify-center hover:scale-110 transition"
               >
                 <Phone className="w-6 h-6" />
               </a>
@@ -240,11 +240,10 @@ function ContactPage() {
                   maxLength={10}
                   name="phone"
                   placeholder="Số điện thoại *"
-                  className={`h-12 w-full rounded-xl border px-4 outline-none bg-[#fffaf0] ${
-                    errors.phone
-                      ? "border-red-500 focus:border-red-500"
-                      : "border-[#eadfcd] focus:border-green-800"
-                  }`}
+                  className={`h-12 w-full rounded-xl border px-4 outline-none bg-[#fffaf0] ${errors.phone
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-[#eadfcd] focus:border-green-800"
+                    }`}
                   onChange={(e) => {
                     e.target.value = e.target.value.replace(/\D/g, "");
 
@@ -358,14 +357,14 @@ function ContactPage() {
 
           <a
             href="tel:0387136878"
-            className="w-12 h-12 rounded-full bg-green-900 text-white flex items-center justify-center hover:bg-[#d6a84f] hover:text-green-900 transition"
+            className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center hover:bg-secondary hover:text-primary transition"
           >
             <Phone className="w-5 h-5" />
           </a>
 
           <button
             onClick={scrollToMap}
-            className="w-12 h-12 rounded-full bg-green-900 text-white flex items-center justify-center hover:bg-[#d6a84f] hover:text-green-900 transition"
+            className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center hover:bg-secondary hover:text-primary transition"
           >
             <MapPin className="w-5 h-5" />
           </button>
@@ -374,7 +373,7 @@ function ContactPage() {
             href={ZALO_URL}
             target="_blank"
             rel="noreferrer"
-            className="w-12 h-12 rounded-full bg-green-900 flex items-center justify-center hover:bg-[#d6a84f] transition"
+            className="w-12 h-12 rounded-full bg-primary flex items-center justify-center hover:bg-secondary transition"
           >
             <img
               src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg"
@@ -458,15 +457,15 @@ function ContactPage() {
 
 function ContactInfo({ icon, title, main, sub }) {
   return (
-    <div className="p-5 md:p-6 flex items-center gap-4 border-b sm:border-r border-[#eadfcd] last:border-r-0">
-      <div className="w-14 h-14 rounded-full bg-green-900 text-[#d6a84f] flex items-center justify-center shrink-0">
+    <div className="p-4 md:p-5 xl:p-6 flex items-center gap-3 xl:gap-4 border-b sm:border-r border-[#eadfcd] last:border-r-0">
+      <div className="w-12 h-12 xl:w-14 xl:h-14 rounded-full bg-primary text-secondary flex items-center justify-center shrink-0">
         {icon}
       </div>
 
-      <div>
-        <p className="text-xs uppercase font-black text-gray-500">{title}</p>
-        <h3 className="font-black text-green-900 mt-1">{main}</h3>
-        <p className="text-xs text-gray-500 mt-1">{sub}</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] xl:text-xs uppercase font-black text-gray-500">{title}</p>
+        <h3 className="font-black text-primary mt-1 text-sm xl:text-base truncate" title={main}>{main}</h3>
+        <p className="text-[11px] xl:text-xs text-gray-500 mt-1 truncate">{sub}</p>
       </div>
     </div>
   );

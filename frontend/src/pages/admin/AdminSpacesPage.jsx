@@ -380,7 +380,7 @@ function AdminSpacesPage() {
     <div className="space-y-6">
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 text-gray-500 gap-2">
-          <RefreshCw className="animate-spin text-green-800" size={24} />
+          <RefreshCw className="animate-spin text-primary" size={24} />
           <p className="text-xs font-bold">Đang tải dữ liệu không gian...</p>
         </div>
       ) : (
@@ -392,8 +392,8 @@ function AdminSpacesPage() {
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex-1 flex flex-col">
               <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Building2 size={18} className="text-green-800" />
-                  <h3 className="text-base font-black text-green-950 uppercase tracking-wide">
+                  <Building2 size={18} className="text-primary" />
+                  <h3 className="text-base font-black text-primary uppercase tracking-wide">
                     Danh sách không gian hiện tại
                   </h3>
                 </div>
@@ -468,8 +468,8 @@ function AdminSpacesPage() {
                                 }}
                                 className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${
                                   isSelected
-                                    ? "bg-green-800 text-white hover:bg-green-950"
-                                    : "bg-green-50 text-green-700 hover:bg-green-100"
+                                    ? "bg-primary text-white hover:bg-primary-dark"
+                                    : "bg-primary-50 text-primary hover:bg-primary-100"
                                 }`}
                                 title="Chỉnh sửa không gian"
                               >
@@ -593,7 +593,7 @@ function AdminSpacesPage() {
                 {/* Form Header */}
                 <div className="flex items-center justify-between border-b pb-4 mb-2">
                   <div>
-                    <h3 className="text-base font-black text-green-950 flex items-center gap-1.5">
+                    <h3 className="text-base font-black text-primary flex items-center gap-1.5">
                       <Pencil size={18} className="text-green-700" />
                       {selectedSpace.isNew ? "Thêm không gian mới" : "Chỉnh sửa không gian"}
                     </h3>
@@ -731,7 +731,7 @@ function AdminSpacesPage() {
                     <button
                       type="button"
                       onClick={handleAddUrlImage}
-                      className="text-[11px] font-bold text-green-800 hover:underline"
+                      className="text-[11px] font-bold text-primary hover:underline"
                     >
                       + Dán URL ảnh
                     </button>
@@ -746,9 +746,9 @@ function AdminSpacesPage() {
                       onChange={handleFileUpload}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
-                    <Upload size={24} className="mx-auto text-gray-400 group-hover:text-green-800 transition mb-2" />
+                    <Upload size={24} className="mx-auto text-gray-400 group-hover:text-primary transition mb-2" />
                     <p className="text-xs font-bold text-gray-600">Kéo thả ảnh vào đây hoặc</p>
-                    <p className="text-[11px] font-black text-green-800 mt-1">Chọn ảnh từ máy</p>
+                    <p className="text-[11px] font-black text-primary mt-1">Chọn ảnh từ máy</p>
                   </div>
 
                   {/* Lưới thumbnail ảnh đã thêm */}
@@ -845,7 +845,7 @@ function AdminSpacesPage() {
                               <button
                                 type="button"
                                 onClick={() => handleSetCover(img.id)}
-                                className="text-[9px] font-bold text-gray-400 hover:text-green-800 hover:underline"
+                                className="text-[9px] font-bold text-gray-400 hover:text-primary hover:underline"
                               >
                                 Đặt bìa
                               </button>

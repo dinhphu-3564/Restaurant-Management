@@ -1794,7 +1794,7 @@ function AdminTablesPage() {
               <div className="grid grid-cols-1 xl:grid-cols-[210px_minmax(0,1fr)] 2xl:grid-cols-[230px_minmax(0,1fr)] gap-3 sm:gap-4 p-3 sm:p-4">
                 <aside className="rounded-2xl border border-gray-100 bg-white p-3 sm:p-4 self-start">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-black text-green-950">Khu vực</h3>
+                    <h3 className="font-black text-primary">Khu vực</h3>
 
                     {canUseAction(currentUser, "tables:create") && (
                       <button
@@ -1819,8 +1819,8 @@ function AdminTablesPage() {
                         <div
                           key={area.id}
                           className={`group w-full rounded-xl border p-3 sm:p-4 transition flex items-start justify-between gap-3 ${isActive
-                              ? "bg-green-50 border-green-200 text-green-900"
-                              : "bg-white border-gray-100 text-gray-600 hover:bg-green-50/50"
+                              ? "bg-primary-50 border-primary/20 border-t-primary"
+                              : "bg-white border-gray-100 text-gray-600 hover:bg-primary-50/50"
                             }`}
                         >
                           <button
@@ -1845,7 +1845,7 @@ function AdminTablesPage() {
                                 openEditArea(area);
                               }}
                               title="Chỉnh sửa khu vực"
-                              className="w-8 h-8 rounded-lg bg-white border border-gray-100 text-emerald-700 flex items-center justify-center opacity-100 lg:opacity-0 group-hover:opacity-100 hover:bg-emerald-50 transition"
+                              className="w-8 h-8 rounded-lg bg-white border border-gray-100 text-secondary-700 flex items-center justify-center opacity-100 lg:opacity-0 group-hover:opacity-100 hover:bg-secondary-50 transition"
                             >
                               <Pencil size={15} />
                             </button>
@@ -1874,7 +1874,7 @@ function AdminTablesPage() {
                         {canUseAction(currentUser, "tables:create") && (
                           <button
                             onClick={openAddTable}
-                            className="h-8 px-3 rounded-xl bg-green-800 text-white text-[11px] font-black flex items-center justify-center gap-1.5 hover:bg-green-900 transition whitespace-nowrap"
+                            className="h-8 px-3 rounded-xl bg-primary-800 text-white text-[11px] font-black flex items-center justify-center gap-1.5 hover:bg-primary-900 transition whitespace-nowrap"
                           >
                             <Plus size={14} />
                             Thêm bàn
@@ -1924,7 +1924,7 @@ function AdminTablesPage() {
                           key={area.id}
                           className="rounded-2xl border border-gray-100 p-4"
                         >
-                          <h3 className="font-black text-green-950 mb-4">
+                          <h3 className="font-black text-primary mb-4">
                             {area.name}{" "}
                             <span className="text-sm text-gray-500">
                               ({areaTables.length} bàn)
@@ -1953,7 +1953,7 @@ function AdminTablesPage() {
                 <section className="mx-4 mb-4 rounded-2xl border border-orange-100 bg-orange-50/40 overflow-hidden">
                   <div className="px-5 py-4 border-b border-orange-100 flex items-center justify-between">
                     <div>
-                      <h3 className="font-black text-green-950">
+                      <h3 className="font-black text-primary">
                         Khách đặt bàn chưa chọn khu vực / bàn
                       </h3>
                     </div>
@@ -2000,7 +2000,7 @@ function AdminTablesPage() {
                             key={booking.id}
                             className="border-t border-orange-100 bg-white"
                           >
-                            <td className="w-[190px] px-4 py-3 font-black text-green-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                            <td className="w-[190px] px-4 py-3 font-black text-primary-700 whitespace-nowrap overflow-hidden text-ellipsis">
                               DB{booking.id}
                             </td>
 
@@ -2034,7 +2034,7 @@ function AdminTablesPage() {
                             <td className="w-[150px] px-4 py-3 text-center sticky right-0 bg-white z-20 shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.18)]">
                               <button
                                 onClick={() => openAssignBookingModal(booking)}
-                                className="h-9 min-w-[92px] px-4 rounded-lg bg-green-700 text-white font-black hover:bg-green-800 transition whitespace-nowrap"
+                                className="h-9 min-w-[92px] px-4 rounded-lg bg-primary-700 text-white font-black hover:bg-primary-800 transition whitespace-nowrap"
                               >
                                 Xếp bàn
                               </button>
@@ -2132,10 +2132,10 @@ function AdminTablesPage() {
                       <tr
                         key={table.id}
                         onClick={() => setSelectedTable(table)}
-                        className={`border-t border-gray-100 cursor-pointer hover:bg-green-50/30 ${selectedTable?.id === table.id ? "bg-green-50/50" : ""
+                        className={`border-t border-gray-100 cursor-pointer hover:bg-primary-50/30 ${selectedTable?.id === table.id ? "bg-primary-50/50" : ""
                           }`}
                       >
-                        <td className="px-4 py-3 font-black text-green-700">
+                        <td className="px-4 py-3 font-black text-primary-700">
                           {table.code}
                         </td>
                         <td className="px-4 py-3 font-bold">
@@ -2155,7 +2155,7 @@ function AdminTablesPage() {
                           <div className="flex items-center justify-center gap-2">
                             <ActionButton
                               icon={<Eye size={16} />}
-                              color="green"
+                              color="primary"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedTable(table);
@@ -2164,7 +2164,7 @@ function AdminTablesPage() {
 
                             <ActionButton
                               icon={<Pencil size={16} />}
-                              color="emerald"
+                              color="secondary"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 openEditTable(table);
@@ -2180,7 +2180,7 @@ function AdminTablesPage() {
                                 )
                               }
                               color={
-                                table.status === "disabled" ? "green" : "red"
+                                table.status === "disabled" ? "primary" : "red"
                               }
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -2218,8 +2218,8 @@ function AdminTablesPage() {
                         key={page}
                         onClick={() => setCurrentPage(page)}
                         className={`w-9 h-9 rounded-lg border font-black ${currentPage === page
-                            ? "bg-green-700 text-white border-green-700"
-                            : "border-gray-200 text-gray-600 hover:bg-green-50"
+                            ? "bg-primary-700 text-white border-primary-700"
+                            : "border-gray-200 text-gray-600 hover:bg-primary-50"
                           }`}
                       >
                         {page}
@@ -2268,7 +2268,7 @@ function AdminTablesPage() {
           <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-green-950">
+                <h3 className="text-xl font-black text-primary-950">
                   Xếp bàn cho khách
                 </h3>
                 <p className="text-sm text-gray-500 font-semibold mt-1">
@@ -2336,8 +2336,8 @@ function AdminTablesPage() {
                   ))}
               </SelectField>
 
-              <div className="rounded-2xl bg-green-50 border border-green-100 p-4 text-sm">
-                <p className="font-black text-green-900 mb-2">
+              <div className="rounded-2xl bg-primary-50 border border-primary-100 p-4 text-sm">
+                <p className="font-black text-primary-900 mb-2">
                   Thông tin khách
                 </p>
                 <p>Khách: {assignBooking.customerName || assignBooking.name}</p>
@@ -2362,7 +2362,7 @@ function AdminTablesPage() {
 
               <button
                 onClick={saveAssignBooking}
-                className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+                className="h-11 px-5 rounded-xl bg-primary-800 text-white font-black hover:bg-primary-900"
               >
                 Lưu xếp bàn
               </button>
@@ -2377,7 +2377,7 @@ function AdminTablesPage() {
           <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-green-950">
+                <h3 className="text-xl font-black text-primary-950">
                   Thêm khu vực
                 </h3>
                 <p className="text-sm text-gray-500 font-semibold mt-1">
@@ -2420,7 +2420,7 @@ function AdminTablesPage() {
                 />
               </label>
 
-              <div className="rounded-2xl bg-green-50 border border-green-100 p-4 text-sm text-green-900 font-semibold">
+              <div className="rounded-2xl bg-primary-50 border border-primary-100 p-4 text-sm text-primary-900 font-semibold">
                 Sau khi thêm, khu vực này sẽ xuất hiện trong sơ đồ bàn và popup
                 đặt bàn.
               </div>
@@ -2436,7 +2436,7 @@ function AdminTablesPage() {
 
               <button
                 onClick={saveAddArea}
-                className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+                className="h-11 px-5 rounded-xl bg-primary-800 text-white font-black hover:bg-primary-900"
               >
                 Thêm khu vực
               </button>
@@ -2450,7 +2450,7 @@ function AdminTablesPage() {
           <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-green-950">
+                <h3 className="text-xl font-black text-primary-950">
                   Thêm bàn mới
                 </h3>
                 <p className="text-sm text-gray-500 font-semibold mt-1">
@@ -2548,7 +2548,7 @@ function AdminTablesPage() {
 
               <button
                 onClick={saveAddTable}
-                className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+                className="h-11 px-5 rounded-xl bg-primary-800 text-white font-black hover:bg-primary-900"
               >
                 Thêm bàn
               </button>
@@ -2562,7 +2562,7 @@ function AdminTablesPage() {
           <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-green-950">
+                <h3 className="text-xl font-black text-primary-950">
                   Chỉnh sửa khu vực
                 </h3>
                 <p className="text-sm text-gray-500 font-semibold mt-1">
@@ -2605,7 +2605,7 @@ function AdminTablesPage() {
                 />
               </label>
 
-              <div className="rounded-2xl bg-green-50 border border-green-100 p-4 text-sm text-green-900 font-semibold">
+              <div className="rounded-2xl bg-primary-50 border border-primary-100 p-4 text-sm text-primary-900 font-semibold">
                 Nếu đổi tên khu vực, các bàn thuộc khu vực này sẽ hiển thị theo
                 tên mới.
               </div>
@@ -2633,7 +2633,7 @@ function AdminTablesPage() {
                 <button
                   type="button"
                   onClick={saveEditArea}
-                  className="h-10 px-4 rounded-xl bg-green-800 text-white font-bold hover:bg-green-900 text-xs whitespace-nowrap"
+                  className="h-10 px-4 rounded-xl bg-primary-800 text-white font-bold hover:bg-primary-900 text-xs whitespace-nowrap"
                 >
                   Lưu thay đổi
                 </button>
@@ -2681,7 +2681,7 @@ function AdminTablesPage() {
           <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-green-950">
+                <h3 className="text-xl font-black text-primary-950">
                   Chỉnh sửa bàn
                 </h3>
                 <p className="text-sm text-gray-500 font-semibold mt-1">
@@ -2773,7 +2773,7 @@ function AdminTablesPage() {
 
               <button
                 onClick={saveEditTable}
-                className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+                className="h-11 px-5 rounded-xl bg-primary-800 text-white font-black hover:bg-primary-900"
               >
                 Lưu thay đổi
               </button>
@@ -2787,7 +2787,7 @@ function AdminTablesPage() {
           <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-green-950">
+                <h3 className="text-xl font-black text-primary-950">
                   Thêm đặt bàn
                 </h3>
                 <p className="text-sm text-gray-500 font-semibold mt-1">
@@ -2938,7 +2938,7 @@ function AdminTablesPage() {
                               handleSelectTableForAddBooking(table, status)
                             }
                             className={`relative h-16 rounded-xl border font-black transition ${isSelected
-                                ? "border-green-700 bg-green-600 text-white ring-2 ring-green-300"
+                                ? "border-primary-700 bg-primary-600 text-white ring-2 ring-primary-300"
                                 : disabled
                                   ? TABLE_STATUS_STYLE[status]
                                   : insufficientCapacity
@@ -2997,7 +2997,7 @@ function AdminTablesPage() {
 
               <button
                 onClick={saveAddBooking}
-                className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+                className="h-11 px-5 rounded-xl bg-primary-800 text-white font-black hover:bg-primary-900"
               >
                 Tạo đặt bàn
               </button>
@@ -3012,7 +3012,7 @@ function AdminTablesPage() {
           <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh]">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between shrink-0">
               <div>
-                <h3 className="text-xl font-black text-green-950">
+                <h3 className="text-xl font-black text-primary-950">
                   Gọi thêm món ăn
                 </h3>
                 <p className="text-xs text-gray-400 font-semibold mt-1">
@@ -3044,7 +3044,7 @@ function AdminTablesPage() {
                       placeholder="Tìm món ăn..."
                       value={itemSearch}
                       onChange={(e) => setItemSearch(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm font-bold bg-white focus:outline-none focus:border-green-700"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm font-bold bg-white focus:outline-none focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20"
                     />
                   </div>
 
@@ -3103,7 +3103,7 @@ function AdminTablesPage() {
                               </span>
                               <button
                                 onClick={() => handleAddItemToTempCart(food)}
-                                className="w-6 h-6 rounded-lg bg-green-700 hover:bg-green-800 text-white flex items-center justify-center font-bold transition"
+                                className="w-6 h-6 rounded-lg bg-primary hover:bg-primary-light text-white flex items-center justify-center font-bold transition"
                               >
                                 <Plus size={14} />
                               </button>
@@ -3341,7 +3341,7 @@ function AdminTablesPage() {
                         />
                         <button
                           onClick={applyCouponCode}
-                          className="h-10 px-4 rounded-xl bg-green-700 hover:bg-green-800 text-white text-xs font-black transition shrink-0"
+                          className="h-10 px-4 rounded-xl bg-primary hover:bg-primary-light text-white text-xs font-black transition shrink-0"
                         >
                           Áp dụng
                         </button>
@@ -3436,7 +3436,7 @@ function AdminTablesPage() {
                               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                               <strong className="text-xs font-black">Sepay Notification:</strong>
                             </div>
-                            <p className="text-[10px] font-bold text-green-800 leading-tight">
+                            <p className="text-[10px] font-bold text-primary leading-tight">
                               Đã nhận {billTotal.toLocaleString("vi-VN")}đ từ tài khoản khách hàng. Nội dung: DB{activeBillingBooking.id}.
                             </p>
                           </div>
@@ -3979,7 +3979,7 @@ function Legend({ color, text, compact = false }) {
 function DetailBlock({ title, children }) {
   return (
     <div className="border-t border-gray-100 pt-4">
-      <h4 className="font-black text-green-800 mb-3">{title}</h4>
+      <h4 className="font-black text-primary mb-3">{title}</h4>
       <div className="space-y-2">{children}</div>
     </div>
   );

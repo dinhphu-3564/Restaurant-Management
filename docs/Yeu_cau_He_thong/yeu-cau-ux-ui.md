@@ -63,3 +63,35 @@ Tài liệu này quy định các tiêu chuẩn và yêu cầu về giao diện 
 * **Tính đồng bộ:** Tạo ra các style/class dùng chung (utility classes/components) để áp dụng đồng bộ toàn giao diện.
 * **Tái sử dụng:** Ưu tiên tái sử dụng các component để tránh lặp lại code không cần thiết.
 * **Kiểm thử hồi quy UI:** Sau khi chỉnh sửa, phải kiểm tra lại toàn bộ màn hình để đảm bảo: không lỗi responsive, không vỡ layout, không mất chức năng và không làm thay đổi luồng nghiệp vụ.
+
+## 9. Nhật ký Cập nhật & Tối ưu (Refactoring Log)
+*(Bản cập nhật giao diện Admin - Áp dụng các tiêu chuẩn trên)*
+
+**A. Đồng bộ Màu sắc Thương hiệu (Brand Colors)**
+* Loại bỏ hoàn toàn các mã màu xanh lá cây mặc định (hard-code như `bg-green-700`, `text-green-950`, v.v.) trên toàn bộ giao diện Admin.
+* Thay thế bằng hệ màu biến dùng chung (`primary`, `secondary`):
+  * **Deep Forest Green** (`#14532d`): Được dùng cho màu nền thanh công cụ (sidebar), tiêu đề chính, các nút hành động quan trọng (`bg-primary`, `text-primary`).
+  * **Metallic Gold** (`#d6a84f`): Dùng cho các viền, icon nhỏ (chỉnh sửa, xem chi tiết) hoặc các nút nhấn phụ (`text-secondary`, `bg-secondary-light`).
+
+**B. Cải tiến Component Dùng chung (Shared Components)**
+* **AdminSidebar**: Cập nhật màu nền sang màu `primary`. Thay thế logo emoji con dê 🐐 tạm thời bằng **logo hình ảnh Dê trắng** đồng bộ với thiết kế gốc (`w-10 h-10`, áp dụng bộ lọc `brightness-0 invert` và bóng đổ mờ `drop-shadow-md`).
+* **AdminHeader** & **StatCard**: Chuyển đổi toàn bộ màu chữ, thẻ và icon sang chuẩn thiết kế mới.
+* **AdminToast**: Cập nhật lại giao diện thông báo hệ thống đồng bộ theo màu sắc chung.
+
+**C. Cải thiện Tương tác (Micro-interactions)**
+* Nâng cấp hiệu ứng hover trên tất cả các nút bấm, dòng dữ liệu bảng (table rows) và thẻ thống kê.
+* Bổ sung thuộc tính `transition-all duration-300`, hiệu ứng nổi lên nhẹ (`hover:-translate-y-1`) và đổ bóng (`shadow-md`) khi di chuột giúp thao tác mượt mà và trực quan hơn.
+* Input focus ring được đổi sang màu viền `primary` với độ mờ vừa phải.
+
+**D. Phạm vi Áp dụng (Các trang đã được tối ưu)**
+Toàn bộ 10 trang tính năng quản lý đã được tái cấu trúc giao diện:
+1. `AdminDashboardPage` (Tổng quan)
+2. `AdminMenuPage` (Thực đơn)
+3. `AdminOrdersPage` (Đơn hàng)
+4. `AdminBookingsPage` (Đặt bàn)
+5. `AdminTablesPage` (Bàn & Khu vực)
+6. `AdminSpacesPage` (Không gian)
+7. `AdminDealsPage` (Khuyến mãi)
+8. `AdminUsersPage` (Khách hàng)
+9. `AdminRolesPage` (Phân quyền)
+10. `AdminActivityLogsPage` & `AdminRevenuePage` (Nhật ký & Doanh thu)

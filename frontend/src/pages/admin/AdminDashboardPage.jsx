@@ -198,7 +198,7 @@ function AdminDashboardPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-32 space-y-4">
-        <div className="w-12 h-12 rounded-full border-4 border-green-200 border-t-green-700 animate-spin"></div>
+        <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
         <p className="text-sm font-bold text-gray-500">Đang tải số liệu thống kê...</p>
       </div>
     );
@@ -275,10 +275,10 @@ function AdminDashboardPage() {
           {/* Order status */}
           <section className="bg-white rounded-3xl border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] p-5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.04)] transition-all duration-300">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-black text-green-950">
+              <h3 className="text-lg font-black text-primary">
                 Trạng thái đơn hàng
               </h3>
-              <Link to="/admin/orders" className="text-green-700 font-black text-xs hover:text-green-800 flex items-center gap-1 transition-colors">
+              <Link to="/admin/orders" className="text-primary font-black text-xs hover:text-primary-light flex items-center gap-1 transition-colors">
                 Xem tất cả &gt;
               </Link>
             </div>
@@ -364,7 +364,7 @@ function AdminDashboardPage() {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className="font-black text-green-950 text-xs truncate">
+                      <p className="font-black text-primary text-xs truncate">
                         {food.name}
                       </p>
                       <p className="text-[10px] text-gray-400 font-extrabold mt-0.5">
@@ -466,7 +466,7 @@ function AdminDashboardPage() {
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-black text-green-950 text-xs truncate">
+                        <p className="font-black text-primary text-xs truncate">
                           {booking.customerName || booking.name || "Khách đặt bàn"}
                         </p>
                         <span className="text-[10px] font-bold text-gray-400 shrink-0">
@@ -561,7 +561,7 @@ function AdminDashboardPage() {
         {/* Revenue chart */}
         <section className="bg-white rounded-3xl border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] p-5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.04)] transition-all duration-300">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-lg font-black text-green-950">Doanh thu</h3>
+            <h3 className="text-lg font-black text-primary">Doanh thu</h3>
 
             <select 
               value={revenueRange}
@@ -596,10 +596,10 @@ function AdminDashboardPage() {
                 <div key={index} className="flex-1 flex items-end gap-1.5 h-full">
                   {/* Cột Doanh thu - màu xanh đậm, chỉ hiển thị tooltip khi hover chính nó */}
                   <div
-                    className="w-full rounded-t-xl bg-green-600 hover:bg-green-700 cursor-pointer relative group"
+                    className="w-full rounded-t-xl bg-primary hover:bg-primary-light cursor-pointer relative group"
                     style={{ height: `${revPercent}%` }}
                   >
-                    <div className="opacity-0 group-hover:opacity-100 absolute -top-9 left-1/2 -translate-x-1/2 bg-green-950 text-white text-[10px] py-1.5 px-2 rounded-lg font-black pointer-events-none transition duration-150 whitespace-nowrap z-50 shadow-lg">
+                    <div className="opacity-0 group-hover:opacity-100 absolute -top-9 left-1/2 -translate-x-1/2 bg-primary-light text-white text-[10px] py-1.5 px-2 rounded-lg font-black pointer-events-none transition duration-150 whitespace-nowrap z-50 shadow-lg">
                       Doanh thu: {formatPrice(rev)}
                     </div>
                   </div>
@@ -628,7 +628,7 @@ function AdminDashboardPage() {
         {/* Category revenue */}
         <section className="bg-white rounded-3xl border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] p-5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.04)] transition-all duration-300">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-lg font-black text-green-950">
+            <h3 className="text-lg font-black text-primary">
               Doanh thu theo danh mục
             </h3>
 
@@ -679,7 +679,7 @@ function AdminDashboardPage() {
                   style={{ background: gradient }}
                 >
                   <div className="absolute inset-10 bg-white rounded-full flex flex-col items-center justify-center text-center select-none pointer-events-none">
-                    <div className="w-[120px] overflow-hidden truncate font-black text-green-950 text-base leading-tight">
+                    <div className="w-[120px] overflow-hidden truncate font-black text-primary text-base leading-tight">
                       {formatPrice(centerPrice)}
                     </div>
                     <div className="w-[125px] overflow-hidden truncate text-[10px] text-gray-400 font-bold mt-1">
@@ -734,11 +734,11 @@ function AdminDashboardPage() {
         {/* Order status */}
         <section className="bg-white rounded-3xl border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] p-5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.04)] transition-all duration-300">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-lg font-black text-green-950">
+            <h3 className="text-lg font-black text-primary">
               Trạng thái đơn hàng
             </h3>
 
-            <Link to="/admin/orders" className="text-green-700 font-black text-xs hover:text-green-800 flex items-center gap-1 transition-colors">
+            <Link to="/admin/orders" className="text-primary font-black text-xs hover:text-primary-light flex items-center gap-1 transition-colors">
               Xem tất cả &gt;
             </Link>
           </div>
@@ -841,7 +841,7 @@ function AdminDashboardPage() {
                         </p>
                       </td>
 
-                      <td className="px-5 py-4 font-black text-green-950">
+                      <td className="px-5 py-4 font-black text-primary">
                         {formatPrice(order.total || order.totalPrice)}
                       </td>
 
@@ -887,7 +887,7 @@ function AdminDashboardPage() {
                       </div>
 
                       <div>
-                        <p className="font-black text-green-950 text-xs">
+                        <p className="font-black text-primary text-xs">
                           {booking.customerName ||
                             booking.fullName ||
                             booking.name ||
@@ -947,7 +947,7 @@ function AdminDashboardPage() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className="font-black text-green-950 text-xs truncate">
+                    <p className="font-black text-primary text-xs truncate">
                       {food.name}
                     </p>
                     <p className="text-[10px] text-gray-400 font-extrabold mt-0.5">
@@ -1062,7 +1062,7 @@ function DashboardCard({ icon, title, value, percent, bg, color, to, isCurrency 
         </div>
 
         {/* h-9 cố định chiều cao để card không bị resize khi số đếm */}
-        <h3 className="h-9 flex items-center text-2xl font-black text-green-950 tracking-tight tabular-nums overflow-hidden">
+        <h3 className="h-9 flex items-center text-2xl font-black text-primary tracking-tight tabular-nums overflow-hidden">
           <AnimatedNumber value={value} isCurrency={isCurrency} />
         </h3>
 
@@ -1137,10 +1137,10 @@ function StatusLine({ icon, title, value, bg, color, total = 100, chartProgress,
 function PanelHeader({ title, to }) {
   return (
     <div className="px-6 py-5 border-b border-gray-50 flex items-center justify-between">
-      <h3 className="text-lg font-black text-green-950">{title}</h3>
+      <h3 className="text-lg font-black text-primary">{title}</h3>
 
       {to && (
-        <Link to={to} className="text-green-700 font-black text-xs hover:text-green-800 flex items-center gap-1 transition-colors">
+        <Link to={to} className="text-primary font-black text-xs hover:text-primary-light flex items-center gap-1 transition-colors">
           Xem tất cả &gt;
         </Link>
       )}
@@ -1179,7 +1179,7 @@ function SmallStat({ icon, title, value, change, orange = false }) {
         <p className="text-gray-400 font-extrabold text-[11px] uppercase tracking-wider truncate">{title}</p>
 
         <div className="flex items-center gap-2 mt-0.5">
-          <h3 className="text-lg font-black text-green-950 truncate">
+          <h3 className="text-lg font-black text-primary truncate">
             {isNumber ? (
               <AnimatedNumber value={value} isDecimal={isDecimal} />
             ) : (

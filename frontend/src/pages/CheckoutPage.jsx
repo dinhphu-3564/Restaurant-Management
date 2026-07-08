@@ -829,10 +829,10 @@ function CheckoutPage() {
                   setIsSubmitting(false);
                 }
               }}
-              className={`mt-6 w-full h-12 md:h-14 rounded-xl font-black transition-all ${
+              className={`mt-6 w-full h-12 md:h-14 rounded-2xl font-black transition-all duration-300 flex items-center justify-center ${
                 cartItems.length === 0 || isSubmitting
-                  ? "bg-[#c8ccd4] text-[#6b7280] cursor-pointer"
-                  : "bg-green-800 hover:bg-green-900 text-white shadow-md"
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                  : "bg-primary text-white hover:bg-primary-light hover:-translate-y-1 hover:shadow-xl active:scale-95 shadow-md"
               }`}
             >
               <ShoppingCart className="w-5 h-5 inline mr-2" />
@@ -845,7 +845,7 @@ function CheckoutPage() {
 
             <button
               onClick={() => navigate("/cart")}
-              className="mt-3 w-full h-11 md:h-12 rounded-lg border border-[#d7c8ae] text-green-900 font-black hover:bg-green-50"
+              className="mt-3 w-full h-11 md:h-12 rounded-xl border-2 border-primary text-primary font-black hover:bg-primary hover:text-white transition-all duration-300 active:scale-95 flex items-center justify-center"
             >
               ← QUAY LẠI GIỎ HÀNG
             </button>

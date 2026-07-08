@@ -76,12 +76,12 @@ function AdminLoginPage() {
     <div className="min-h-screen bg-[#f5f7ed] flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8">
         <div className="flex justify-center mb-5">
-          <div className="w-16 h-16 rounded-2xl bg-green-800 text-white flex items-center justify-center">
+          <div className="w-16 h-16 rounded-2xl bg-primary text-secondary flex items-center justify-center shadow-lg">
             <ShieldCheck size={34} />
           </div>
         </div>
 
-        <h1 className="text-3xl font-black text-center text-green-900">
+        <h1 className="text-3xl font-black text-center text-primary">
           Đăng nhập Admin
         </h1>
 
@@ -101,15 +101,15 @@ function AdminLoginPage() {
               Email hoặc số điện thoại
             </label>
 
-            <div className="mt-2 flex items-center gap-3 border rounded-2xl px-4 py-3 focus-within:border-green-700">
-              <User size={20} className="text-green-800" />
+            <div className="mt-2 flex items-center gap-3 border rounded-2xl px-4 py-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all bg-gray-50/50">
+              <User size={20} className="text-primary" />
 
               <input
                 name="username"
                 value={form.username}
                 onChange={handleChange}
                 placeholder="Ví dụ: admin@gmail.com"
-                className="w-full outline-none"
+                className="w-full outline-none bg-transparent"
               />
             </div>
           </div>
@@ -117,8 +117,8 @@ function AdminLoginPage() {
           <div>
             <label className="font-bold text-sm text-gray-700">Mật khẩu</label>
 
-            <div className="mt-2 flex items-center gap-3 border rounded-2xl px-4 py-3 focus-within:border-green-700">
-              <Lock size={20} className="text-green-800" />
+            <div className="mt-2 flex items-center gap-3 border rounded-2xl px-4 py-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all bg-gray-50/50">
+              <Lock size={20} className="text-primary" />
 
               <input
                 name="password"
@@ -126,7 +126,7 @@ function AdminLoginPage() {
                 value={form.password}
                 onChange={handleChange}
                 placeholder="Nhập mật khẩu"
-                className="w-full outline-none"
+                className="w-full outline-none bg-transparent"
               />
             </div>
           </div>
@@ -134,9 +134,9 @@ function AdminLoginPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`w-full py-3 rounded-2xl font-black transition ${isSubmitting
+            className={`w-full py-3 rounded-2xl font-black shadow-md transition-all duration-300 ${isSubmitting
               ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-              : "bg-green-800 text-white hover:bg-green-900"
+              : "bg-primary text-white hover:bg-primary-light hover:shadow-lg hover:-translate-y-1 active:scale-95"
               }`}
           >
             {isSubmitting ? "Đang đăng nhập..." : "Đăng nhập"}

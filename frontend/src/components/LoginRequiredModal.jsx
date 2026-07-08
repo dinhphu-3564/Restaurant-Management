@@ -33,14 +33,14 @@ function LoginRequiredModal({ onClose, onLogin }) {
         <div className="grid grid-cols-2 gap-4 mt-8">
           <button
             onClick={onClose}
-            className="h-14 rounded-2xl border-2 border-[#e7d8bb] text-gray-700 font-bold hover:bg-[#faf7ef] transition"
+            className="h-14 rounded-2xl border-2 border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition-colors"
           >
             Bỏ qua
           </button>
 
           <button
             onClick={onLogin}
-            className="h-14 rounded-2xl bg-green-900 text-white font-bold hover:bg-green-950 transition shadow-lg"
+            className="h-14 rounded-2xl bg-primary text-white font-bold hover:bg-primary-light transition-all shadow-md hover:-translate-y-1 hover:shadow-lg"
           >
             Đăng nhập / Đăng ký
           </button>

@@ -1241,7 +1241,7 @@ function AdminBookingsPage() {
           {/* thanh thao tác hàng loạt */}
           {selectedBookingIds.length > 0 && (
             <div className="mx-4 mb-4 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 flex items-center justify-between gap-3">
-              <p className="text-sm font-black text-green-800">
+              <p className="text-sm font-black text-primary">
                 Đã chọn {selectedBookingIds.length} đặt bàn
               </p>
 
@@ -1372,7 +1372,7 @@ function AdminBookingsPage() {
                         </span>
                       </td>
 
-                      <td className="px-4 py-3 font-black text-green-950 whitespace-nowrap text-center">
+                      <td className="px-4 py-3 font-black text-primary whitespace-nowrap text-center">
                         {formatPrice(booking.total)}
                       </td>
 
@@ -1469,8 +1469,8 @@ function AdminBookingsPage() {
                     onClick={() => setCurrentPage(page)}
                     className={`w-9 h-9 rounded-lg border font-black transition ${
                       currentPage === page
-                        ? "bg-green-700 text-white border-green-700"
-                        : "border-gray-200 text-gray-600 hover:bg-green-50 hover:text-green-700"
+                        ? "bg-primary text-white focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20"
+                        : "border-gray-200 text-gray-600 hover:bg-primary/5 hover:text-primary"
                     }`}
                   >
                     {page}
@@ -1530,7 +1530,7 @@ function AdminBookingsPage() {
           <div className={`w-full bg-white rounded-3xl shadow-2xl overflow-hidden transition-all ${editingBooking.status === "completed" ? "max-w-sm" : "max-w-6xl"}`}>
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-green-950">
+                <h3 className="text-xl font-black text-primary">
                   Chỉnh sửa đặt bàn
                 </h3>
                 <p className="text-sm text-gray-500 font-semibold mt-1">
@@ -1548,11 +1548,11 @@ function AdminBookingsPage() {
 
             {editingBooking.status === "completed" ? (
               <div className="px-6 pt-6 pb-2 flex flex-col items-center text-center gap-3">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white text-3xl shadow-lg">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/50 to-primary flex items-center justify-center text-white text-3xl shadow-lg">
                   ✓
                 </div>
                 <div>
-                  <p className="text-lg font-black text-green-800 mt-1">Đặt bàn đã hoàn thành</p>
+                  <p className="text-lg font-black text-primary mt-1">Đặt bàn đã hoàn thành</p>
                   <p className="text-xs text-gray-400 mt-1 leading-relaxed">
                     Lịch đặt <strong className="text-gray-600">{editingBooking.bookingCode || `DB${editingBooking.id}`}</strong> đã hoàn tất phục vụ.
                   </p>
@@ -1609,7 +1609,7 @@ function AdminBookingsPage() {
                   </span>
                   {editingBooking?.status === "completed" || editingBooking?.status === "serving" || editingBooking?.status === "confirmed" ? (
                     <div className="mt-2 w-full rounded-xl border border-gray-100 px-4 py-3 shadow-sm flex flex-col gap-1 bg-gray-50 select-none">
-                      <span className={`text-sm font-black ${editingBooking.status === "serving" ? "text-amber-600" : editingBooking.status === "completed" ? "text-green-600" : "text-blue-600"}`}>
+                      <span className={`text-sm font-black ${editingBooking.status === "serving" ? "text-amber-600" : editingBooking.status === "completed" ? "text-primary" : "text-blue-600"}`}>
                         {editingBooking.status === "serving" ? "🟡 Đang phục vụ" : editingBooking.status === "completed" ? "✅ Hoàn thành" : "🔵 Đã xác nhận"}
                       </span>
                       <span className="text-xs text-gray-400 leading-snug">
@@ -1703,7 +1703,7 @@ function AdminBookingsPage() {
 
                   <div className="flex items-center gap-3 text-xs font-bold">
                     <span className="flex items-center gap-1">
-                      <i className="w-2.5 h-2.5 rounded-full bg-green-600" />
+                      <i className="w-2.5 h-2.5 rounded-full bg-primary" />
                       Trống
                     </span>
                     <span className="flex items-center gap-1">
@@ -1764,7 +1764,7 @@ function AdminBookingsPage() {
                                 currentTable
                                   ? TABLE_STATUS_STYLE.selected
                                   : newSelectedTable
-                                    ? "border-green-700 bg-green-600 text-white ring-2 ring-green-300"
+                                    ? "border-primary bg-primary text-white ring-2 ring-primary/20"
                                     : disabled
                                       ? TABLE_STATUS_STYLE[status] ||
                                         TABLE_STATUS_STYLE.available
@@ -1781,7 +1781,7 @@ function AdminBookingsPage() {
                               <span
                                 className={`absolute top-2 left-2 w-2.5 h-2.5 rounded-full ${
                                   currentTable || newSelectedTable
-                                    ? "bg-green-700"
+                                    ? "bg-primary"
                                     : TABLE_DOT_STYLE[status]
                                 }`}
                               />
@@ -1796,7 +1796,7 @@ function AdminBookingsPage() {
                                 </span>
 
                                 {currentTable && (
-                                  <span className="mt-1 text-[10px] font-black text-green-800">
+                                  <span className="mt-1 text-[10px] font-black text-primary">
                                     Bàn đang chọn
                                   </span>
                                 )}
@@ -1840,7 +1840,7 @@ function AdminBookingsPage() {
               {editingBooking.status !== "completed" && (
                 <button
                   onClick={saveEditBooking}
-                  className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+                  className="h-11 px-5 rounded-xl bg-primary text-white font-black hover:bg-primary-dark"
                 >
                   Lưu thay đổi
                 </button>
@@ -1855,7 +1855,7 @@ function AdminBookingsPage() {
           <div className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-green-950">
+                <h3 className="text-xl font-black text-primary">
                   Thêm đặt bàn
                 </h3>
                 <p className="text-sm text-gray-500 font-semibold mt-1">
@@ -2041,7 +2041,7 @@ function AdminBookingsPage() {
 
                   <div className="flex items-center gap-3 text-xs font-bold">
                     <span className="flex items-center gap-1">
-                      <i className="w-2.5 h-2.5 rounded-full bg-green-600" />
+                      <i className="w-2.5 h-2.5 rounded-full bg-primary" />
                       Trống
                     </span>
                     <span className="flex items-center gap-1">
@@ -2100,7 +2100,7 @@ function AdminBookingsPage() {
                               }}
                               className={`relative h-16 rounded-xl border font-black transition ${
                                 isSelected
-                                  ? "border-green-700 bg-green-600 text-white ring-2 ring-green-300"
+                                  ? "border-primary bg-primary text-white ring-2 ring-primary/20"
                                   : disabled
                                     ? TABLE_STATUS_STYLE[status] ||
                                       TABLE_STATUS_STYLE.available
@@ -2168,7 +2168,7 @@ function AdminBookingsPage() {
 
               <button
                 onClick={saveAddBooking}
-                className="h-11 px-5 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+                className="h-11 px-5 rounded-xl bg-primary text-white font-black hover:bg-primary-dark"
               >
                 Tạo đặt bàn
               </button>
@@ -2223,7 +2223,7 @@ function AdminBookingsPage() {
                 }}
                 className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition shadow-sm ${
                   deleteConfirmBooking.bulkStatus
-                    ? "bg-green-700 hover:bg-green-800"
+                    ? "bg-primary hover:bg-primary-light"
                     : "bg-red-600 hover:bg-red-700"
                 }`}
               >
@@ -2402,7 +2402,7 @@ function BookingDetailPanel({
 
 function BookingStatCard({ icon, title, value, bg, color }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 min-h-[96px] hover:bg-green-50/40 hover:border-green-100 hover:-translate-y-0.5 hover:shadow-md transition">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 min-h-[96px] hover:bg-primary/5 hover:border-primary/20 hover:-translate-y-0.5 hover:shadow-md transition">
       <div className="flex items-center gap-3">
         <div
           className={`w-11 h-11 rounded-xl ${bg} ${color} flex items-center justify-center shrink-0`}
@@ -2415,7 +2415,7 @@ function BookingStatCard({ icon, title, value, bg, color }) {
             {title}
           </p>
           <h3 className="text-2xl font-black text-green-950 mt-1">{value}</h3>
-          <p className="text-green-600 text-[11px] font-black mt-1">
+          <p className="text-primary text-[11px] font-black mt-1">
             ↑ so với hôm qua
           </p>
         </div>
@@ -2430,8 +2430,8 @@ function TabButton({ active, onClick, children }) {
       onClick={onClick}
       className={`h-14 px-3 border-b-2 font-black whitespace-nowrap transition ${
         active
-          ? "border-green-700 text-green-700 bg-green-50/40"
-          : "border-transparent text-gray-500 hover:text-green-700 hover:bg-green-50/40"
+          ? "border-primary/20 border-t-primary bg-primary/5"
+          : "border-transparent text-gray-500 hover:text-primary hover:bg-primary/5"
       }`}
     >
       {children}
