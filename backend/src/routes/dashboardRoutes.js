@@ -322,9 +322,9 @@ router.get(
         "SELECT id, customer_name, booking_code, booking_date, booking_time, created_at FROM bookings WHERE deleted_at IS NULL AND status = 'pending' AND booking_date >= CURDATE() ORDER BY created_at DESC",
       );
 
-      // 2. Lấy danh sách đơn hàng mới (pending) được tạo từ hôm nay trở đi
+      // 2. Lấy danh sách đơn hàng mới (pending) được tạo trong 24 giờ gần nhất
       const [orders] = await db.query(
-        "SELECT id, order_code, customer_name, total, created_at FROM orders WHERE status = 'pending' AND created_at >= CURDATE() ORDER BY created_at DESC",
+        "SELECT id, order_code, customer_name, total, created_at FROM orders WHERE status = 'pending' AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) ORDER BY created_at DESC",
       );
 
       const notifications = [];

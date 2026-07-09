@@ -17,6 +17,7 @@ const dealRoutes = require("./src/routes/dealRoutes");
 const spaceRoutes = require("./src/routes/spaceRoutes");
 const dashboardRoutes = require("./src/routes/dashboardRoutes");
 const activityLogRoutes = require("./src/routes/activityLogRoutes");
+const categoryRoutes = require("./src/routes/categoryRoutes");
 
 const app = express();
 const PORT = 5001;
@@ -39,6 +40,7 @@ app.use("/api/deals", dealRoutes);
 app.use("/api/spaces", spaceRoutes);
 app.use("/api/admin/dashboard", dashboardRoutes);
 app.use("/api/activity-logs", activityLogRoutes);
+app.use("/api/categories", categoryRoutes);
 
 app.get("/", (req, res) => {
   res.json({

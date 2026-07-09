@@ -60,7 +60,7 @@ router.get("/", async (req, res) => {
         categories.name AS category_name
       FROM menu_items
       LEFT JOIN categories ON menu_items.category_id = categories.id
-      WHERE menu_items.status = 'selling'
+      WHERE menu_items.status IN ('selling', 'paused')
       ORDER BY menu_items.id DESC
     `);
 
