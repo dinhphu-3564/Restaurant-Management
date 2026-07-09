@@ -1,10 +1,17 @@
 import { useState, useEffect } from "react";
 import { getAuthToken } from "../../utils/auth";
 import { showAdminToast } from "../../components/admin/AdminToast";
+import GlobalPagination from "../../components/admin/GlobalPagination";
+import { translateAction, renderColoredMessage } from "../../utils/actionTranslator.jsx";
 
 export default function AdminActivityLogsPage() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const currentLogs = logs.slice(startIndex, startIndex + pageSize);
 
   useEffect(() => {
     fetchLogs();
@@ -65,7 +72,7 @@ export default function AdminActivityLogsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {logs.map((log) => (
+              {currentLogs.map((log) => (
                 <tr key={log.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {new Date(log.created_at).toLocaleString("vi-VN")}
@@ -74,10 +81,10 @@ export default function AdminActivityLogsPage() {
                     {log.actor_user_name || "Hệ thống"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {log.action}
+                    {translateAction(log.action)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {log.message}
+                    {renderColoredMessage(log.message)}
                   </td>
                 </tr>
               ))}
@@ -92,6 +99,19 @@ export default function AdminActivityLogsPage() {
           </table>
         )}
       </div>
+
+      {!loading && logs.length > 0 && (
+        <div className="mt-4 bg-white rounded-lg shadow">
+          <GlobalPagination
+            total={logs.length}
+            page={currentPage}
+            limit={pageSize}
+            onPageChange={setCurrentPage}
+            onLimitChange={setPageSize}
+            limitOptions={[10, 20, 50, 100]}
+          />
+        </div>
+      )}
     </div>
   );
 }

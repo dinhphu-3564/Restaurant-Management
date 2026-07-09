@@ -6,6 +6,7 @@ import { Download, Plus } from "lucide-react";
 import AdminToast from "../components/admin/AdminToast";
 import { getCurrentUser, getAuthToken } from "../utils/auth";
 import { canUseAction } from "../utils/permissions";
+import { socket } from "../utils/socket";
 
 function AdminLayout() {
   const location = useLocation();
@@ -53,10 +54,18 @@ function AdminLayout() {
     window.addEventListener("bookingsUpdated", handleUpdate);
     window.addEventListener("ordersUpdated", handleUpdate);
 
+    // Nghe socket realtime: đơn hàng mới và đặt bàn mới
+    socket.on("new_order", handleUpdate);
+    socket.on("table_updated", handleUpdate);
+    socket.on("order_updated", handleUpdate);
+
     return () => {
       clearInterval(interval);
       window.removeEventListener("bookingsUpdated", handleUpdate);
       window.removeEventListener("ordersUpdated", handleUpdate);
+      socket.off("new_order", handleUpdate);
+      socket.off("table_updated", handleUpdate);
+      socket.off("order_updated", handleUpdate);
     };
   }, []);
   //
@@ -204,6 +213,18 @@ function AdminLayout() {
           setDateMode={setDateMode}
           dateLabel={dateLabel}
           setDateLabel={setDateLabel}
+          hideDatePicker={isMenuPage}
+          middleAction={
+            isMenuPage ? (
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event("openCategoryManagementModal"))}
+                className="h-11 px-4 rounded-2xl border border-green-800 text-green-800 bg-white shadow-sm text-sm font-black flex items-center justify-center gap-2 hover:bg-green-50 transition whitespace-nowrap shrink-0"
+              >
+                Quản lý danh mục
+              </button>
+            ) : null
+          }
           notifications={notifications}
         />
 

@@ -468,8 +468,8 @@ function AdminSpacesPage() {
                                 }}
                                 className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${
                                   isSelected
-                                    ? "bg-primary text-white hover:bg-primary-dark"
-                                    : "bg-primary-50 text-primary hover:bg-primary-100"
+                                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                    : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                                 }`}
                                 title="Chỉnh sửa không gian"
                               >
@@ -555,8 +555,8 @@ function AdminSpacesPage() {
                                   }}
                                   className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${
                                     isSelected
-                                      ? "bg-amber-600 text-white hover:bg-amber-700"
-                                      : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                                   }`}
                                   title="Chỉnh sửa không gian chờ"
                                 >

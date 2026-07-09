@@ -25,6 +25,8 @@ function AdminHeader({
   setDateMode,
   dateLabel = "",
   setDateLabel,
+  hideDatePicker = false,
+  middleAction = null,
   notifications = [],
 }) {
   const [isDateOpen, setIsDateOpen] = useState(false);
@@ -156,7 +158,10 @@ function AdminHeader({
           />
         </div>
 
-        <div ref={popupRef} className="relative hidden lg:block">
+        {middleAction}
+
+        {!hideDatePicker && (
+          <div ref={popupRef} className="relative hidden lg:block">
           <button
             type="button"
             onClick={() => setIsDateOpen(!isDateOpen)}
@@ -340,6 +345,7 @@ function AdminHeader({
             </div>
           )}
         </div>
+        )}
 
         {action}
         <div ref={notificationsPopupRef} className="relative">
