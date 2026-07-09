@@ -15,4 +15,12 @@ export default defineConfig({
   define: {
     global: "window",
   },
+
+  server: {
+    headers: {
+      // Cho phép Firebase Auth popup giao tiếp với cửa sổ cha
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+      "Cross-Origin-Embedder-Policy": "unsafe-none",
+    },
+  },
 });
