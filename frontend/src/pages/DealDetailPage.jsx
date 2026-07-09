@@ -118,7 +118,7 @@ function DealDetailPage() {
 
   const adminDeal = adminDeals.find(
     (item) =>
-      item.status === "active" &&
+      (item.status === "active" || item.status === "upcoming") &&
       (String(item.slug) === String(dealId) ||
         String(item.code) === String(dealId) ||
         String(item.id) === String(dealId)),

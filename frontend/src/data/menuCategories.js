@@ -14,6 +14,22 @@ import {
   Leaf,
   Waves,
 } from "lucide-react";
+export const ICON_MAP = {
+  Utensils,
+  Salad,
+  Soup,
+  Flame,
+  CookingPot,
+  Beef,
+  CircleDot,
+  Gem,
+  Circle,
+  Fish,
+  Drumstick,
+  Coffee,
+  Leaf,
+  Waves,
+};
 
 export const categories = [
   {

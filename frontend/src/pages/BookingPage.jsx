@@ -359,9 +359,10 @@ function BookingPage() {
   }, [form.date, form.guests, selectedArea, bookings, adminTables]);
 
   const handleChange = (e) => {
+    const val = e.target.name === "phone" ? e.target.value.replace(/\D/g, "") : e.target.value;
     setForm({
       ...form,
-      [e.target.name]: e.target.value,
+      [e.target.name]: val,
     });
   };
 
@@ -370,7 +371,7 @@ function BookingPage() {
 
     if (!form.name.trim()) newErrors.name = "Vui lòng nhập họ tên";
     if (!phoneRegex.test(form.phone)) {
-      newErrors.phone = "Số điện thoại không hợp lệ";
+      newErrors.phone = "Số điện thoại không đúng định dạng Việt Nam (10 số, bắt đầu bằng 03, 05, 07, 08, 09)";
     }
     if (!form.date) newErrors.date = "Vui lòng chọn ngày";
     if (!form.time) newErrors.time = "Vui lòng chọn giờ";

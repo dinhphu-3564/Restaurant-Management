@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { socket } from "../utils/socket";
 
 import goatIcon from "../assets/images/Icon_De.png";
 import {
@@ -111,6 +112,20 @@ function BookingDetailPage() {
     };
 
     loadBookingDetail();
+
+    const handleBookingUpdate = (updatedBooking) => {
+      if (!updatedBooking || 
+          String(updatedBooking.id) === String(id) || 
+          String(updatedBooking.booking_code) === String(id)) {
+        loadBookingDetail();
+      }
+    };
+
+    socket.on("booking_updated", handleBookingUpdate);
+
+    return () => {
+      socket.off("booking_updated", handleBookingUpdate);
+    };
   }, [id, navigate]);
 
   const formatDate = (dateString) => {

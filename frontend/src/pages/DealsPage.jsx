@@ -491,8 +491,8 @@ function DealsPage() {
                       </h3>
 
                       <p className="text-sm font-bold text-gray-600 mt-1">
-                        {item.startDate || "Chưa có"} -{" "}
-                        {item.endDate || "Chưa có"}
+                        {item.startDate ? new Date(item.startDate).toLocaleDateString("vi-VN") : "Chưa có"} -{" "}
+                        {item.endDate ? new Date(item.endDate).toLocaleDateString("vi-VN") : "Chưa có"}
                       </p>
 
                       <p className="text-xs text-gray-500 mt-2 leading-relaxed line-clamp-2">

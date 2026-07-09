@@ -85,9 +85,9 @@ function Header({ currentPage = "home" }) {
       setCartItems(savedCart ? JSON.parse(savedCart) : []);
     };
 
-    updateCart();
-    window.addEventListener("cartUpdated", updateCart);
-    window.addEventListener("storage", updateCart);
+    // Do not invoke updateCart immediately to prevent state update during sibling render
+    window.addEventListener("cartUpdated", () => setTimeout(updateCart, 0));
+    window.addEventListener("storage", () => setTimeout(updateCart, 0));
 
     window.addEventListener("loginStatusChanged", updateLoginStatus);
 

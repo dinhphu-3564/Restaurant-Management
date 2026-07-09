@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { spaceService } from "../services/spaceService";
 
 import LoginRequiredModal from "../components/LoginRequiredModal";
+import { SpaceItem, Feature, Info, Why, Promo, Review, Service } from "../components/home/HomeComponents";
+import SpacePreviewModal from "../components/home/SpacePreviewModal";
 
 import goatIcon from "../assets/images/Icon_De.png";
 import hero1 from "../assets/images/Home/hero-1.png";
@@ -100,7 +102,8 @@ function Home() {
   });
 
   const parsePrice = (price) => {
-    return Number(price.replace(/[^\d]/g, ""));
+    if (typeof price === "number") return price;
+    return Number(String(price || "").replace(/[^\d]/g, ""));
   };
 
   const addToCart = (dish) => {
@@ -115,7 +118,7 @@ function Home() {
       price: parsePrice(dish.price),
       qty: 1,
       image: dish.image,
-      tag: dish.tag || "",
+      tag: dish.tag || dish.badge || "",
     };
 
     const existed = cartItems.find((item) => item.id === cartDish.id);
@@ -268,66 +271,31 @@ function Home() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [previewImage, previewIndex, activeSpace, showSpaceModal]);
-  const dishes = [
-    {
-      id: 101,
-      name: "Dê hấp tía tô",
-      description: "Thịt dê hấp cùng lá tía tô, giữ trọn vị ngọt tự nhiên.",
-      price: "250.000đ",
-      tag: "Bán chạy",
-      image: deHapTiaTo,
-    },
-    {
-      id: 102,
-      name: "Dê nướng tảng",
-      description: "Thịt dê tươi tảng ướp 12 loại gia vị.",
-      price: "399.000đ",
-      tag: "Bán chạy",
-      image: deNuongTang,
-    },
-    {
-      id: 103,
-      name: "Lẩu dê Hương Sơn",
-      description: "Nước lẩu đậm đà từ xương dê hầm.",
-      price: "399.000đ",
-      image: lauDe,
-    },
-    {
-      id: 104,
-      name: "Dê xào sả ớt",
-      description: "Thịt dê xào cùng sả, ớt cay thơm.",
-      price: "289.000đ",
-      image: deXaoLan,
-    },
-    {
-      id: 105,
-      name: "Sườn dê nướng",
-      description: "Sườn dê ướp gia vị đặc biệt, nướng thơm trên than hoa.",
-      price: "269.000đ",
-      image: deNuongTang,
-    },
-    {
-      id: 106,
-      name: "Dê tái chanh",
-      description: "Thịt dê tái chanh chua nhẹ, ăn kèm rau thơm.",
-      price: "229.000đ",
-      image: deHapTiaTo,
-    },
-    {
-      id: 107,
-      name: "Dê xào lăn",
-      description: "Thịt dê xào lăn béo thơm, đậm vị.",
-      price: "289.000đ",
-      image: deXaoLan,
-    },
-    {
-      id: 108,
-      name: "Lẩu dê thuốc bắc",
-      description: "Lẩu dê hầm cùng thuốc bắc, bổ dưỡng.",
-      price: "429.000đ",
-      image: lauDe,
-    },
-  ];
+  const [dishes, setDishes] = useState([]);
+
+  useEffect(() => {
+    const fetchDishes = async () => {
+      try {
+        const res = await fetch("http://localhost:5001/api/menu-items");
+        const result = await res.json();
+        if (result.success) {
+          // Lấy các món ăn bán chạy, đặc sản hoặc món mới làm nổi bật
+          const featured = result.data.filter(
+            (d) =>
+              d.badge === "Bán chạy" ||
+              d.badge === "Đặc sản" ||
+              d.badge === "Món mới" ||
+              d.badge === "Món ăn tâm huyết"
+          ).slice(0, 12);
+          
+          setDishes(featured.length > 0 ? featured : result.data.slice(0, 12));
+        }
+      } catch (err) {
+        console.error("Lỗi lấy danh sách món ăn trang chủ:", err);
+      }
+    };
+    fetchDishes();
+  }, []);
 
   //danh sách món
   const dishesPerSlide = 4;
@@ -604,9 +572,9 @@ function Home() {
               className="dish-card bg-white rounded-2xl shadow-md overflow-hidden hover:-translate-y-1 hover:shadow-xl transition duration-300"
             >
               <div className="relative h-32 md:h-48 overflow-hidden">
-                {dish.tag && (
+                {(dish.tag || dish.badge) && (
                   <span className="absolute top-3 left-3 z-10 bg-green-800 text-white text-xs px-3 py-1 rounded-full uppercase">
-                    {dish.tag}
+                    {dish.tag || dish.badge}
                   </span>
                 )}
 
@@ -945,156 +913,20 @@ function Home() {
       </section>
 
       {/*xem không gian*/}
-      {showSpaceModal && (
-        <div
-          className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4"
-          onClick={() => setShowSpaceModal(false)}
-        >
-          <div
-            className="relative w-full max-w-5xl h-[720px] max-h-[90vh] bg-[#fffaf0] rounded-3xl shadow-2xl p-5 md:p-7 flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowSpaceModal(false)}
-              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-green-900 text-white flex items-center justify-center hover:bg-green-950"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h2 className="text-2xl md:text-3xl font-black text-green-900 uppercase text-center shrink-0">
-              Không gian nhà hàng
-            </h2>
-
-            <div className="flex items-center justify-center gap-3 mt-3 mb-6 shrink-0">
-              <div className="w-16 h-px bg-[#d6a84f]" />
-              <img src={goatIcon} alt="" className="w-7 h-7 object-contain" />
-              <div className="w-16 h-px bg-[#d6a84f]" />
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 mb-5 shrink-0">
-              {spaceTabsData.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveSpaceTab(tab.key)}
-                  className={`h-11 rounded-xl border font-black transition ${
-                    activeSpaceTab === tab.key
-                      ? "bg-green-900 text-white border-green-900"
-                      : "bg-white text-green-900 border-[#eadfcd] hover:bg-green-50"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Khung chứa ảnh cố định kích thước, hỗ trợ cuộn và hiển thị trạng thái rỗng */}
-            <div className="flex-1 overflow-y-auto pr-1 min-h-0 flex flex-col">
-              {(activeSpace?.images || []).length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {activeSpace.images.map((image, index) => {
-                    const imgUrl = getImgUrl(image);
-                    return (
-                      <button
-                        key={index}
-                        onClick={() => {
-                          setPreviewImage(imgUrl);
-                          setPreviewIndex(index);
-                        }}
-                        className="h-32 md:h-44 rounded-2xl overflow-hidden border border-[#eadfcd] group relative bg-gray-100 shrink-0"
-                      >
-                        <img
-                          src={imgUrl}
-                          alt={activeSpace.label}
-                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                        />
-                        {typeof image !== "string" && image.title && (
-                          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-left">
-                            <p className="text-white text-xs font-bold truncate">
-                              {image.title}
-                            </p>
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center py-10 text-gray-400">
-                  <div className="w-16 h-16 rounded-full bg-green-50/50 flex items-center justify-center text-green-800 mb-3 shadow-inner">
-                    <ImageIcon size={32} />
-                  </div>
-                  <p className="font-black text-sm text-green-900">
-                    Chưa có hình ảnh nào cho không gian này
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Hình ảnh không gian thực tế sẽ sớm được cập nhật
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <p className="text-center text-sm text-gray-500 mt-4 shrink-0">
-              Nhấn vào ảnh để xem lớn hơn
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* popup xem ảnh toàn màn hình */}
-      {previewImage && (
-        <div className="fixed inset-0 z-[10000] bg-black/90 flex items-center justify-center px-4">
-          <button
-            onClick={() => setPreviewImage(null)}
-            className="absolute top-5 right-5 w-11 h-11 rounded-full bg-white text-green-900 flex items-center justify-center"
-          >
-            <X className="w-6 h-6" />
-          </button>
-
-          <button
-            onClick={() => {
-              const newIndex =
-                previewIndex === 0
-                  ? activeSpace.images.length - 1
-                  : previewIndex - 1;
-
-              setPreviewIndex(newIndex);
-              setPreviewImage(getImgUrl(activeSpace.images[newIndex]));
-            }}
-            className="absolute left-5 w-12 h-12 rounded-full bg-white/90 text-green-900 text-3xl flex items-center justify-center"
-          >
-            ‹
-          </button>
-
-          <img
-            src={getImgUrl(previewImage)}
-            alt=""
-            className="max-w-[90vw] max-h-[82vh] object-contain rounded-2xl shadow-2xl"
-          />
-
-          <button
-            onClick={() => {
-              const newIndex =
-                previewIndex === activeSpace.images.length - 1
-                  ? 0
-                  : previewIndex + 1;
-
-              setPreviewIndex(newIndex);
-              setPreviewImage(getImgUrl(activeSpace.images[newIndex]));
-            }}
-            className="absolute right-5 w-12 h-12 rounded-full bg-white/90 text-green-900 text-3xl flex items-center justify-center"
-          >
-            ›
-          </button>
-
-          <div className="absolute top-6 left-6 text-white font-bold">
-            {activeSpace.label} - {previewIndex + 1} /{" "}
-            {activeSpace.images.length}
-          </div>
-          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-white/70 text-sm">
-            ← → Chuyển ảnh • ESC Đóng
-          </div>
-        </div>
-      )}
+      <SpacePreviewModal
+        showSpaceModal={showSpaceModal}
+        setShowSpaceModal={setShowSpaceModal}
+        goatIcon={goatIcon}
+        spaceTabsData={spaceTabsData}
+        activeSpaceTab={activeSpaceTab}
+        setActiveSpaceTab={setActiveSpaceTab}
+        activeSpace={activeSpace}
+        getImgUrl={getImgUrl}
+        setPreviewImage={setPreviewImage}
+        setPreviewIndex={setPreviewIndex}
+        previewImage={previewImage}
+        previewIndex={previewIndex}
+      />
 
       {showLoginModal && (
         <LoginRequiredModal
@@ -1102,137 +934,6 @@ function Home() {
           onLogin={() => navigate("/login")}
         />
       )}
-    </div>
-  );
-}
-
-function SpaceItem({ image, title, desc, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="group rounded-2xl overflow-hidden border border-[#eadfcd] bg-[#fffaf0] text-left hover:-translate-y-1 hover:shadow-xl transition"
-    >
-      <div className="h-48 overflow-hidden">
-        <img
-          src={image}
-          alt={title}
-          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-        />
-      </div>
-
-      <div className="p-4">
-        <h3 className="font-black text-green-900">{title}</h3>
-        <p className="text-sm text-gray-600 mt-1">{desc}</p>
-      </div>
-    </button>
-  );
-}
-
-function Feature({ icon, title, text }) {
-  return (
-    <div className="p-4 md:p-6 border border-gray-100 text-center">
-      <div className="w-10 h-10 md:w-13 md:h-13 rounded-full border border-green-800 flex items-center justify-center text-green-800 mb-2 md:mb-3 mx-auto">
-        {icon}
-      </div>
-
-      <h3 className="font-bold mb-1 text-sm md:text-base leading-snug">
-        {title}
-      </h3>
-
-      <p className="text-[13px] md:text-sm text-gray-600 leading-snug">
-        {text}
-      </p>
-    </div>
-  );
-}
-
-function Info({ icon, title }) {
-  return (
-    <div>
-      <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-green-100 border border-green-200 flex items-center justify-center mx-auto mb-2 md:mb-3 text-green-800">
-        {icon}
-      </div>
-      <h3 className="font-bold text-green-900 text-[13px] md:text-sm leading-snug">
-        {title}
-      </h3>
-      <p className="text-[11px] md:text-xs text-gray-600 mt-1">
-        Chuẩn vị đặc trưng
-      </p>
-    </div>
-  );
-}
-
-function Why({ icon, title, text }) {
-  return (
-    <div className="px-1 md:px-3">
-      <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border border-green-800 flex items-center justify-center mx-auto mb-2 md:mb-3 text-green-800">
-        {icon}
-      </div>
-
-      <h3 className="font-bold mb-1 text-[13px] md:text-sm leading-snug">
-        {title}
-      </h3>
-
-      <p className="text-[11px] md:text-xs text-gray-600 leading-snug">
-        {text}
-      </p>
-    </div>
-  );
-}
-
-function Promo({ title, discount, price, image, desc, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full bg-white text-green-950 rounded-2xl p-4 mb-4 flex items-center gap-4 text-left hover:-translate-y-1 hover:shadow-xl transition group"
-    >
-      <div className="w-24 h-24 rounded-2xl overflow-hidden bg-amber-100 shrink-0">
-        <img
-          src={image}
-          alt={title}
-          className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
-        />
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <span className="bg-green-800 text-white px-3 py-1 rounded-full text-xs font-bold">
-          {discount}
-        </span>
-
-        <h3 className="font-black mt-2 text-green-950 line-clamp-1">{title}</h3>
-
-        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{desc}</p>
-
-        <p className="font-black text-green-800 mt-2">{price}</p>
-      </div>
-    </button>
-  );
-}
-
-function Review({ name, text }) {
-  return (
-    <div className="bg-white rounded-2xl p-3 md:p-4 mb-3 md:mb-4 shadow-sm">
-      <div className="flex items-center justify-between gap-3 mb-2">
-        <p className="font-bold text-green-900 text-sm">{name}</p>
-        <div className="text-yellow-500 text-xs md:text-sm">★★★★★</div>
-      </div>
-
-      <p className="text-xs md:text-sm text-gray-600 leading-relaxed">{text}</p>
-    </div>
-  );
-}
-
-function Service({ icon, title, text }) {
-  return (
-    <div className="p-5 flex items-center gap-4 border-b lg:border-r border-gray-100 last:border-r-0">
-      <div className="w-11 h-11 rounded-full bg-green-50 text-green-800 flex items-center justify-center">
-        {icon}
-      </div>
-      <div>
-        <h3 className="font-bold text-sm">{title}</h3>
-        <p className="text-xs text-gray-600">{text}</p>
-      </div>
     </div>
   );
 }

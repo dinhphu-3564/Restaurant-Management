@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { socket } from "../utils/socket";
 import {
   ArrowLeft,
   ReceiptText,
@@ -39,7 +40,6 @@ function OrderDetailPage() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-
   useEffect(() => {
     const loadOrderDetail = async () => {
       const token = getAuthToken();
@@ -107,6 +107,21 @@ function OrderDetailPage() {
     };
 
     loadOrderDetail();
+
+    // Lắng nghe cập nhật realtime từ socket
+    const handleOrderUpdate = (updatedOrder) => {
+      if (!updatedOrder || 
+          String(updatedOrder.id) === String(id) || 
+          String(updatedOrder.order_code) === String(id)) {
+        loadOrderDetail();
+      }
+    };
+
+    socket.on("order_updated", handleOrderUpdate);
+
+    return () => {
+      socket.off("order_updated", handleOrderUpdate);
+    };
   }, [id, navigate]);
 
   const formatPrice = (price) => {

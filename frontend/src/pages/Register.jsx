@@ -54,7 +54,6 @@ function Register() {
 
   const validateForm = () => {
     const newErrors = {};
-    const phoneOnlyNumber = formData.phone.replace(/\D/g, "");
 
     if (!formData.fullName.trim()) {
       newErrors.fullName = "Vui lòng nhập họ và tên";
@@ -62,8 +61,8 @@ function Register() {
 
     if (!formData.phone.trim()) {
       newErrors.phone = "Vui lòng nhập số điện thoại";
-    } else if (!/^\d{10,11}$/.test(phoneOnlyNumber)) {
-      newErrors.phone = "Số điện thoại phải từ 10-11 chữ số";
+    } else if (!/^(0)(3|5|7|8|9)[0-9]{8}$/.test(formData.phone)) {
+      newErrors.phone = "Số điện thoại không đúng định dạng Việt Nam (10 số, bắt đầu bằng 03, 05, 07, 08, 09)";
     }
 
     if (!formData.email.trim()) {
@@ -90,7 +89,7 @@ function Register() {
       }
 
       if (!/\d/.test(formData.password)) {
-        passwordErrors.push("số");
+        passwordErrors.push("chữ số");
       }
 
       if (!/[^A-Za-z0-9]/.test(formData.password)) {
@@ -98,14 +97,12 @@ function Register() {
       }
 
       if (passwordErrors.length > 0) {
-        newErrors.password = `Mật khẩu cần có ${passwordErrors.join(", ")}`;
+        newErrors.password = `Mật khẩu yếu (thiếu: ${passwordErrors.join(", ")})`;
       }
     }
 
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = "Vui lòng xác nhận mật khẩu";
-    } else if (formData.confirmPassword !== formData.password) {
-      newErrors.confirmPassword = "Mật khẩu xác nhận không trùng khớp";
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Mật khẩu xác nhận không khớp";
     }
 
     if (!formData.agreeTerms) {
@@ -118,9 +115,14 @@ function Register() {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
+    let val = type === "checkbox" ? checked : value;
+    if (name === "phone") {
+      val = value.replace(/\D/g, "");
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: val,
     }));
 
     if (errors[name]) {
