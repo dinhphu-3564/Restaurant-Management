@@ -105,7 +105,7 @@ flowchart TD
 
 ## 3. LUỒNG ĐẶT MÓN TRỰC TUYẾN & THANH TOÁN TỰ ĐỘNG SEPAY QR (ONLINE ORDER & SEPAY)
 
-Sequence Diagram chi tiết luồng Khách chọn món, áp mã giảm giá, chuyển khoản quét QR VietQR và SePay bắn Webhook đối soát tự động.
+Sequence Diagram thể hiện chi tiết luồng thanh toán đơn hàng online, ghi nhận thanh toán từng phần qua bảng `order_payments` và kích hoạt Socket.io.
 
 ```mermaid
 sequenceDiagram
@@ -120,7 +120,7 @@ sequenceDiagram
     Customer->>FE: 2. Nhập người nhận, dịch vụ (dinein/delivery/pickup), mã Voucher
     FE->>BE: 3. POST /api/orders (Thông tin đơn, phương thức paymentMethod='bank')
     
-    BE->>BE: 4. Kiểm tra Voucher (Hạn dùng, giới hạn lượt dùng)
+    BE->>BE: 4. Kiểm tra Voucher (Hạn dùng, điều kiện)
     BE->>DB: 5. UPDATE deals (Tăng used_count, ghi usage_history)
     BE->>DB: 6. INSERT INTO orders (order_code, payment_status='pending', status='pending')
     BE->>DB: 7. INSERT INTO order_items (chi tiết món ăn)
@@ -137,15 +137,19 @@ sequenceDiagram
     BE->>DB: 13. SELECT order WHERE order_code='DH1719998822' AND payment_status!='paid'
     
     alt Tìm thấy đơn hàng phù hợp
-        BE->>DB: 14. UPDATE orders SET payment_status='paid', payment_method='bank', paid_at=NOW(), sepay_amount=...
-        BE-->>SePay: 15. Res 200 { success: true }
+        BE->>DB: 14. INSERT INTO order_payments (amount, payment_method='bank')
+        BE->>DB: 15. SELECT SUM(amount) FROM order_payments WHERE order_id = order.id
+        Note over BE,DB: Nếu tổng thanh toán >= tổng trị giá đơn hàng
+        BE->>DB: 16. UPDATE orders SET payment_status='paid', paid_at=NOW(), sepay_transaction=...
+        BE->>BE: 17. Emit event qua Socket.io ("order_updated")
+        BE-->>SePay: 18. Res 200 { success: true }
     else Không tìm thấy đơn
-        BE-->>SePay: 15. Res 200 { success: true, message: "Không tìm thấy đơn" }
+        BE-->>SePay: 18. Res 200 { success: true, message: "Không tìm thấy đơn" }
     end
     
-    FE->>BE: 16. Polling / Check trạng thái đơn /me/:id
-    BE-->>FE: 17. Trả về Order status paymentStatus='paid'
-    FE->>FE: 18. Tự động chuyển hướng sang OrderSuccessPage.jsx
+    FE->>BE: 19. Polling / Check trạng thái đơn /me/:id (Hoặc lắng nghe Socket.io)
+    BE-->>FE: 20. Trả về Order status paymentStatus='paid'
+    FE->>FE: 21. Tự động chuyển hướng sang OrderSuccessPage.jsx
 ```
 
 ---
@@ -165,7 +169,7 @@ flowchart TD
     ValCap -- "guests > table.seats hoặc Bàn bận/bảo trì" --> ErrCap["Trả về Lỗi 400: Bàn không đủ chỗ hoặc đang hỏng"]
     ValCap -- "Hợp lệ" --> CheckConflict{"Kiểm tra Trùng lịch đặt (hasTableConflict)"}
     
-    CheckConflict -- "Trùng ngày & giờ (status pending/confirmed)" --> ErrConflict["Trả về Lỗi 409: Bàn đã có lịch đặt trước"]
+    CheckConflict -- "Trùng ngày & giờ (status pending/confirmed/serving)" --> ErrConflict["Trả về Lỗi 409: Bàn đã có lịch đặt trước"]
     CheckConflict -- "Không trùng" --> CreateOkBk["Tạo Booking (selected_table = '101', status = 'pending')"]
     
     CreatePendingBk --> PreOrderCheck{"Có Đặt trước món ăn không?"}
@@ -191,16 +195,14 @@ flowchart TD
     CheckLogin -- "Chưa đăng nhập" --> GoLogin["Redirect sang /admin/login"]
     CheckLogin -- "Đã đăng nhập" --> GetUserRole["Lấy currentUser.role từ Token"]
     
-    GetUserRole --> CheckRole{"Role có thuộc: admin, manager, staff?"}
+    GetUserRole --> CheckRole{"Role thuộc BackOffice role?"}
     CheckRole -- "Không (Role là user/khách hàng)" --> KickHome["Redirect về Trang chủ Khách /home"]
-    CheckRole -- "Có (admin / manager / staff)" --> AllowAdmin["Cho phép render AdminLayout + Admin Pages"]
+    CheckRole -- "Có (admin/manager/staff/cashier/waiter/chef)" --> AllowAdmin["Cho phép render AdminLayout + Admin Pages"]
 ```
 
 ---
 
 ## 6. LUỒNG QUẢN LÝ VÒNG ĐỜI ĐƠN HÀNG TRONG ADMIN (ORDER LIFECYCLE STATE DIAGRAM)
-
-Trạng thái xử lý Đơn hàng (`status`) và Trạng thái Thanh toán (`payment_status`) chuyển đổi qua từng bước vận hành nhà hàng.
 
 ```mermaid
 stateDiagram-v2
@@ -215,7 +217,7 @@ stateDiagram-v2
     Pending --> Preparing : Admin / Thu ngân bấm "Duyệt chế biến"
     
     state Preparing {
-        Unpaid_COD --> Paid_Manual : Admin thu tiền mặt trực tiếp tại quầy
+        Unpaid_COD --> Paid_Manual : Admin ghi nhận thanh toán thủ công (order_payments)
     }
     
     Preparing --> Delivering : Bếp chế biến xong -> Giao đơn (với serviceType='delivery')
@@ -246,9 +248,9 @@ flowchart TD
     SelectTable --> UpdateBk["UPDATE bookings SET selected_table = '102', status = 'confirmed'"]
     UpdateBk --> NotifyUser["Khách xem trạng thái trên Profile đổi sang 'Đã xác nhận'"]
     
-    NotifyUser -.-> KhachDen["Khách đến nhà hàng ăn uống"]
-    KhachDen --> TableOccupied["Sơ đồ Bàn chuyển sang 'serving' (Đang phục vụ)"]
-    TableOccupied --> FinishMeal["Khách ăn xong & Thanh toán"]
+    NotifyUser -.-> KhachDen["Khách đến nhà hàng nhận bàn"]
+    KhachDen --> TableOccupied["Lịch đặt bàn chuyển sang 'serving'<br>Sơ đồ Bàn chuyển sang 'serving' (Đang phục vụ)"]
+    TableOccupied --> FinishMeal["Khách ăn xong & Thanh toán tại bàn (Bảng 11)"]
     
     FinishMeal --> CompleteBk["UPDATE bookings SET status = 'completed'"]
     CompleteBk --> TableFree["Sơ đồ Bàn trở về 'available' (Trống)"]
@@ -257,8 +259,6 @@ flowchart TD
 ---
 
 ## 8. LUỒNG QUẢN LÝ BÀN & TỰ ĐỘNG SINH MÃ BÀN (TABLE & SMART CODE GENERATION)
-
-Quy tắc tự động sinh mã bàn (`getAreaCodeConfig`) dựa trên tên Khu vực:
 
 ```mermaid
 flowchart TD
@@ -288,7 +288,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    InputCoupon([Khách nhập mã Voucher]) --> CallCheckCoupon["Kiểm tra Voucher (consumeDealUsage)"]
+    InputCoupon([Khách nhập mã Voucher]) --> CallCheckCoupon["Kiểm tra Voucher"]
     CallCheckCoupon --> FindDeal{"Tìm mã trong Bảng deals?"}
     
     FindDeal -- "Không thấy" --> Err404["Lỗi 404: Mã ưu đãi không tồn tại"]
@@ -343,4 +343,77 @@ flowchart TD
     LogPwd --> InsertActivityLog
     
     InsertActivityLog --> AdminRolesPage["Hiển thị dòng thời gian Hoạt động trên AdminRolesPage.jsx"]
+```
+
+---
+
+## 11. LUỒNG THANH TOÁN TẠI BÀN (TABLE BILLING & CHECKOUT)
+
+Quy trình quản lý hóa đơn, gọi thêm món, áp coupon và xử lý đối soát SePay tự động cho khách ăn tại chỗ:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Customer as Khách ăn tại bàn
+    participant Staff as Nhân viên phục vụ / Thu ngân
+    participant FE as Admin Tables Dashboard
+    participant BE as Express API Server
+    participant SePay as SePay Gateway (Webhook)
+
+    Note over Customer,Staff: Lịch đặt bàn đang ở trạng thái status='serving'
+    Customer->>Staff: 1. Yêu cầu gọi thêm món ăn
+    Staff->>FE: 2. Nhấp chọn Bàn -> "Gọi thêm món"
+    FE->>BE: 3. PATCH /api/bookings/admin/:id/items (Gửi danh sách món ăn gộp mới)
+    BE-->>FE: 4. Cập nhật thành công, tính lại subtotal/total của lịch đặt
+    
+    Customer->>Staff: 5. Yêu cầu thanh toán hóa đơn
+    Staff->>FE: 6. Mở bảng thanh toán, nhập mã giảm giá (nếu có)
+    FE->>BE: 7. Xác thực mã giảm giá -> Trả về số tiền được khấu trừ
+    
+    Staff->>FE: 8. Chọn Phương thức Thanh toán (Cash / Bank)
+    
+    alt Thanh toán Tiền mặt (Cash)
+        Staff->>FE: 9. Nhập số tiền nhận của khách (cashReceived)
+        Staff->>FE: 10. Click "Xác nhận thanh toán"
+        FE->>BE: 11. PATCH /api/bookings/admin/:id/payment (Gửi paymentMethod='cash', paymentStatus='paid')
+        BE-->>FE: 12. Cập nhật booking status='completed', giải phóng bàn status='available'
+    else Thanh toán Chuyển khoản (Bank via VietQR)
+        FE->>FE: 9. Hiển thị mã QR VietQR chứa nội dung "DB{booking_id}"
+        Customer->>Customer: 10. Quét QR chuyển khoản qua App Ngân hàng
+        Note over Customer,SePay: Hệ thống ngân hàng báo giao dịch thành công sang SePay
+        SePay->>BE: 11. POST /api/sepay/webhook (Nội dung chuyển khoản chứa "DB{booking_id}")
+        BE->>BE: 12. So khớp "DB{booking_id}" với lịch đặt bàn có status='serving'
+        BE->>BE: 13. Cập nhật booking: payment_method='bank', payment_status='paid', paid_at=NOW()
+        
+        Note over FE,BE: Polling client (mỗi 2.5 giây) phát hiện payment_status chuyển thành 'paid'
+        BE-->>FE: 14. Trả về booking thông tin đã thanh toán
+        FE->>FE: 15. Phát âm thanh "Ding-dong" thông báo thanh toán thành công
+        FE->>Staff: 16. Hiển thị thông báo Toast thành công
+        Staff->>FE: 17. Click "Xác nhận & Đóng hóa đơn" -> Cập nhật trạng thái booking='completed', giải phóng bàn='available'
+    end
+```
+
+---
+
+## 12. LUỒNG TỰ ĐỘNG RESET BÀN HẰNG NGÀY (DAILY AUTO-RESET STALE TABLES)
+
+Sơ đồ hoạt động của dịch vụ nền dọn dẹp các lịch đặt bàn/bàn ăn bị quên hoặc quá hạn sang ngày mới.
+
+```mermaid
+flowchart TD
+    StartInit([Khởi động Server / 00:00 Hằng Ngày]) --> GetTodayVN["Tính ngày hiện tại theo Múi giờ Việt Nam (UTC+7)"]
+    GetTodayVN --> FindStaleBk["Tìm các lịch đặt bàn có status='serving' hoặc 'confirmed'<br>có ngày đặt nhỏ hơn ngày hiện tại"]
+    
+    FindStaleBk --> CheckStaleCount{"Tìm thấy lịch đặt cũ?"}
+    
+    CheckStaleCount -- "Có" --> CompleteStaleBk["UPDATE bookings SET status = 'completed' WHERE id IN (...)"]
+    CompleteStaleBk --> ReleaseStaleTables["Giải phóng các bàn tương ứng: status = 'available'<br>WHERE table_code IN (...) AND status IN ('serving', 'reserved')"]
+    ReleaseStaleTables --> CleanOrphans
+    
+    CheckStaleCount -- "Không" --> CleanOrphans["Dọn dẹp bàn mồ côi:<br>Tìm bàn có status='serving' nhưng không có lịch đặt active nào"]
+    
+    CleanOrphans --> CheckOrphans{"Tìm thấy bàn mồ côi?"}
+    CheckOrphans -- "Có" --> ReleaseOrphans["UPDATE restaurant_tables SET status = 'available'"]
+    ReleaseOrphans --> EndReset([Kết thúc quá trình Reset])
+    CheckOrphans -- "Không" --> EndReset
 ```

@@ -7,18 +7,24 @@
 
 Hệ thống được thiết kế theo kiến trúc **Fullstack Separation (Client-Server)** với giao diện người dùng đơn trang (SPA) và máy dịch vụ API độc lập:
 
-* **Frontend**: Xây dựng bằng **React** (Vite), điều hướng qua **React Router DOM v6**. Sử dụng bộ icon **Lucide React**, giao diện phân chia rõ rệt thành 2 phân khu: **Khách hàng** (Customer Site) và **Quản trị viên / Nhân viên** (Admin BackOffice Panel).
+* **Frontend**: Xây dựng bằng **React** (Vite), điều hướng qua **React Router DOM v7**. Sử dụng bộ icon **Lucide React** và **React Icons**, giao diện phân chia rõ rệt thành 2 phân khu: **Khách hàng** (Customer Site) và **Quản trị viên / Nhân viên** (Admin BackOffice Panel).
 * **Backend**: Xây dựng bằng **Node.js** với framework **Express.js (v5)** chạy tại cổng `5001`, triển khai chuẩn kiến trúc RESTful API, tích hợp các Middleware xác thực, phân quyền và xử lý dữ liệu.
-* **Cơ sở dữ liệu (Database)**: **MySQL 8.4** chạy trong Docker Container (cổng `3307`), kết nối thông qua thư viện `mysql2` (Pool connection 10 kết nối, thiết lập tự động múi giờ Việt Nam `+07:00`).
+* **Cơ sở dữ liệu (Database)**: **MySQL 8.4** chạy trong Docker Container (cổng `3307`), kết nối thông qua thư viện `mysql2` (Pool connection, thiết lập tự động múi giờ Việt Nam `+07:00`).
 * **Hạ tầng Container (Docker Compose)**:
   * Container `restaurant_mysql`: Chạy MySQL 8.4 với volume dữ liệu `mysql_data`.
   * Container `restaurant_phpmyadmin`: Quản trị CSDL trực quan qua giao diện web tại cổng `8080`.
 * **Cổng thanh toán tự động (SePay Webhook Integration)**:
   * Tích hợp Webhook SePay tại endpoint `POST /api/sepay/webhook`.
-  * Tự động chuẩn hóa chuỗi và đối soát nội dung chuyển khoản ngân hàng với `order_code` / `payment_content` trong CSDL.
-  * Tự động cập nhật `payment_status = 'paid'`, `payment_method = 'bank'`, thời gian `paid_at = NOW()`, ghi nhận chi tiết giao dịch `sepay_transaction` và số tiền `sepay_amount`.
+  * Hỗ trợ thanh toán tự động cho cả **Đơn hàng trực tuyến** (`orders`) và **Hóa đơn tại bàn** (`bookings`).
+  * Đối với đơn hàng trực tuyến (`orders`): Tự động lưu chi tiết giao dịch vào bảng `order_payments`. Hệ thống tính tổng tiền đã trả và cập nhật trạng thái đơn tương ứng: nếu trả đủ cập nhật `payment_status = 'paid'`, nếu trả một phần cập nhật `payment_status = 'partial'`. Đồng thời phát tín hiệu real-time qua **Socket.io** (`order_updated`).
+  * Đối với hóa đơn tại bàn (`bookings`): So khớp nội dung chuyển khoản chứa mã lịch đặt `DB{booking_id}`, tự động cập nhật `payment_status = 'paid'`, `payment_method = 'bank'` và thời gian `paid_at = NOW()`.
+* **Hệ thống tự động Reset Bàn cũ (Daily Auto-Reset Stale Tables)**:
+  * Chạy tự động khi khởi động server và vào lúc **00:00 hằng ngày** (giờ Việt Nam).
+  * Quét và tự động chuyển đổi tất cả các lịch đặt bàn của ngày hôm trước hoặc cũ hơn đang ở trạng thái `serving` hoặc `confirmed` sang trạng thái hoàn thành `completed`.
+  * Giải phóng các bàn ăn tương ứng từ trạng thái `serving`/`reserved` về lại bàn trống `available`.
+  * Tự động dọn dẹp và đưa các bàn "mồ côi" (đang ở trạng thái `serving` nhưng không liên kết với bất kỳ lịch đặt bàn active nào) về lại trạng thái `available`.
 * **Các Dịch vụ & Thư viện bổ trợ**:
-  * **Xác thực & Bảo mật**: **JWT (JSON Web Token)** cấp token thời hạn 7 ngày; **Bcryptjs** mã hóa mật khẩu 1 chiều. Middleware bảo mật chia cấp: `requireAuth`, `requireAdmin`, `requireBackOffice` (`admin`, `manager`, `staff`), và `requireRoles`.
+  * **Xác thực & Bảo mật**: **JWT (JSON Web Token)** cấp token thời hạn 7 ngày; **Bcryptjs** mã hóa mật khẩu 1 chiều. Middleware bảo mật chia cấp chi tiết: `requireAuth`, `requireAdmin`, `requireManagerOrAdmin`, `requireStaffOrHigher` (hoặc `requireBackOffice`), `requireCashierOrHigher`, `requireWaiterOrHigher`, `requireChefOrHigher`, và `requireRoles`.
   * **Gửi Email tự động (Nodemailer)**: Gửi email chứa token kích thực tài khoản (`Verify Email`) và liên kết đặt lại mật khẩu.
   * **Upload Tệp tin (Multer)**: Lưu trữ ảnh món ăn, voucher, avatar người dùng vào `/backend/uploads/` (giới hạn 5MB, hỗ trợ định dạng JPG, PNG, WebP).
   * **Ghi vết Hoạt động (User Activity Logs)**: Tự động ghi nhật ký thao tác vào bảng `user_activity_logs` mỗi khi có thay đổi vai trò, khóa/mở khóa tài khoản hoặc reset mật khẩu.
@@ -35,46 +41,49 @@ restaurant-management/
 │   ├── So_do_Cau_truc/         # Chứa tài liệu cấu trúc & luồng hoạt động hệ thống
 │   └── Yeu_cau_He_thong/       # Chứa yêu cầu nghiệp vụ và tài liệu thiết kế
 ├── backend/                    # Máy chủ API (Node.js/Express)
-│   ├── server.js               # Khởi chạy Express server, cấu hình CORS, tĩnh tệp uploads & Webhook SePay
-│   ├── package.json            # Thư viện Backend (express, mysql2, jsonwebtoken, bcryptjs, multer, v.v)
+│   ├── server.js               # Khởi chạy Express server, cấu hình CORS, tích hợp SePay Webhook & Auto-Reset Tables
+│   ├── package.json            # Thư viện Backend (express, mysql2, jsonwebtoken, bcryptjs, multer, socket.io, v.v)
 │   ├── sync_areas_to_spaces.js # Script đồng bộ dữ liệu
 │   ├── uploads/                # Lưu trữ file upload
 │   │   ├── menu/               # Ảnh món ăn
 │   │   ├── deals/              # Ảnh voucher / banner khuyến mãi
 │   │   └── spaces/             # Ảnh không gian nhà hàng
 │   └── src/
-│       ├── config/             # Cấu hình DB Pool (db.js), Firebase Admin, Scripts Migrate
-│       ├── middleware/         # Auth Middlewares (requireAuth, requireAdmin, requireBackOffice, requireRoles)
+│       ├── config/             # Cấu hình DB Pool (db.js), Firebase Admin, Socket.io (socket.js)
+│       ├── middleware/         # Auth Middlewares (requireAuth, requireAdmin, requireBackOffice, requireRoles, v.v)
+│       ├── migrations/         # Chứa mã nguồn migrate cơ sở dữ liệu (create_order_payments.js)
 │       ├── routes/             # Định tuyến API
 │       │   ├── authRoutes.js       # API Đăng ký, Đăng nhập, Verify Email, Đổi/Quên mật khẩu
 │       │   ├── userRoutes.js       # API Cá nhân & Quản lý danh sách người dùng (Admin)
 │       │   ├── roleRoutes.js       # API Quản lý vai trò (Roles) & Xem nhật ký hoạt động
 │       │   ├── menuRoutes.js       # API Xem thực đơn & danh mục công khai
 │       │   ├── adminMenuRoutes.js  # API Thêm/Sửa/Xóa món ăn, danh mục & upload ảnh
-│       │   ├── orderRoutes.js      # API Đặt hàng, giỏ hàng, cập nhật đơn & lịch sử đơn
-│       │   ├── bookingRoutes.js    # API Đặt bàn trực tuyến & duyệt đặt bàn
+│       │   ├── orderRoutes.js      # API Đặt hàng, giỏ hàng, cập nhật đơn, thêm thanh toán từng phần & lịch sử đơn
+│       │   ├── bookingRoutes.js    # API Đặt bàn, cập nhật món gọi thêm tại bàn & thanh toán tại bàn
 │       │   ├── tableRoutes.js      # API Quản lý sơ đồ bàn, tự sinh mã bàn & khu vực
 │       │   ├── dealRoutes.js       # API Khuyến mãi, kiểm tra & tiêu dùng mã voucher
 │       │   ├── spaceRoutes.js      # API Quản lý không gian nhà hàng
+│       │   ├── activityLogRoutes.js# API Nhật ký hoạt động quản trị
+│       │   ├── categoryRoutes.js   # API Quản lý danh mục món ăn
 │       │   └── dashboardRoutes.js  # API Dashboard báo cáo thống kê
 │       └── utils/              # Helper gửi mail (mail.js), ghi vết (activityLog.js)
 └── frontend/                   # Mã nguồn ứng dụng Client (React/Vite)
     ├── index.html              # Trang HTML đầu vào
     ├── vite.config.js          # Cấu hình Vite bundler
-    ├── package.json            # Thư viện Frontend (react, react-router-dom, lucide-react)
+    ├── package.json            # Thư viện Frontend (react, react-router-dom, tailwindcss, lucide-react, react-icons, swiper, dnd-kit)
     └── src/
-        ├── App.jsx             # Root component (gọi AppRoutes)
+        ├── App.jsx             # Root component
         ├── main.jsx            # Entry point mount React DOM
-        ├── assets/             # Hình ảnh (Menu, Deals, About, Booking, Home, v.v)
+        ├── assets/             # Hình ảnh tĩnh
         ├── components/         # Reusable UI components
         │   ├── Header.jsx, Footer.jsx, ScrollToTop.jsx
         │   ├── DishCard.jsx, RatingStars.jsx, LoginRequiredModal.jsx
         │   └── admin/
         │       ├── AdminHeader.jsx, AdminSidebar.jsx, AdminToast.jsx
         │       ├── StatCard.jsx, AdminProtectedRoute.jsx
-        ├── data/               # Dữ liệu tĩnh giả lập (menuCategories.js)
+        ├── data/               # Dữ liệu tĩnh giả lập
         ├── layouts/
-        │   └── AdminLayout.jsx # Khung giao diện Admin (Sidebar nav + Header admin)
+        │   └── AdminLayout.jsx # Khung giao diện Admin
         ├── pages/              # Trang giao diện Khách hàng
         │   ├── Home.jsx, AboutPage.jsx, ContactPage.jsx, NotFoundPage.jsx
         │   ├── MenuPage.jsx, DealsPage.jsx, DealDetailPage.jsx
@@ -92,7 +101,9 @@ restaurant-management/
         └── utils/
             ├── auth.js         # Lưu/lấy JWT Token, thông tin user trong LocalStorage
             ├── string.js       # Xử lý chuỗi
-            └── permissions.js  # Xử lý phân quyền
+            ├── permissions.js  # Xử lý phân quyền
+            ├── tableHelpers.js # Hỗ trợ tính toán và hiển thị thông tin bàn
+            └── useTablesBilling.js # Custom hook quản lý gọi món thêm và thanh toán tại bàn trong admin
 ```
 
 ---
@@ -101,7 +112,7 @@ restaurant-management/
 
 ### 3.1. Luồng Xác thực & Tài khoản Cá nhân
 1. **Đăng ký (`Register.jsx`)**:
-   * Khách hàng nhập Họ tên, Email, Số điện thoại và Mật khẩu (yêu cầu tối thiểu 8 ký tự).
+   * Khách hàng nhập Họ tên, Email, Số điện thoại và Mật khẩu.
    * Hệ thống kiểm tra trùng lặp Email/SĐT trong CSDL.
    * Tạo tài khoản với `status = 'active'`, `email_verified = 0`.
    * Gửi email xác thực tự động qua **Nodemailer** chứa link/token xác minh.
@@ -129,7 +140,7 @@ restaurant-management/
 ### 3.3. Luồng Đặt món Trực tuyến & Thanh toán Tự động SePay QR (Online Order & Checkout)
 1. **Quản lý Giỏ hàng (`CartPage.jsx`)**:
    * Chọn món ăn từ thực đơn -> Thêm vào giỏ hàng.
-   * Tăng/giảm số lượng, thêm ghi chú riêng cho từng món (ví dụ: "Ít cay", "Không hành").
+   * Tăng/giảm số lượng, thêm ghi chú riêng cho từng món.
    * Tự động tính toán Tổng tạm tính (`subtotal`).
 2. **Tiến hành Đặt hàng (`CheckoutPage.jsx`)**:
    * **Hình thức phục vụ (`serviceType`)**:
@@ -137,19 +148,19 @@ restaurant-management/
      * `delivery`: Giao hàng tận nơi (nhập địa chỉ giao hàng, phí vận chuyển).
      * `pickup`: Khách tự đến nhà hàng lấy.
    * **Thông tin người nhận**: Họ tên, Số điện thoại, Email, Ghi chú chung.
-   * **Áp dụng Mã giảm giá**: Khách nhập mã Voucher -> Hệ thống gọi API kiểm tra điều kiện (Hạn sử dụng, giới hạn lượt dùng, giá trị đơn tối thiểu) -> Tự động trừ số tiền giảm (`couponDiscountTotal`).
+   * **Áp dụng Mã giảm giá**: Khách nhập mã Voucher -> Hệ thống gọi API kiểm tra điều kiện -> Tự động trừ số tiền giảm (`couponDiscountTotal`).
    * **Chọn Phương thức Thanh toán (`paymentMethod`)**:
      * `cash`: Tiền mặt -> Đơn tạo với `payment_status = 'unpaid'`.
      * `bank`: Chuyển khoản Ngân hàng qua VietQR/SePay -> Đơn tạo với `payment_status = 'pending'`.
 3. **Thanh toán tự động bằng SePay VietQR (`PaymentQRPage.jsx`)**:
    * Sau khi chọn `bank`, hệ thống sinh ra một **Mã đơn hàng (`order_code`)** độc nhất (ví dụ: `DH1719998822`).
-   * Màn hình hiển thị mã QR chứa thông tin chuyển khoản ngân hàng: **Số tài khoản, Ngân hàng, Số tiền cần chuyển, và Nội dung chuyển khoản** (chứa mã đơn hàng).
+   * Màn hình hiển thị mã QR chứa thông tin chuyển khoản ngân hàng: Số tài khoản, Ngân hàng, Số tiền cần chuyển, và Nội dung chuyển khoản (chứa mã đơn hàng).
    * **Luồng Webhook SePay Tự động (Real-time Payment Checking)**:
      * Khách hàng dùng App Ngân hàng quét QR và thực hiện chuyển khoản.
      * Cổng thanh toán SePay nhận biến động số dư và bắn request `POST /api/sepay/webhook` sang Backend.
      * Backend trích xuất nội dung chuyển khoản, lọc chuỗi ký tự chuẩn hóa và so khớp với đơn hàng chưa thanh toán (`WHERE payment_status != 'paid'`).
-     * Khi tìm thấy đơn phù hợp: Cập nhật `payment_status = 'paid'`, `payment_method = 'bank'`, `status = 'pending'`, ghi lại thông tin giao dịch ngân hàng.
-     * Trang Frontend `PaymentQRPage.jsx` tự động đối soát thành công và chuyển hướng người dùng sang trang **Xác nhận Đơn hàng Thành công** (`OrderSuccessPage.jsx`).
+     * Khi tìm thấy đơn phù hợp: Lưu thông tin thanh toán vào bảng `order_payments`, tính toán tổng số tiền đã trả cho đơn hàng này. Nếu tổng thanh toán lớn hơn hoặc bằng giá trị đơn, cập nhật `payment_status = 'paid'`, ngược lại cập nhật `payment_status = 'partial'`. Đồng thời lưu vết giao dịch, ghi nhận số tiền và kích hoạt thông báo socket.io `order_updated`.
+     * Trang Frontend `PaymentQRPage.jsx` tự động đối soát thành công (qua cơ chế polling kiểm tra chi tiết đơn hàng hoặc realtime) và chuyển hướng người dùng sang trang **Xác nhận Đơn hàng Thành công** (`OrderSuccessPage.jsx`).
 
 ### 3.4. Luồng Đặt bàn Trực tuyến (Table Reservation & Pre-order)
 1. Khách hàng vào trang **Đặt bàn** (`BookingPage.jsx`).
@@ -157,9 +168,9 @@ restaurant-management/
 3. **Chọn Khu vực & Bàn ăn**:
    * Lựa chọn khu vực ưa thích (Tầng 1, Tầng 2, Phòng VIP, Sân vườn...).
    * Khách có thể chỉ định chọn trước Bàn cụ thể hoặc để nhà hàng tự xếp bàn.
-   * Backend kiểm tra ngay lập tức:
+   * Backend kiểm tra:
      * **Sức chứa bàn (`validateTableCapacity`)**: Đảm bảo số lượng khách không vượt quá số ghế của bàn.
-     * **Trùng lịch bàn (`hasTableConflict`)**: Đảm bảo bàn chưa bị người khác đặt trùng ngày và khung giờ đó (trạng thái `pending` hoặc `confirmed`).
+     * **Trùng lịch bàn (`hasTableConflict`)**: Đảm bảo bàn chưa bị người khác đặt trùng ngày và khung giờ đó (trạng thái `pending`, `confirmed` hoặc `serving`).
 4. **Đặt trước món ăn (Pre-order Menu Items)**: Khách có thể chọn trước danh sách món ăn đi kèm trong buổi đặt bàn để nhà hàng chuẩn bị sẵn.
 5. Gửi yêu cầu đặt bàn -> Hệ thống cấp mã đặt bàn **Booking Code** (ví dụ: `BK1719995544`).
 6. Khách theo dõi phiếu đặt bàn tại `ProfilePage.jsx` / `BookingDetailPage.jsx`: Trạng thái từ `pending` (Chờ duyệt) -> `confirmed` (Đã duyệt & xếp bàn).
@@ -170,7 +181,7 @@ restaurant-management/
 
 ### 4.1. Đăng nhập & Kiểm soát Quyền truy cập (BackOffice Auth Guard)
 * Quản trị viên / Nhân viên truy cập `/admin/login`.
-* Đăng nhập tài khoản. Middleware `AdminProtectedRoute.jsx` kiểm tra xem tài khoản có thuộc các vai trò được phép (`admin`, `manager`, `staff`) hay không.
+* Đăng nhập tài khoản. Middleware `AdminProtectedRoute.jsx` kiểm tra xem tài khoản có thuộc các vai trò được phép (`admin`, `manager`, `staff`, `cashier`, `waiter`, `chef`) hay không.
 * Nếu tài khoản là `user` (Khách hàng), hệ thống sẽ chặn và chuyển hướng về trang chủ `/home`.
 
 ### 4.2. Trang Tổng quan & Chỉ số Kinh doanh (`AdminDashboardPage.jsx`)
@@ -181,18 +192,24 @@ Hiển thị toàn bộ các chỉ số điều hành nhà hàng:
 * **Danh sách giao dịch mới nhất**: Bảng cập nhật các đơn hàng và lượt đặt bàn vừa phát sinh.
 
 ### 4.3. Quản lý Đơn hàng (`AdminOrdersPage.jsx`)
-* **Xem toàn bộ đơn hàng**: Hỗ trợ lọc đơn theo hình thức (`dinein`, `delivery`, `pickup`), trạng thái đơn và trạng thái thanh toán.
+* **Xem toàn bộ đơn hàng**: Hỗ trợ lọc đơn theo hình thức, trạng thái đơn và trạng thái thanh toán.
 * **Cập nhật Tiến độ xử lý đơn**:
   * Tiếp nhận đơn mới (`pending`) -> Đưa vào chế biến (`preparing`).
   * Giao hàng cho đơn ship (`delivering`).
   * Đánh dấu hoàn thành (`completed`) sau khi giao / trả món.
   * Hủy đơn (`cancelled`) kèm lý do hủy.
-* **Xác nhận thanh toán thủ công**: Đánh dấu `paid` cho các đơn trả bằng tiền mặt trực tiếp tại quầy.
+* **Thêm thanh toán từng phần & Xác nhận thanh toán thủ công**: Cho phép nhân viên thu ngân (`cashier` trở lên) ghi nhận thanh toán từng phần cho đơn hàng, ghi sổ vào bảng `order_payments`. Đơn hàng chuyển sang `paid` khi tổng tích lũy thanh toán đạt 100%.
 
-### 4.4. Quản lý Đặt bàn & Xếp bàn (`AdminBookingsPage.jsx`)
-* Tiếp nhận phiếu đặt bàn từ khách hàng trực tuyến hoặc tạo phiếu đặt bàn trực tiếp tại quầy cho khách gọi điện.
+### 4.4. Quản lý Đặt bàn & Vận hành tại Bàn (`AdminBookingsPage.jsx`)
+* Tiếp nhận phiếu đặt bàn từ khách hàng trực tuyến hoặc tạo phiếu trực tiếp tại quầy.
 * **Xếp bàn cho khách**: Chọn bàn ăn khả dụng trong sơ đồ bàn phù hợp với số lượng khách -> Cập nhật trạng thái phiếu đặt từ `pending` sang `confirmed`.
-* Khi khách đến nhà hàng ăn uống xong -> Chuyển trạng thái phiếu đặt sang `completed` để giải phóng bàn ăn về trạng thái `available`.
+* **Vào bàn phục vụ (`serving`)**: Khi khách đến nhận bàn, trạng thái đặt bàn chuyển sang `serving`. Đồng thời, trạng thái của bàn tương ứng trên sơ đồ bàn chuyển từ `available` hoặc `reserved` sang `serving` (Đang phục vụ).
+* **Gọi thêm món tại bàn**: Trong suốt thời gian khách ăn uống tại bàn, nhân viên có thể cập nhật thêm món ăn trực tiếp vào phiếu đặt bàn. Hệ thống sẽ gộp món và cập nhật lại tổng giá trị hóa đơn tạm tính của lịch đặt bàn.
+* **Áp dụng Mã giảm giá**: Nhân viên có thể áp dụng mã voucher giảm giá cho hóa đơn ăn uống tại bàn của khách hàng ngay trên giao diện thanh toán.
+* **Thanh toán tại bàn (Table Billing & Checkout)**:
+  * Hỗ trợ thanh toán bằng Tiền mặt (`cash`), Chuyển khoản VietQR/SePay (`bank`), hoặc Ví điện tử.
+  * **Chuyển khoản SePay tự động**: Hệ thống hiển thị mã QR động có nội dung chuyển khoản chứa mã `DB{booking_id}`. Khi khách hàng quét QR chuyển khoản, Webhook SePay nhận biến động số dư và gửi request `POST /api/sepay/webhook` đến backend. Backend tìm lịch đặt tương thích có trạng thái `serving`, tự động cập nhật `payment_status = 'paid'`, `payment_method = 'bank'`, phát âm thanh chúc mừng tại frontend của nhân viên thu ngân, và cho phép hoàn tất hóa đơn.
+  * **Hủy bàn/Hoàn tất**: Khi thanh toán thành công hoặc kết thúc phục vụ, bàn ăn được giải phóng về trạng thái trống `available`, lịch đặt bàn được chuyển sang `completed`.
 
 ### 4.5. Quản lý Sơ đồ Bàn ăn (`AdminTablesPage.jsx`)
 * **Quản lý Khu vực (Areas)**: Thêm/Sửa khu vực trong nhà hàng (Tầng 1, Tầng 2, Phòng VIP, Sân vườn...).
@@ -219,7 +236,7 @@ Hiển thị toàn bộ các chỉ số điều hành nhà hàng:
   * Giảm theo phần trăm (`percentage`): % giảm, số tiền giảm tối đa (`max_discount`).
   * Giảm số tiền cố định (`fixed_amount`): Giảm trực tiếp X đồng.
 * **Cấu hình giới hạn & điều kiện**:
-  * Giá trị đơn hàng tối thiểu (`min_order_value`).
+  * Giá trị đơn hàng tối thiểu (`min_order_value` hoặc `condition_amount`).
   * Tổng số lượt sử dụng tối đa (`usage_limit`).
   * Ngày bắt đầu & Ngày kết thúc hiệu lực.
   * Điều kiện hình thức dịch vụ áp dụng (`dinein`, `delivery`, `pickup`).
@@ -237,32 +254,33 @@ Hiển thị toàn bộ các chỉ số điều hành nhà hàng:
   * Reset mật khẩu mặc định cho người dùng.
 
 ### 4.9. Phân quyền Vai trò & Quyền hạn (`AdminRolesPage.jsx`)
-* Quản lý danh sách các tài khoản nội bộ nhà hàng (Admin, Manager, Staff).
+* Quản lý danh sách các tài khoản nội bộ nhà hàng (Admin, Manager, Staff, Cashier, Waiter, Chef).
 * Phân định các nhóm quyền (Role-Based Access Control - RBAC):
   * **Admin**: Quyền quản trị tối cao (Toàn quyền hệ thống).
   * **Manager**: Quyền quản lý kinh doanh (Đơn hàng, Đặt bàn, Thực đơn, Khuyến mãi).
-  * **Staff / Cashier**: Quyền thao tác vận hành (Xem đơn hàng, Duyệt bàn, Cập nhật trạng thái phục vụ).
-* **Xem Nhật ký Hoạt động (User Activity Logs)**: Hiển thị danh sách các thao tác nhạy cảm do Admin/Manager thực hiện (Ai đã thay đổi quyền của ai, thời gian thực hiện, giá trị cũ và giá trị mới).
+  * **Staff / Cashier / Waiter / Chef**: Quyền thao tác vận hành chi tiết theo chức năng được phân nhiệm (Thu ngân xem đơn và ghi thanh toán, Phục vụ cập nhật trạng thái phục vụ và gọi thêm món, Đầu bếp xem danh sách chế biến).
+* **Xem Nhật ký Hoạt động (User Activity Logs)**: Hiển thị danh sách các thao tác nhạy cảm do Admin/Manager thực hiện.
 
 ### 4.10. Thống kê Doanh thu & Báo cáo (`AdminRevenuePage.jsx`)
 * Báo cáo chi tiết doanh thu theo khoảng thời gian tùy chọn.
-* Thống kê tỷ trọng doanh thu giữa các phương thức thanh toán (Chuyển khoản SePay QR vs Tiền mặt).
+* Thống kê tỷ trọng doanh thu giữa các phương thức thanh toán (Chuyển khoản SePay QR vs Tiền mặt vs Ví điện tử).
 
 ---
 
 ## 5. DỮ LIỆU & CÁC THỰC THỂ CƠ SỞ DỮ LIỆU (DATABASE SCHEMA & ENTITIES)
 
-1. **`users`**: `id`, `name`, `full_name`, `email`, `phone`, `password` (hashed), `address`, `avatar`, `role` (`admin`, `manager`, `staff`, `user`), `status` (`active`, `locked`), `email_verified`, `auth_provider`, `created_at`, `updated_at`, `deleted_at`.
+1. **`users`**: `id`, `name`, `full_name`, `email`, `phone`, `password` (hashed), `address`, `avatar`, `role` (`admin`, `manager`, `staff`, `cashier`, `waiter`, `chef`, `user`), `status` (`active`, `locked`), `email_verified`, `auth_provider`, `created_at`, `updated_at`, `deleted_at`.
 2. **`roles` & `permissions`**: Định nghĩa nhóm quyền và ma trận phân quyền hệ thống.
 3. **`categories`**: `id`, `code`, `name`, `description`, `status`, `created_at`.
 4. **`menu_items`**: `id`, `code`, `category_id`, `name`, `price`, `description`, `images` (JSON array paths), `status` (`active`, `out_of_stock`, `disabled`), `created_at`.
 5. **`areas`**: `id`, `code`, `name`, `description`, `created_at`.
 6. **`restaurant_tables`**: `id`, `table_code`, `area_id`, `seats`, `status` (`available`, `serving`, `maintenance`, `disabled`), `deleted_at`.
-7. **`bookings`**: `id`, `booking_code`, `user_id`, `customer_name`, `phone`, `email`, `booking_date`, `booking_time`, `guests`, `selected_area`, `selected_table`, `note`, `cart_items` (JSON), `subtotal`, `total`, `status` (`pending`, `confirmed`, `completed`, `cancelled`), `created_at`.
-8. **`orders`**: `id`, `order_code`, `customer_name`, `phone`, `email`, `service_type` (`dinein`, `delivery`, `pickup`), `table_code`, `guests`, `address`, `receiver`, `payment_method` (`cash`, `bank`), `payment_status` (`unpaid`, `pending`, `paid`), `status` (`pending`, `preparing`, `delivering`, `completed`, `cancelled`), `subtotal`, `shipping_fee`, `discount_total`, `coupon_discount_total`, `total`, `applied_coupon` (JSON), `payment_content`, `sepay_transaction` (JSON), `sepay_amount`, `paid_at`, `raw_data` (JSON), `created_at`, `updated_at`.
+7. **`bookings`**: `id`, `booking_code`, `user_id`, `customer_name`, `phone`, `email`, `booking_date`, `booking_time`, `guests`, `selected_area`, `selected_table`, `note`, `cart_items` (JSON), `subtotal`, `total`, `status` (`pending`, `confirmed`, `serving`, `completed`, `cancelled`), `payment_method` (`cash`, `bank`, v.v), `payment_status` (`unpaid`, `pending`, `paid`), `paid_at`, `coupon_code`, `discount_amount`, `created_at`, `updated_at`, `deleted_at`.
+8. **`orders`**: `id`, `order_code`, `customer_name`, `phone`, `email`, `service_type` (`dinein`, `delivery`, `pickup`), `table_code`, `guests`, `address`, `receiver`, `payment_method` (`cash`, `bank`), `payment_status` (`unpaid`, `pending`, `partial`, `paid`), `status` (`pending`, `preparing`, `delivering`, `completed`, `cancelled`), `subtotal`, `shipping_fee`, `discount_total`, `coupon_discount_total`, `total`, `applied_coupon` (JSON), `payment_content`, `sepay_transaction` (JSON), `sepay_amount`, `paid_at`, `raw_data` (JSON), `created_at`, `updated_at`.
 9. **`order_items`**: `id`, `order_id`, `menu_item_code`, `name`, `image`, `price`, `qty`, `note`, `raw_data` (JSON).
-10. **`deals`**: `id`, `code`, `title`, `description`, `discount_type` (`percentage`, `fixed_amount`), `discount_value`, `max_discount`, `min_order_value`, `usage_limit`, `used_count`, `service_conditions` (JSON), `usage_history` (JSON), `start_date`, `end_date`, `status` (`active`, `expired`, `disabled`), `created_at`.
-11. **`user_activity_logs`**: `id`, `target_user_id`, `actor_user_id`, `action`, `old_value`, `new_value`, `message`, `created_at`.
+10. **`order_payments`**: `id`, `order_id` (FOREIGN KEY), `amount`, `payment_method`, `payment_status` (`paid`), `transaction_id`, `note`, `created_at`, `updated_at`.
+11. **`deals`**: `id`, `code`, `title`, `description`, `discount_type` (`percentage`, `fixed_amount`), `discount_value`, `max_discount`, `min_order_value`, `usage_limit`, `used_count`, `service_conditions` (JSON), `usage_history` (JSON), `start_date`, `end_date`, `status` (`active`, `expired`, `disabled`), `created_at`.
+12. **`user_activity_logs`**: `id`, `target_user_id`, `actor_user_id`, `action`, `old_value`, `new_value`, `message`, `created_at`.
 
 ---
 
