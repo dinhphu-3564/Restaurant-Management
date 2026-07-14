@@ -12,7 +12,7 @@ export function AnimatedNumber({ value, isCurrency = false, isDecimal = false, d
     const step = (timestamp) => {
       if (!startTimestamp) startTimestamp = timestamp;
       const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-      const current = Math.floor(progress * endVal);
+      const current = isDecimal ? (progress * endVal) : Math.floor(progress * endVal);
       setDisplayValue(current);
 
       if (progress < 1) {

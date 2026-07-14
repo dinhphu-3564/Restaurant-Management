@@ -48,7 +48,7 @@ function AdminMenuPage() {
   const [addFormTab, setAddFormTab] = useState("description");
   const [showOtherCategories, setShowOtherCategories] = useState(false);
   const emptyFoodForm = {
-    name: "", image: "", images: [], category: "Dê hấp", subCategory: "", price: "",
+    name: "", image: "", images: [], category: "Dê hấp", subCategory: "", price: "", costPrice: "",
     type: "Món chính", status: "selling", badge: "", portion: "", cooking: "", time: "",
     shortDescription: "", description: "", ingredients: "", flavor: "",
   };
@@ -145,7 +145,7 @@ function AdminMenuPage() {
   const openEditFoodModal = (food) => {
     const isOtherCategory = food.parentCategory === "Món khác" || otherSubCategories.includes(food.category);
     setEditingFood(food);
-    setEditForm({ ...emptyFoodForm, ...food, category: isOtherCategory ? "Món khác" : food.category || "Dê hấp", subCategory: isOtherCategory ? food.subCategory || food.category : "", price: String(food.price || ""), images: food.images?.length ? food.images : food.image ? [food.image] : [], image: food.image || food.images?.[0] || "", shortDescription: food.shortDescription || "", description: food.description || "", ingredients: food.ingredients || "", flavor: food.flavor || "" });
+    setEditForm({ ...emptyFoodForm, ...food, category: isOtherCategory ? "Món khác" : food.category || "Dê hấp", subCategory: isOtherCategory ? food.subCategory || food.category : "", price: String(food.price || ""), costPrice: String(food.costPrice || ""), images: food.images?.length ? food.images : food.image ? [food.image] : [], image: food.image || food.images?.[0] || "", shortDescription: food.shortDescription || "", description: food.description || "", ingredients: food.ingredients || "", flavor: food.flavor || "" });
     setAddFormTab("description");
     setShowOtherCategories(isOtherCategory);
     setIsAddFoodOpen(true);
@@ -183,7 +183,7 @@ function AdminMenuPage() {
     if (!editForm.price) { alert("Vui lòng nhập giá bán"); return; }
     if (editForm.category === "Món khác" && !editForm.subCategory) { alert("Vui lòng chọn mục con"); return; }
     try {
-      const payload = { ...editForm, price: Number(editForm.price), image: editForm.image || editForm.images?.[0] || "/src/assets/images/Menu/default-food.png", images: editForm.images?.length > 0 ? editForm.images : [editForm.image || "/src/assets/images/Menu/default-food.png"] };
+      const payload = { ...editForm, price: Number(editForm.price), costPrice: Number(editForm.costPrice || 0), image: editForm.image || editForm.images?.[0] || "/src/assets/images/Menu/default-food.png", images: editForm.images?.length > 0 ? editForm.images : [editForm.image || "/src/assets/images/Menu/default-food.png"] };
       const res = await fetch(editingFood ? `${API_URL}/${editingFood.id}` : API_URL, { method: editingFood ? "PUT" : "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getAuthToken()}` }, body: JSON.stringify(payload) });
       const result = await res.json();
       if (!result.success) { alert(result.message || "Lưu món ăn thất bại"); return; }

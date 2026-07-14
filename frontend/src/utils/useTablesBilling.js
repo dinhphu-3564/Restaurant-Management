@@ -104,7 +104,7 @@ export function useTablesBilling({ selectedTable, setSelectedTable, bookings, se
     setCartToAdd((prev) =>
       prev
         .map((item) =>
-          String(item.id) === String(id) ? { ...item, qty: Math.max(1, item.qty + delta) } : item
+          String(item.id) === String(id) ? { ...item, qty: Math.max(0, item.qty + delta) } : item
         )
         .filter((item) => item.qty > 0)
     );

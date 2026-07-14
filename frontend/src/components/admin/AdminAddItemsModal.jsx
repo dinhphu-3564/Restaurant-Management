@@ -1,5 +1,5 @@
 import React from "react";
-import { X, Search, Plus, Minus, ShoppingBag, ChefHat } from "lucide-react";
+import { X, Search, Plus, Minus, ShoppingBag, ChefHat, Trash2 } from "lucide-react";
 
 export default function AdminAddItemsModal({
   activeAddItemsBooking,
@@ -185,11 +185,19 @@ export default function AdminAddItemsModal({
                 <div className="flex items-center gap-2">
                   <ShoppingBag size={16} className="text-green-700" />
                   <h4 className="font-black text-sm text-gray-900">Món đã chọn</h4>
+                  {totalItems > 0 && (
+                    <span className="px-2 py-0.5 bg-green-700 text-white text-xs font-black rounded-full">
+                      {totalItems}
+                    </span>
+                  )}
                 </div>
-                {totalItems > 0 && (
-                  <span className="px-2 py-0.5 bg-green-700 text-white text-xs font-black rounded-full">
-                    {totalItems}
-                  </span>
+                {cartToAdd.length > 0 && (
+                  <button
+                    onClick={() => setCartToAdd([])}
+                    className="text-xs font-bold text-red-500 hover:text-red-600 transition"
+                  >
+                    Xóa tất cả
+                  </button>
                 )}
               </div>
             </div>
@@ -209,19 +217,28 @@ export default function AdminAddItemsModal({
                         {Number(item.price || 0).toLocaleString("vi-VN")}đ
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0 bg-gray-50 border border-gray-200 rounded-lg p-0.5">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg p-0.5">
+                        <button
+                          onClick={() => handleUpdateTempCartQty(item.id, -1)}
+                          className="w-5 h-5 rounded hover:bg-red-50 hover:text-red-500 text-gray-400 flex items-center justify-center transition"
+                        >
+                          <Minus size={10} />
+                        </button>
+                        <span className="text-xs font-black text-gray-900 w-5 text-center">{item.qty}</span>
+                        <button
+                          onClick={() => handleUpdateTempCartQty(item.id, 1)}
+                          className="w-5 h-5 rounded hover:bg-green-50 hover:text-green-700 text-gray-400 flex items-center justify-center transition"
+                        >
+                          <Plus size={10} />
+                        </button>
+                      </div>
                       <button
-                        onClick={() => handleUpdateTempCartQty(item.id, -1)}
-                        className="w-5 h-5 rounded hover:bg-red-50 hover:text-red-500 text-gray-400 flex items-center justify-center transition"
+                        onClick={() => setCartToAdd(prev => prev.filter(i => i.id !== item.id))}
+                        className="w-6 h-6 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500 flex items-center justify-center transition"
+                        title="Xóa món này"
                       >
-                        <Minus size={10} />
-                      </button>
-                      <span className="text-xs font-black text-gray-900 w-5 text-center">{item.qty}</span>
-                      <button
-                        onClick={() => handleUpdateTempCartQty(item.id, 1)}
-                        className="w-5 h-5 rounded hover:bg-green-50 hover:text-green-700 text-gray-400 flex items-center justify-center transition"
-                      >
-                        <Plus size={10} />
+                        <Trash2 size={12} />
                       </button>
                     </div>
                   </div>

@@ -53,6 +53,10 @@ export default function AdminFoodDetailModal({
             value={formatPrice(selectedFood.price)}
           />
           <DetailRow
+            label="Giá vốn"
+            value={formatPrice(selectedFood.costPrice)}
+          />
+          <DetailRow
             label="Trạng thái"
             value={getStatusText(selectedFood.status)}
           />

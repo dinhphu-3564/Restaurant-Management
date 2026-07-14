@@ -1,7 +1,5 @@
 import { io } from "socket.io-client";
-
-// Lấy URL backend (có thể cấu hình lại theo môi trường production)
-const BACKEND_URL = "http://localhost:5001";
+import { BACKEND_URL } from "../config/api";
 
 // Khởi tạo connection duy nhất
 export const socket = io(BACKEND_URL, {

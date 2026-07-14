@@ -307,24 +307,52 @@ function Home() {
   );
 
   // khuyến mãi
-  const promos = [
+  const [promos, setPromos] = useState([
     {
-      id: "family-combo",
+      id: "birthday25",
       title: "Combo gia đình",
-      discount: "-20%",
+      discount: "-25%",
       price: "Đặt ngay",
       image: comboCardImg,
       desc: "Ưu đãi đặc biệt dành cho khách đi theo nhóm gia đình.",
     },
     {
-      id: "online-order",
+      id: "online10",
       title: "Giảm giá đặt online",
       discount: "-10%",
       price: "Đặt ngay",
       image: onlineCardImg,
       desc: "Ưu đãi khi đặt món online qua website.",
     },
-  ];
+  ]);
+
+  useEffect(() => {
+    const fetchPromos = async () => {
+      try {
+        const res = await fetch("http://localhost:5001/api/deals");
+        const result = await res.json();
+        if (result.success && Array.isArray(result.deals)) {
+          const activeDeals = result.deals
+            .filter((d) => d.status === "active")
+            .slice(0, 2)
+            .map((d) => ({
+              id: d.slug || d.code || String(d.id),
+              title: d.name,
+              discount: `-${d.discount}`,
+              price: "Xem chi tiết",
+              image: d.card_image || d.detail_image || (d.type === "Sinh nhật" ? comboCardImg : onlineCardImg),
+              desc: d.subtitle || d.description,
+            }));
+          if (activeDeals.length > 0) {
+            setPromos(activeDeals);
+          }
+        }
+      } catch (err) {
+        console.error("Lỗi lấy danh sách khuyến mãi trang chủ:", err);
+      }
+    };
+    fetchPromos();
+  }, []);
 
   const reasons = [
     {

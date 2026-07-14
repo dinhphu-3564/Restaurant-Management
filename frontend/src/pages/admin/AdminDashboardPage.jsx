@@ -45,7 +45,7 @@ function AdminDashboardPage() {
     }
   }, [loading, stats]);
 
-  const { totalUsers = 0, totalOrders = 0, totalBookings = 0, totalRevenue = 0, totalBookingGuests = 0, activeMenuItems = 0, orderStatusBreakdown = {}, latestOrders = [], latestBookings = [], bestFoods = [], categoryRevenue = [], dailyLabels = [], dailyRevenues = [], dailyProfits = [], growths = {} } = stats || {};
+  const { totalUsers = 0, totalOrders = 0, totalBookings = 0, totalRevenue = 0, totalProfit = 0, totalBookingGuests = 0, activeMenuItems = 0, orderStatusBreakdown = {}, latestOrders = [], latestBookings = [], bestFoods = [], categoryRevenue = [], dailyLabels = [], dailyRevenues = [], dailyProfits = [], growths = {} } = stats || {};
 
   const orderStatusPending = orderStatusBreakdown.pending || 0;
   const orderStatusPreparing = orderStatusBreakdown.preparing || 0;
@@ -192,7 +192,7 @@ function AdminDashboardPage() {
         <DashboardCard icon={<ShoppingBag />} title="Đơn hàng" value={totalOrders} percent={growths.orders || "0.0%"} bg="bg-blue-50" color="text-blue-600" to="/admin/orders" />
         <DashboardCard icon={<CalendarCheck />} title="Đặt bàn" value={totalBookings} percent={growths.bookings || "0.0%"} bg="bg-purple-50" color="text-purple-600" to="/admin/bookings" />
         <DashboardCard icon={<Users />} title="Khách hàng mới" value={totalUsers} percent={growths.users || "0.0%"} bg="bg-orange-50" color="text-orange-600" to="/admin/users" />
-        <DashboardCard icon={<Wallet />} title="Lợi nhuận" value={totalRevenue * 0.38} isCurrency={true} percent={growths.profit || "0.0%"} bg="bg-red-50" color="text-red-500" to="/admin/revenue" />
+        <DashboardCard icon={<Wallet />} title="Lợi nhuận" value={totalProfit} isCurrency={true} percent={growths.profit || "0.0%"} bg="bg-red-50" color="text-red-500" to="/admin/revenue" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] xl:grid-cols-[1.35fr_1.05fr_.8fr] gap-4 delay-chart">
@@ -260,7 +260,7 @@ function AdminDashboardPage() {
                 categoryRevenue.slice(0, 5).map((cat, idx) => {
                   const colors = ["bg-green-600", "bg-yellow-500", "bg-blue-500", "bg-purple-500", "bg-gray-400"];
                   const pct = totalOrdersRevenue > 0 ? ((cat.revenue / totalOrdersRevenue) * 100).toFixed(1) + "%" : "0%";
-                  return (<div key={cat.name} onMouseEnter={() => setHoveredCategory(idx)} onMouseLeave={() => setHoveredCategory(null)} className="cursor-pointer"><CategoryLine color={colors[idx % colors.length]} name={cat.name} value={pct} chartProgress={chartProgress} /></div>);
+                  return (<div key={`${cat.name}-${idx}`} onMouseEnter={() => setHoveredCategory(idx)} onMouseLeave={() => setHoveredCategory(null)} className="cursor-pointer"><CategoryLine color={colors[idx % colors.length]} name={cat.name} value={pct} chartProgress={chartProgress} /></div>);
                 })
               ) : (<><CategoryLine color="bg-green-600" name="Dê tươi" value="0%" chartProgress={chartProgress} /><CategoryLine color="bg-yellow-500" name="Lẩu" value="0%" chartProgress={chartProgress} /></>)}
             </div>

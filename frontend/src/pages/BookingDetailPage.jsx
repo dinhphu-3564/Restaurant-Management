@@ -45,6 +45,10 @@ function BookingDetailPage() {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [reviewedIds, setReviewedIds] = useState([]);
+  const [reviewItem, setReviewItem] = useState(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
 
   useEffect(() => {
     const loadBookingDetail = async () => {
@@ -102,6 +106,29 @@ function BookingDetailPage() {
         }
 
         setBooking(data.booking);
+        
+        // Fetch reviewed IDs for this booking
+        if (data.booking) {
+          const items = data.booking.cartItems || data.booking.items || [];
+          const bCode = data.booking.bookingCode || `DB${data.booking.id}`;
+          const reviewed = [];
+          for (const item of items) {
+            const itemCode = item.id || item.code || item.name;
+            try {
+              const revRes = await fetch(`${API_URL}/api/menu-items/${itemCode}/reviews`);
+              const revData = await revRes.json();
+              if (revData.success && Array.isArray(revData.data)) {
+                const hasReviewed = revData.data.some(r => String(r.order_id) === String(bCode));
+                if (hasReviewed) {
+                  reviewed.push(itemCode);
+                }
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          }
+          setReviewedIds(reviewed);
+        }
       } catch (error) {
         console.error("Lỗi tải chi tiết đặt bàn:", error);
         setBooking(null);
@@ -204,6 +231,42 @@ function BookingDetailPage() {
 
   const formatPrice = (price) => {
     return Number(price || 0).toLocaleString("vi-VN") + "đ";
+  };
+
+  const submitFoodReview = async () => {
+    if (!reviewItem) return;
+    const token = getAuthToken();
+    if (!token) return;
+    const bCode = booking.bookingCode || `DB${booking.id}`;
+    const currentUser = JSON.parse(localStorage.getItem("currentUser")) || JSON.parse(sessionStorage.getItem("currentUser")) || {};
+    try {
+      const res = await fetch(`${API_URL}/api/menu-items/${reviewItem.id}/reviews`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderId: bCode,
+          userEmail: currentUser.email,
+          userName: currentUser.name,
+          rating: reviewRating,
+          comment: reviewComment,
+        }),
+      });
+      const result = await res.json();
+      if (!result.success) {
+        alert(result.message || "Đánh giá thất bại");
+        return;
+      }
+      alert("Đánh giá món ăn thành công");
+      setReviewedIds((prev) => [...prev, reviewItem.id]);
+      setReviewItem(null);
+      setReviewRating(5);
+      setReviewComment("");
+    } catch (err) {
+      console.error("Lỗi gửi đánh giá:", err);
+      alert("Không thể kết nối backend");
+    }
   };
 
   const getStatusText = (status) => {
@@ -423,9 +486,34 @@ function BookingDetailPage() {
                               {item.name}
                             </p>
 
-                            <span className="inline-flex mt-2 px-3 py-1 rounded-full bg-green-50 text-green-800 text-sm font-black">
-                              SL: {qty}
-                            </span>
+                            <div className="flex items-center gap-3 mt-2">
+                              <span className="inline-flex px-3 py-1 rounded-full bg-green-50 text-green-800 text-sm font-black">
+                                SL: {qty}
+                              </span>
+
+                              {booking.status === "completed" && (
+                                <button
+                                  type="button"
+                                  disabled={reviewedIds.includes(item.id || item.code || item.name)}
+                                  onClick={() => {
+                                    setReviewItem({
+                                      id: item.id || item.code || item.name,
+                                      name: item.name,
+                                      image: item.image,
+                                    });
+                                    setReviewRating(5);
+                                    setReviewComment("");
+                                  }}
+                                  className={`px-3 py-1 rounded-full text-xs font-black transition ${
+                                    reviewedIds.includes(item.id || item.code || item.name)
+                                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                      : "bg-[#d6a84f] text-green-955 hover:bg-[#c99a45]"
+                                  }`}
+                                >
+                                  {reviewedIds.includes(item.id || item.code || item.name) ? "Đã đánh giá" : "Đánh giá"}
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           <div className="text-right font-black text-[#b88935]">
@@ -490,6 +578,80 @@ function BookingDetailPage() {
           </div>
         </div>
       </div>
+      {reviewItem && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center px-4">
+          <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-5 text-left">
+            <div className="flex items-center justify-between gap-4 border-b border-[#eadfcd] pb-4">
+              <div className="flex items-center gap-3">
+                <img
+                  src={reviewItem.image}
+                  alt={reviewItem.name}
+                  className="w-14 h-14 rounded-xl object-cover bg-gray-100"
+                />
+                <div>
+                  <h3 className="text-2xl font-black text-green-900">
+                    Đánh giá món ăn
+                  </h3>
+                  <p className="text-sm text-gray-500 font-bold mt-1">
+                    {reviewItem.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setReviewItem(null)}
+                className="w-9 h-9 rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="py-5 space-y-4">
+              <div>
+                <p className="font-black text-green-900 mb-2">Số sao</p>
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewRating(star)}
+                      className={`text-3xl ${
+                        star <= reviewRating ? "text-[#d6a84f]" : "text-gray-300"
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <label className="block">
+                <span className="font-black text-green-900">Nhận xét</span>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Món ăn như thế nào?"
+                  className="mt-2 w-full h-28 rounded-xl border border-[#eadfcd] px-4 py-3 outline-none resize-none bg-white"
+                />
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-[#eadfcd] pt-4">
+              <button
+                onClick={() => setReviewItem(null)}
+                className="h-11 px-5 rounded-xl bg-gray-100 text-gray-600 font-black"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={submitFoodReview}
+                className="h-11 px-6 rounded-xl bg-green-800 text-white font-black hover:bg-green-900"
+              >
+                Gửi đánh giá
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

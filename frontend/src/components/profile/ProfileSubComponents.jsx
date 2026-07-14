@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import GlobalPagination from "../admin/GlobalPagination";
 import { useNavigate } from "react-router-dom";
 import {
   CalendarDays,
@@ -70,6 +71,12 @@ export function OrderHistoryContent() {
   const [savedOrders, setSavedOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter, timeFilter]);
 
   const loadMyOrders = async () => {
     const token = getAuthToken();
@@ -156,6 +163,11 @@ export function OrderHistoryContent() {
     return true;
   });
 
+  const paginatedOrders = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredOrders.slice(start, start + pageSize);
+  }, [filteredOrders, currentPage, pageSize]);
+
   return (
     <div className="bg-white border border-[#eadfcd] rounded-[26px] shadow-sm p-5 md:p-6 text-left">
       <div className="flex items-center justify-between gap-4 mb-6">
@@ -213,16 +225,21 @@ export function OrderHistoryContent() {
       ) : null}
 
       {!loading && !error && filteredOrders.length > 0 && (
-        <div
-          className={`space-y-3 ${
-            filteredOrders.length > 5
-              ? "max-h-[700px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-[#d6a84f] scrollbar-track-transparent"
-              : ""
-          }`}
-        >
-          {filteredOrders.map((order, index) => (
+        <div className="space-y-3">
+          {paginatedOrders.map((order, index) => (
             <OrderCard key={`${order.id}-${index}`} order={order} />
           ))}
+          
+          <div className="mt-5 pt-4 border-t border-gray-100">
+            <GlobalPagination
+              total={filteredOrders.length}
+              page={currentPage}
+              limit={pageSize}
+              onPageChange={setCurrentPage}
+              onLimitChange={setPageSize}
+              limitOptions={[5, 10, 20, 50]}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -699,6 +716,8 @@ export function BookingHistoryContent() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
 
   const loadMyBookings = async () => {
     const token = getAuthToken();
@@ -762,6 +781,11 @@ export function BookingHistoryContent() {
     });
   };
 
+  const paginatedBookings = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return bookings.slice(start, start + pageSize);
+  }, [bookings, currentPage, pageSize]);
+
   return (
     <div className="bg-white border border-[#eadfcd] rounded-[26px] shadow-sm p-5 md:p-6 text-left">
       <h2 className="text-2xl md:text-3xl font-black text-green-900">
@@ -799,7 +823,7 @@ export function BookingHistoryContent() {
 
       {!loading && !error && bookings.length > 0 && (
         <div className="space-y-4">
-          {bookings.map((booking) => (
+          {paginatedBookings.map((booking) => (
             <div
               key={booking.id}
               className="border border-[#eadfcd] rounded-2xl p-4 grid md:grid-cols-[1fr_180px_130px] gap-4 items-center text-left"
@@ -834,6 +858,17 @@ export function BookingHistoryContent() {
               </button>
             </div>
           ))}
+          
+          <div className="mt-5 pt-4 border-t border-gray-100">
+            <GlobalPagination
+              total={bookings.length}
+              page={currentPage}
+              limit={pageSize}
+              onPageChange={setCurrentPage}
+              onLimitChange={setPageSize}
+              limitOptions={[5, 10, 20, 50]}
+            />
+          </div>
         </div>
       )}
     </div>

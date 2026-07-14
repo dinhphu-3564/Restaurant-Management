@@ -33,12 +33,12 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
       "SELECT COUNT(*) AS totalBookings FROM bookings WHERE deleted_at IS NULL",
     );
 
-    // 3. Doanh thu từ orders và bookings
+    // 3. Doanh thu từ orders và bookings (Chỉ tính đơn đã thanh toán)
     const [[{ orderRevenue }]] = await db.query(
-      "SELECT COALESCE(SUM(total), 0) AS orderRevenue FROM orders WHERE status != 'cancelled'",
+      "SELECT COALESCE(SUM(total), 0) AS orderRevenue FROM orders WHERE (status = 'paid' OR status = 'completed' OR payment_status = 'paid')",
     );
     const [[{ bookingRevenue }]] = await db.query(
-      "SELECT COALESCE(SUM(total), 0) AS bookingRevenue FROM bookings WHERE deleted_at IS NULL AND status != 'cancelled'",
+      "SELECT COALESCE(SUM(total), 0) AS bookingRevenue FROM bookings WHERE deleted_at IS NULL AND (status = 'completed' OR payment_status = 'paid')",
     );
     const totalRevenue = Number(orderRevenue) + Number(bookingRevenue);
 
@@ -85,20 +85,57 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
       "SELECT id, name, image, sold AS qty, price FROM menu_items WHERE status = 'selling' ORDER BY sold DESC LIMIT 5",
     );
 
+    // Tải thông tin tất cả món ăn để tra cứu giá vốn/nhóm món
+    const [menuItems] = await db.query(`
+      SELECT mi.id, mi.code, mi.name, mi.cost_price, c.name AS category_name 
+      FROM menu_items mi 
+      LEFT JOIN categories c ON c.id = mi.category_id
+    `);
+    const menuMap = {};
+    menuItems.forEach((mi) => {
+      if (mi.code) menuMap[String(mi.code).toLowerCase()] = mi;
+      if (mi.id) menuMap[String(mi.id)] = mi;
+      if (mi.name) menuMap[String(mi.name).toLowerCase()] = mi;
+    });
+
+    // Tính toán giá vốn tổng cộng thực tế (đối với đơn đã thanh toán)
+    const [[{ orderTotalCost }]] = await db.query(`
+      SELECT COALESCE(SUM(oi.unit_cost * oi.qty), 0) AS cost
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE (o.status = 'paid' OR o.status = 'completed' OR o.payment_status = 'paid')
+    `);
+    const [allPaidBookings] = await db.query(`
+      SELECT cart_items FROM bookings
+      WHERE deleted_at IS NULL AND (status = 'completed' OR payment_status = 'paid')
+    `);
+    let bookingTotalCost = 0;
+    allPaidBookings.forEach((row) => {
+      const cartItems = parseJson(row.cart_items, []);
+      cartItems.forEach((item) => {
+        const itemKey = String(item.id || item.code || item.name || "").toLowerCase();
+        const matched = menuMap[itemKey];
+        const cost = matched ? Number(matched.cost_price || 0) : 0;
+        bookingTotalCost += cost * Number(item.qty || 0);
+      });
+    });
+    const totalCost = Number(orderTotalCost) + bookingTotalCost;
+    const totalProfit = totalRevenue - totalCost;
+
     // A. Tính toán tăng trưởng tuần thực tế cho các KPI
     const [[{ thisWeekOrderRev }]] = await db.query(
-      "SELECT COALESCE(SUM(total), 0) AS thisWeekOrderRev FROM orders WHERE status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
+      "SELECT COALESCE(SUM(total), 0) AS thisWeekOrderRev FROM orders WHERE (status = 'paid' OR status = 'completed' OR payment_status = 'paid') AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
     const [[{ thisWeekBookingRev }]] = await db.query(
-      "SELECT COALESCE(SUM(total), 0) AS thisWeekBookingRev FROM bookings WHERE deleted_at IS NULL AND status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
+      "SELECT COALESCE(SUM(total), 0) AS thisWeekBookingRev FROM bookings WHERE deleted_at IS NULL AND (status = 'completed' OR payment_status = 'paid') AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
     const thisWeekRev = Number(thisWeekOrderRev) + Number(thisWeekBookingRev);
 
     const [[{ lastWeekOrderRev }]] = await db.query(
-      "SELECT COALESCE(SUM(total), 0) AS lastWeekOrderRev FROM orders WHERE status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
+      "SELECT COALESCE(SUM(total), 0) AS lastWeekOrderRev FROM orders WHERE (status = 'paid' OR status = 'completed' OR payment_status = 'paid') AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
     const [[{ lastWeekBookingRev }]] = await db.query(
-      "SELECT COALESCE(SUM(total), 0) AS lastWeekBookingRev FROM bookings WHERE deleted_at IS NULL AND status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
+      "SELECT COALESCE(SUM(total), 0) AS lastWeekBookingRev FROM bookings WHERE deleted_at IS NULL AND (status = 'completed' OR payment_status = 'paid') AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
     const lastWeekRev = Number(lastWeekOrderRev) + Number(lastWeekBookingRev);
 
@@ -123,6 +160,60 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
       "SELECT COUNT(*) AS lastWeekUsers FROM users WHERE deleted_at IS NULL AND role = 'user' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY) AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)",
     );
 
+    // Tính chi phí tuần này
+    const [[{ thisWeekOrderCost }]] = await db.query(`
+      SELECT COALESCE(SUM(oi.unit_cost * oi.qty), 0) AS cost
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE (o.status = 'paid' OR o.status = 'completed' OR o.payment_status = 'paid')
+        AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+    `);
+    const [thisWeekBookingsRows] = await db.query(`
+      SELECT cart_items FROM bookings
+      WHERE deleted_at IS NULL AND (status = 'completed' OR payment_status = 'paid')
+        AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+    `);
+    let thisWeekBookingCost = 0;
+    thisWeekBookingsRows.forEach((row) => {
+      const cartItems = parseJson(row.cart_items, []);
+      cartItems.forEach((item) => {
+        const itemKey = String(item.id || item.code || item.name || "").toLowerCase();
+        const matched = menuMap[itemKey];
+        const cost = matched ? Number(matched.cost_price || 0) : 0;
+        thisWeekBookingCost += cost * Number(item.qty || 0);
+      });
+    });
+    const thisWeekCost = Number(thisWeekOrderCost) + thisWeekBookingCost;
+    const thisWeekProfit = thisWeekRev - thisWeekCost;
+
+    // Tính chi phí tuần trước
+    const [[{ lastWeekOrderCost }]] = await db.query(`
+      SELECT COALESCE(SUM(oi.unit_cost * oi.qty), 0) AS cost
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE (o.status = 'paid' OR o.status = 'completed' OR o.payment_status = 'paid')
+        AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+        AND o.created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+    `);
+    const [lastWeekBookingsRows] = await db.query(`
+      SELECT cart_items FROM bookings
+      WHERE deleted_at IS NULL AND (status = 'completed' OR payment_status = 'paid')
+        AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+        AND created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+    `);
+    let lastWeekBookingCost = 0;
+    lastWeekBookingsRows.forEach((row) => {
+      const cartItems = parseJson(row.cart_items, []);
+      cartItems.forEach((item) => {
+        const itemKey = String(item.id || item.code || item.name || "").toLowerCase();
+        const matched = menuMap[itemKey];
+        const cost = matched ? Number(matched.cost_price || 0) : 0;
+        lastWeekBookingCost += cost * Number(item.qty || 0);
+      });
+    });
+    const lastWeekCost = Number(lastWeekOrderCost) + lastWeekBookingCost;
+    const lastWeekProfit = lastWeekRev - lastWeekCost;
+
     const calcGrowth = (curr, prev) => {
       const curVal = Number(curr) || 0;
       const prevVal = Number(prev) || 0;
@@ -135,52 +226,69 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
     const ordersGrowth = calcGrowth(thisWeekOrders, lastWeekOrders);
     const bookingsGrowth = calcGrowth(thisWeekBookings, lastWeekBookings);
     const usersGrowth = calcGrowth(thisWeekUsers, lastWeekUsers);
-    const profitGrowth = revenueGrowth;
+    const profitGrowth = calcGrowth(thisWeekProfit, lastWeekProfit);
 
     // 10. Doanh thu theo danh mục món ăn (thực tế theo categoryRange)
     const categoryRange = req.query.categoryRange || "week";
     let categoryTimeConstraint = "";
     if (categoryRange === "today") {
-      categoryTimeConstraint = "AND o.created_at >= CURDATE()";
+      categoryTimeConstraint = "AND created_at >= CURDATE()";
     } else if (categoryRange === "week") {
-      categoryTimeConstraint =
-        "AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)";
+      categoryTimeConstraint = "AND created_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)";
     } else if (categoryRange === "month") {
-      categoryTimeConstraint =
-        "AND o.created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')";
+      categoryTimeConstraint = "AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')";
     } else if (categoryRange === "year") {
-      categoryTimeConstraint =
-        "AND o.created_at >= DATE_FORMAT(CURDATE(), '%Y-01-01')";
+      categoryTimeConstraint = "AND created_at >= DATE_FORMAT(CURDATE(), '%Y-01-01')";
     }
 
-    const [categoryRevenueRows] = await db.query(`
-      SELECT 
-        COALESCE(c.name, 'Món chính') AS name,
-        COALESCE(SUM(oi.price * oi.qty), 0) AS revenue
+    // Query order_items
+    const [catOrderRows] = await db.query(`
+      SELECT oi.menu_item_code, oi.name, oi.price, oi.qty
       FROM order_items oi
       JOIN orders o ON o.id = oi.order_id
-      LEFT JOIN menu_items mi ON mi.code = oi.menu_item_code
-      LEFT JOIN categories c ON c.id = mi.category_id
-      WHERE o.status != 'cancelled' ${categoryTimeConstraint}
-      GROUP BY c.name
-      ORDER BY revenue DESC
+      WHERE (o.status = 'paid' OR o.status = 'completed' OR o.payment_status = 'paid')
+        ${categoryTimeConstraint.replace(/created_at/g, 'o.created_at')}
     `);
+
+    // Query bookings
+    const [catBookingRows] = await db.query(`
+      SELECT cart_items
+      FROM bookings
+      WHERE deleted_at IS NULL AND (status = 'completed' OR payment_status = 'paid')
+        ${categoryTimeConstraint}
+    `);
+
+    const catRevenueMap = {};
+    catOrderRows.forEach((row) => {
+      const itemKey = String(row.menu_item_code || row.name || "").toLowerCase();
+      const matched = menuMap[itemKey];
+      const catName = matched ? (matched.category_name || "Món chính") : "Món chính";
+      catRevenueMap[catName] = (catRevenueMap[catName] || 0) + Number(row.price || 0) * Number(row.qty || 0);
+    });
+
+    catBookingRows.forEach((row) => {
+      const cartItems = parseJson(row.cart_items, []);
+      cartItems.forEach((item) => {
+        const itemKey = String(item.id || item.code || item.name || "").toLowerCase();
+        const matched = menuMap[itemKey];
+        const catName = matched ? (matched.category_name || "Món chính") : "Món chính";
+        catRevenueMap[catName] = (catRevenueMap[catName] || 0) + Number(item.price || 0) * Number(item.qty || 0);
+      });
+    });
+
+    const categoryRevenueRows = Object.keys(catRevenueMap).map((name) => ({
+      name,
+      revenue: catRevenueMap[name],
+    })).sort((a, b) => b.revenue - a.revenue);
 
     // 11. Doanh thu và lợi nhuận thực tế theo khoảng thời gian được lọc (revenueRange)
     const revenueRange = req.query.revenueRange || "7";
     let revenueTimeConstraint = "";
     let dateFormat = "%d/%m";
     let dateLabelsGenerator = [];
-    let sqlGroupBy = "";
-    let sqlOrderBy = "";
 
     if (revenueRange === "30") {
-      revenueTimeConstraint =
-        "AND created_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)";
-      sqlGroupBy =
-        "GROUP BY DATE(created_at), DATE_FORMAT(created_at, '%d/%m')";
-      sqlOrderBy = "ORDER BY DATE(created_at) ASC";
-
+      revenueTimeConstraint = "AND created_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)";
       for (let i = 29; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
@@ -189,12 +297,7 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
         dateLabelsGenerator.push(`${day}/${month}`);
       }
     } else if (revenueRange === "month") {
-      revenueTimeConstraint =
-        "AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')";
-      sqlGroupBy =
-        "GROUP BY DATE(created_at), DATE_FORMAT(created_at, '%d/%m')";
-      sqlOrderBy = "ORDER BY DATE(created_at) ASC";
-
+      revenueTimeConstraint = "AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')";
       const today = new Date();
       const endDay = today.getDate();
       const month = String(today.getMonth() + 1).padStart(2, "0");
@@ -203,24 +306,15 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
         dateLabelsGenerator.push(`${day}/${month}`);
       }
     } else if (revenueRange === "year") {
-      revenueTimeConstraint =
-        "AND created_at >= DATE_FORMAT(CURDATE(), '%Y-01-01')";
+      revenueTimeConstraint = "AND created_at >= DATE_FORMAT(CURDATE(), '%Y-01-01')";
       dateFormat = "%m";
-      sqlGroupBy = "GROUP BY MONTH(created_at), DATE_FORMAT(created_at, '%m')";
-      sqlOrderBy = "ORDER BY MONTH(created_at) ASC";
-
       const today = new Date();
       const currentMonth = today.getMonth() + 1;
       for (let i = 1; i <= currentMonth; i++) {
         dateLabelsGenerator.push(`Tháng ${String(i).padStart(2, "0")}`);
       }
     } else {
-      revenueTimeConstraint =
-        "AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)";
-      sqlGroupBy =
-        "GROUP BY DATE(created_at), DATE_FORMAT(created_at, '%d/%m')";
-      sqlOrderBy = "ORDER BY DATE(created_at) ASC";
-
+      revenueTimeConstraint = "AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)";
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
@@ -230,31 +324,79 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
       }
     }
 
-    const [dailyRevenueRows] = await db.query(`
+    const dailyDataMap = {};
+    dateLabelsGenerator.forEach((label) => {
+      dailyDataMap[label] = { revenue: 0, cost: 0 };
+    });
+
+    // Lấy doanh thu & cost từ orders theo ngày
+    const [ordersDaily] = await db.query(`
       SELECT 
         DATE_FORMAT(created_at, '${dateFormat}') AS date_label,
-        COALESCE(SUM(total), 0) AS daily_revenue
+        COALESCE(SUM(total), 0) AS revenue
       FROM orders
-      WHERE status != 'cancelled' ${revenueTimeConstraint}
-      ${sqlGroupBy}
-      ${sqlOrderBy}
+      WHERE (status = 'paid' OR status = 'completed' OR payment_status = 'paid')
+        ${revenueTimeConstraint}
+      GROUP BY DATE(created_at), DATE_FORMAT(created_at, '${dateFormat}')
     `);
+    ordersDaily.forEach((row) => {
+      let key = row.date_label;
+      if (revenueRange === "year") key = `Tháng ${String(row.date_label).padStart(2, "0")}`;
+      if (dailyDataMap[key]) dailyDataMap[key].revenue += Number(row.revenue || 0);
+    });
+
+    const [ordersDailyCosts] = await db.query(`
+      SELECT 
+        DATE_FORMAT(o.created_at, '${dateFormat}') AS date_label,
+        COALESCE(SUM(oi.unit_cost * oi.qty), 0) AS cost
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE (o.status = 'paid' OR o.status = 'completed' OR o.payment_status = 'paid')
+        ${revenueTimeConstraint.replace(/created_at/g, 'o.created_at')}
+      GROUP BY DATE(o.created_at), DATE_FORMAT(o.created_at, '${dateFormat}')
+    `);
+    ordersDailyCosts.forEach((row) => {
+      let key = row.date_label;
+      if (revenueRange === "year") key = `Tháng ${String(row.date_label).padStart(2, "0")}`;
+      if (dailyDataMap[key]) dailyDataMap[key].cost += Number(row.cost || 0);
+    });
+
+    // Lấy doanh thu & cost từ bookings theo ngày
+    const [bookingsDaily] = await db.query(`
+      SELECT 
+        DATE_FORMAT(created_at, '${dateFormat}') AS date_label,
+        total,
+        cart_items
+      FROM bookings
+      WHERE deleted_at IS NULL AND (status = 'completed' OR payment_status = 'paid')
+        ${revenueTimeConstraint}
+    `);
+    bookingsDaily.forEach((row) => {
+      let key = row.date_label;
+      if (revenueRange === "year") key = `Tháng ${String(row.date_label).padStart(2, "0")}`;
+      if (dailyDataMap[key]) {
+        dailyDataMap[key].revenue += Number(row.total || 0);
+
+        const cartItems = parseJson(row.cart_items, []);
+        let bookingCost = 0;
+        cartItems.forEach((item) => {
+          const itemKey = String(item.id || item.code || item.name || "").toLowerCase();
+          const matched = menuMap[itemKey];
+          const cost = matched ? Number(matched.cost_price || 0) : 0;
+          bookingCost += cost * Number(item.qty || 0);
+        });
+        dailyDataMap[key].cost += bookingCost;
+      }
+    });
 
     const dailyLabels = dateLabelsGenerator;
     const dailyRevenues = [];
     const dailyProfits = [];
 
     dailyLabels.forEach((label) => {
-      let found;
-      if (revenueRange === "year") {
-        const monthNum = label.replace("Tháng ", "");
-        found = dailyRevenueRows.find((row) => row.date_label === monthNum);
-      } else {
-        found = dailyRevenueRows.find((row) => row.date_label === label);
-      }
-      const revenue = found ? Number(found.daily_revenue) : 0;
-      dailyRevenues.push(revenue);
-      dailyProfits.push(revenue * 0.38);
+      const dayData = dailyDataMap[label] || { revenue: 0, cost: 0 };
+      dailyRevenues.push(Math.round(dayData.revenue));
+      dailyProfits.push(Math.round(dayData.revenue - dayData.cost));
     });
 
     const isStaff = req.user.role === "staff";
@@ -266,6 +408,7 @@ router.get("/stats", requireAuth, requireBackOffice, async (req, res) => {
         totalOrders: Number(totalOrders),
         totalBookings: Number(totalBookings),
         totalRevenue: isStaff ? 0 : totalRevenue,
+        totalProfit: isStaff ? 0 : totalProfit,
         totalBookingGuests: Number(totalBookingGuests),
         activeMenuItems: Number(activeMenuItems),
         orderStatusBreakdown,

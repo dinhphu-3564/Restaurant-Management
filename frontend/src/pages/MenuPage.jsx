@@ -1,5 +1,6 @@
 import { checkLogin } from "../utils/auth";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import GlobalPagination from "../components/admin/GlobalPagination";
 import { useNavigate } from "react-router-dom";
 import RatingStars from "../components/RatingStars";
 import { removeVietnameseTones } from "../utils/string";
@@ -70,6 +71,12 @@ function MenuPage() {
     return savedCart ? JSON.parse(savedCart) : [];
   }); // profile menu
   const [toast, setToast] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, searchTerm, sortType]);
 
   const previewImages =
     selectedDish?.images?.length > 0
@@ -260,6 +267,11 @@ function MenuPage() {
 
     return 0;
   });
+
+  const paginatedDishes = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return displayedDishes.slice(start, start + pageSize);
+  }, [displayedDishes, currentPage, pageSize]);
   // hàm lấy review
   const fetchDishReviews = async (dishCode) => {
     try {
@@ -674,15 +686,28 @@ after:pointer-events-none
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 px-4 md:px-0">
-                {displayedDishes.map((dish) => (
-                  <DishCard
-                    key={dish.id}
-                    dish={dish}
-                    onOpenDetail={handleOpenDishDetail}
-                    onAddToCart={addToCart}
+              <div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 px-4 md:px-0">
+                  {paginatedDishes.map((dish) => (
+                    <DishCard
+                      key={dish.id}
+                      dish={dish}
+                      onOpenDetail={handleOpenDishDetail}
+                      onAddToCart={addToCart}
+                    />
+                  ))}
+                </div>
+                
+                <div className="mt-8 pt-6 border-t border-[#eadfcd]">
+                  <GlobalPagination
+                    total={displayedDishes.length}
+                    page={currentPage}
+                    limit={pageSize}
+                    onPageChange={setCurrentPage}
+                    onLimitChange={setPageSize}
+                    limitOptions={[25, 50, 100, 200]}
                   />
-                ))}
+                </div>
               </div>
             )}
 

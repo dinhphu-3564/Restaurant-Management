@@ -218,28 +218,53 @@ export default function AdminFoodFormModal({
                 />
               </div>
 
-              <label className="block text-left">
-                <span className="text-sm font-black text-gray-500">
-                  Giá bán
-                </span>
+              <div className="grid grid-cols-2 gap-4">
+                <label className="block text-left">
+                  <span className="text-sm font-black text-gray-500">
+                    Giá bán
+                  </span>
 
-                <input
-                  type="text"
-                  value={
-                    editForm.price
-                      ? Number(String(editForm.price).replace(/\D/g, "")).toLocaleString("vi-VN")
-                      : ""
-                  }
-                  onChange={(e) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      price: e.target.value.replace(/\D/g, ""),
-                    }))
-                  }
-                  placeholder="399.000"
-                  className="mt-2 w-full h-14 rounded-xl border border-gray-100 px-4 text-2xl font-black text-secondary outline-none shadow-sm"
-                />
-              </label>
+                  <input
+                    type="text"
+                    value={
+                      editForm.price
+                        ? Number(String(editForm.price).replace(/\D/g, "")).toLocaleString("vi-VN")
+                        : ""
+                    }
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        price: e.target.value.replace(/\D/g, ""),
+                      }))
+                    }
+                    placeholder="399.000"
+                    className="mt-2 w-full h-14 rounded-xl border border-gray-100 px-4 text-2xl font-black text-secondary outline-none shadow-sm"
+                  />
+                </label>
+
+                <label className="block text-left">
+                  <span className="text-sm font-black text-gray-500">
+                    Giá vốn
+                  </span>
+
+                  <input
+                    type="text"
+                    value={
+                      editForm.costPrice
+                        ? Number(String(editForm.costPrice).replace(/\D/g, "")).toLocaleString("vi-VN")
+                        : ""
+                    }
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        costPrice: e.target.value.replace(/\D/g, ""),
+                      }))
+                    }
+                    placeholder="199.000"
+                    className="mt-2 w-full h-14 rounded-xl border border-gray-100 px-4 text-2xl font-black text-secondary outline-none shadow-sm"
+                  />
+                </label>
+              </div>
 
               <TextAreaBox
                 label="Mô tả ngắn"

@@ -25,6 +25,7 @@ function mapMenuItem(row) {
     parentCategory: row.parent_category || row.category_name || "",
     subCategory: row.sub_category || "",
     price: Number(row.price || 0),
+    costPrice: Number(row.cost_price || 0),
     type: row.type || "Món chính",
     status: row.status || "selling",
     badge: row.badge || "",
@@ -147,6 +148,7 @@ exports.createMenuItem = async (req, res) => {
         name,
         description,
         price,
+        cost_price,
         image,
         images,
         type,
@@ -164,7 +166,7 @@ exports.createMenuItem = async (req, res) => {
         parent_category,
         sub_category
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         code,
@@ -172,6 +174,7 @@ exports.createMenuItem = async (req, res) => {
         body.name || "",
         body.description || "",
         Number(body.price || 0),
+        Number(body.costPrice || 0),
         image,
         images,
         body.type || "Món chính",
@@ -234,6 +237,7 @@ exports.updateMenuItem = async (req, res) => {
         name = ?,
         description = ?,
         price = ?,
+        cost_price = ?,
         image = ?,
         images = ?,
         type = ?,
@@ -254,6 +258,7 @@ exports.updateMenuItem = async (req, res) => {
         body.name || "",
         body.description || "",
         Number(body.price || 0),
+        Number(body.costPrice || 0),
         image,
         images,
         body.type || "Món chính",

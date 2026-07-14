@@ -1,0 +1,2 @@
+ALTER TABLE menu_items ADD COLUMN cost_price DECIMAL(15, 2) DEFAULT 0.00;
+ALTER TABLE order_items ADD COLUMN unit_cost DECIMAL(15, 2) DEFAULT 0.00;

@@ -171,9 +171,9 @@ export default function AdminBillingModal({
                   <input
                     type="text"
                     value={couponCodeInput}
-                    onChange={(e) => setCouponCodeInput(e.target.value)}
+                    onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
                     placeholder="Ví dụ: GIAM10, COMBO50..."
-                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200 text-xs font-black placeholder-gray-400 focus:outline-none focus:border-green-600 bg-white transition"
+                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200 text-xs font-black uppercase placeholder:normal-case placeholder-gray-400 focus:outline-none focus:border-green-600 bg-white transition"
                   />
                   <button
                     onClick={applyCouponCode}

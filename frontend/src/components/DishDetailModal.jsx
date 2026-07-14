@@ -400,10 +400,11 @@ export default function DishDetailModal({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {dishes
-                .filter((item) => item.id !== selectedDish.id)
-                .slice(0, 4)
-                .map((item) => (
+              {(() => {
+                const sameCategory = dishes.filter(item => item.id !== selectedDish.id && item.category === selectedDish.category);
+                const others = dishes.filter(item => item.id !== selectedDish.id && item.category !== selectedDish.category);
+                return [...sameCategory, ...others].slice(0, 4);
+              })().map((item) => (
                   <div
                     key={item.name}
                     onClick={() => {

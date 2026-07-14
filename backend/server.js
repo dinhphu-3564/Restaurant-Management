@@ -18,6 +18,7 @@ const spaceRoutes = require("./src/routes/spaceRoutes");
 const dashboardRoutes = require("./src/routes/dashboardRoutes");
 const activityLogRoutes = require("./src/routes/activityLogRoutes");
 const categoryRoutes = require("./src/routes/categoryRoutes");
+const revenueRoutes = require("./src/routes/revenueRoutes");
 
 const app = express();
 const PORT = 5001;
@@ -41,6 +42,7 @@ app.use("/api/spaces", spaceRoutes);
 app.use("/api/admin/dashboard", dashboardRoutes);
 app.use("/api/activity-logs", activityLogRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/revenue", revenueRoutes);
 
 app.get("/", (req, res) => {
   res.json({

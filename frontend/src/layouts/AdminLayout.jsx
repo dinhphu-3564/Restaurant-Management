@@ -7,6 +7,7 @@ import AdminToast from "../components/admin/AdminToast";
 import { getCurrentUser, getAuthToken } from "../utils/auth";
 import { canUseAction } from "../utils/permissions";
 import { socket } from "../utils/socket";
+import { API_BASE_URL } from "../config/api";
 
 function AdminLayout() {
   const location = useLocation();
@@ -32,7 +33,7 @@ function AdminLayout() {
       try {
         const token = getAuthToken();
         if (!token) return;
-        const res = await fetch("http://localhost:5001/api/admin/dashboard/notifications", {
+        const res = await fetch(`${API_BASE_URL}/admin/dashboard/notifications`, {
           headers: {
             "Authorization": `Bearer ${token}`
           }
@@ -131,8 +132,11 @@ function AdminLayout() {
   const isTablesPage = location.pathname === "/admin/tables";
   const isSpacesPage = location.pathname === "/admin/spaces";
   const isDealsPage = location.pathname === "/admin/deals";
+  const isRevenuePage = location.pathname === "/admin/revenue";
 
-  const pageAction = isOrdersPage && canUseAction(currentUser, "reports:export") ? (
+  const isReportsPage = location.pathname === "/admin/reports";
+
+  const pageAction = (isOrdersPage || isRevenuePage || isReportsPage) && canUseAction(currentUser, "reports:export") ? (
     <button
       onClick={() => exportExcelHandler && exportExcelHandler()}
       disabled={!exportExcelHandler}
@@ -213,7 +217,7 @@ function AdminLayout() {
           setDateMode={setDateMode}
           dateLabel={dateLabel}
           setDateLabel={setDateLabel}
-          hideDatePicker={isMenuPage}
+          hideDatePicker={isMenuPage || isRevenuePage}
           middleAction={
             isMenuPage ? (
               <button

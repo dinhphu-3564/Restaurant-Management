@@ -23,7 +23,8 @@ function toMysqlDateTime(value) {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString().slice(0, 19).replace("T", " ");
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 function safeNumber(value, fallback = 0) {
@@ -44,10 +45,9 @@ function toJsonString(value, fallback) {
 
 function formatDateOnly(value) {
   const date = value ? new Date(value) : new Date();
-  if (Number.isNaN(date.getTime())) {
-    return new Date().toISOString().slice(0, 10);
-  }
-  return date.toISOString().slice(0, 10);
+  const targetDate = Number.isNaN(date.getTime()) ? new Date() : date;
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}`;
 }
 
 async function consumeDealUsage(
@@ -451,14 +451,19 @@ exports.createOrder = async (req, res) => {
     const orderDbId = orderRows[0].id;
 
     for (const item of cartItems) {
+      const itemCode = item.id || item.code || item.menuItemCode || "";
+      const [menuRows] = await connection.query("SELECT cost_price FROM menu_items WHERE code = ? LIMIT 1", [itemCode]);
+      const unitCost = menuRows.length > 0 ? Number(menuRows[0].cost_price || 0) : 0;
+
       await connection.query(
-        `INSERT INTO order_items (order_id, menu_item_code, name, image, price, qty, note, raw_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO order_items (order_id, menu_item_code, name, image, price, unit_cost, qty, note, raw_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           orderDbId,
-          item.id || item.code || item.menuItemCode || "",
+          itemCode,
           item.name || "",
           item.image || "",
           safeNumber(item.price),
+          unitCost,
           safeNumber(item.qty || item.quantity, 1),
           item.note || "",
           JSON.stringify(item),

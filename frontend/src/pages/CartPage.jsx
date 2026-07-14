@@ -20,11 +20,6 @@ import {
 import CartModals, { Service } from "../components/cart/CartModals";
 
 import goatIcon from "../assets/images/Icon_De.png";
-import deNuongTang from "../assets/images/menu/de-nuong-tang.jpg";
-import lauDe from "../assets/images/menu/lau-de.jpg";
-import deXaoLan from "../assets/images/menu/de-xao-lan.jpg";
-import suonDeNuong from "../assets/images/menu/suon-de-nuong.jpg";
-import deHapTiaTo from "../assets/images/menu/de-hap-tia-to.jpg";
 
 function CartPage() {
   const navigate = useNavigate();
@@ -50,35 +45,52 @@ function CartPage() {
     return savedCart ? JSON.parse(savedCart) : [];
   });
 
-  const suggestions = [
-    {
-      id: 5,
-      name: "Dê hấp sả",
-      price: 299000,
-      image: deHapTiaTo,
-    },
-    {
-      id: 6,
-      name: "Dê nấu chao",
-      price: 269000,
-      image: lauDe,
-    },
-    {
-      id: 7,
-      name: "Dê nướng tảng",
-      price: 189000,
-      image: deNuongTang,
-    },
-    {
-      id: 8,
-      name: "Rau rừng xào tỏi",
-      price: 79000,
-      image: deXaoLan,
-    },
-  ];
-  const filteredSuggestions = suggestions.filter(
-    (dish) => !cartItems.some((item) => item.id === dish.id),
-  );
+  const [allMenuItems, setAllMenuItems] = useState([]);
+
+  useEffect(() => {
+    fetch("http://localhost:5001/api/menu-items")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setAllMenuItems(data.data.filter(item => item.status === "selling"));
+        }
+      })
+      .catch((err) => console.error("Lỗi lấy món ăn gợi ý:", err));
+  }, []);
+
+  const filteredSuggestions = (() => {
+    let baseItems = allMenuItems.filter((dish) => !cartItems.some((item) => item.id === dish.id));
+    let recommended = [];
+
+    // 1. Dựa trên món đang xem chi tiết (selectedDish)
+    let selectedCategory = null;
+    if (selectedDish) {
+      const fullItem = allMenuItems.find(i => i.id === selectedDish.id);
+      if (fullItem) selectedCategory = fullItem.category;
+    }
+
+    if (selectedCategory) {
+      recommended = baseItems.filter(item => item.category === selectedCategory);
+    } 
+    // 2. Dựa trên các món trong giỏ hàng
+    else if (cartItems.length > 0) {
+      const cartCategories = [...new Set(cartItems.map(cartItem => {
+        const fullItem = allMenuItems.find(i => i.id === cartItem.id);
+        return fullItem ? fullItem.category : null;
+      }).filter(Boolean))];
+      if (cartCategories.length > 0) {
+        recommended = baseItems.filter(item => cartCategories.includes(item.category));
+      }
+    }
+
+    // Nếu không có gợi ý phù hợp, lấy các món ngẫu nhiên hoặc các món đầu tiên
+    if (recommended.length === 0) {
+      recommended = baseItems;
+    }
+
+    // Chọn tối đa 4 món (có thể xáo trộn nếu muốn)
+    return recommended.slice(0, 4);
+  })();
   // toast thông báo khi xóa món ăn khỏi giỏ hàng
   const [toast, setToast] = useState({
     show: false,
